@@ -106,11 +106,11 @@ public class DoubleEntryLedgerService {
         Map<String, Object> row =
                 jdbcTemplate.queryForMap(
                         "SELECT COALESCE(SUM(CASE WHEN le.entry_direction='DR' THEN le.amount ELSE"
-                            + " 0 END), 0) AS debits, COALESCE(SUM(CASE WHEN"
-                            + " le.entry_direction='CR' THEN le.amount ELSE 0 END), 0) AS credits"
-                            + " FROM ledger_entries le JOIN ledger_transactions lt ON lt.id ="
-                            + " le.ledger_transaction_id WHERE DATE(lt.created_at) <= :run_date AND"
-                            + " le.currency=:currency",
+                                + " 0 END), 0) AS debits, COALESCE(SUM(CASE WHEN"
+                                + " le.entry_direction='CR' THEN le.amount ELSE 0 END), 0) AS credits"
+                                + " FROM ledger_entries le JOIN ledger_transactions lt ON lt.id ="
+                                + " le.ledger_transaction_id WHERE DATE(lt.created_at) <= :run_date AND"
+                                + " le.currency=:currency",
                         p);
         BigDecimal debits = decimal(row.get("debits"));
         BigDecimal credits = decimal(row.get("credits"));
@@ -244,15 +244,15 @@ public class DoubleEntryLedgerService {
         Map<String, Object> row =
                 jdbcTemplate.queryForMap(
                         "SELECT COALESCE(SUM(CASE WHEN la.account_type='MERCHANT_LIABILITY' AND"
-                            + " le.entry_direction='CR' THEN le.amount WHEN"
-                            + " la.account_type='MERCHANT_LIABILITY' AND le.entry_direction='DR'"
-                            + " THEN -le.amount ELSE 0 END), 0) AS posted_balance, COALESCE((SELECT"
-                            + " SUM(amount) FROM ledger_reservations lr WHERE"
-                            + " lr.merchant_id=:merchant_id AND lr.currency=:currency AND"
-                            + " lr.reservation_status='RESERVED'), 0) AS active_reservations FROM"
-                            + " ledger_entries le JOIN ledger_accounts la ON la.id = le.account_id"
-                            + " WHERE la.owner_type='MERCHANT' AND la.owner_id=:merchant_id AND"
-                            + " le.currency=:currency",
+                                + " le.entry_direction='CR' THEN le.amount WHEN"
+                                + " la.account_type='MERCHANT_LIABILITY' AND le.entry_direction='DR'"
+                                + " THEN -le.amount ELSE 0 END), 0) AS posted_balance, COALESCE((SELECT"
+                                + " SUM(amount) FROM ledger_reservations lr WHERE"
+                                + " lr.merchant_id=:merchant_id AND lr.currency=:currency AND"
+                                + " lr.reservation_status='RESERVED'), 0) AS active_reservations FROM"
+                                + " ledger_entries le JOIN ledger_accounts la ON la.id = le.account_id"
+                                + " WHERE la.owner_type='MERCHANT' AND la.owner_id=:merchant_id AND"
+                                + " le.currency=:currency",
                         p);
         return decimal(row.get("posted_balance")).subtract(decimal(row.get("active_reservations")));
     }
@@ -397,8 +397,8 @@ public class DoubleEntryLedgerService {
             List<String> lockedBy =
                     jdbcTemplate.query(
                             "SELECT locked_by FROM ledger_period_locks WHERE currency = :currency"
-                                + " AND released_at IS NULL AND period_start <= CURRENT_DATE AND"
-                                + " period_end >= CURRENT_DATE LIMIT 1",
+                                    + " AND released_at IS NULL AND period_start <= CURRENT_DATE AND"
+                                    + " period_end >= CURRENT_DATE LIMIT 1",
                             new MapSqlParameterSource("currency", currency),
                             (rs, rowNum) -> rs.getString("locked_by"));
             if (!lockedBy.isEmpty()) {
@@ -416,9 +416,9 @@ public class DoubleEntryLedgerService {
         MapSqlParameterSource p = new MapSqlParameterSource("ledger_transaction_id", originalTxId);
         return jdbcTemplate.query(
                 "SELECT la.account_code, la.account_name, la.account_type, la.owner_type,"
-                    + " la.owner_id, le.entry_direction, le.amount, le.currency FROM ledger_entries"
-                    + " le JOIN ledger_accounts la ON la.id = le.account_id WHERE"
-                    + " le.ledger_transaction_id = :ledger_transaction_id",
+                        + " la.owner_id, le.entry_direction, le.amount, le.currency FROM ledger_entries"
+                        + " le JOIN ledger_accounts la ON la.id = le.account_id WHERE"
+                        + " le.ledger_transaction_id = :ledger_transaction_id",
                 p,
                 (rs, rowNum) -> {
                     String flipped =
@@ -507,9 +507,9 @@ public class DoubleEntryLedgerService {
         p.addValue("currency", entry.currency().trim().toUpperCase());
         jdbcTemplate.update(
                 "INSERT INTO ledger_accounts (account_code, account_name, account_type, owner_type,"
-                    + " owner_id, owner_scope_id, currency) VALUES (:account_code, :account_name,"
-                    + " :account_type, :owner_type, :owner_id, :owner_scope_id, :currency) ON"
-                    + " DUPLICATE KEY UPDATE account_name=:account_name, account_status='ACTIVE'",
+                        + " owner_id, owner_scope_id, currency) VALUES (:account_code, :account_name,"
+                        + " :account_type, :owner_type, :owner_id, :owner_scope_id, :currency) ON"
+                        + " DUPLICATE KEY UPDATE account_name=:account_name, account_status='ACTIVE'",
                 p);
         Long id =
                 jdbcTemplate.queryForObject(
@@ -532,8 +532,8 @@ public class DoubleEntryLedgerService {
         p.addValue("memo", entry.memo());
         jdbcTemplate.update(
                 "INSERT INTO ledger_entries (ledger_transaction_id, account_id, entry_direction,"
-                    + " amount, currency, entry_memo) VALUES (:ledger_transaction_id, :account_id,"
-                    + " :direction, :amount, :currency, :memo)",
+                        + " amount, currency, entry_memo) VALUES (:ledger_transaction_id, :account_id,"
+                        + " :direction, :amount, :currency, :memo)",
                 p);
     }
 

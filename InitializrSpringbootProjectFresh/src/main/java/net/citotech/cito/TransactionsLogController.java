@@ -365,8 +365,8 @@ public class TransactionsLogController {
     private List<Beneficiary> getBatchBeneficiaries(long batch_id) {
         String sqlSelect =
                 "SELECT b.batch_id, b.name as beneficiary_name, b.account,  b.amount as"
-                    + " beneficiary_amount, b.account_type, b.id as beneficiary_long_id,  b.status"
-                    + " as beneficiary_status, b.id as benficiary_id, t.*   FROM `"
+                        + " beneficiary_amount, b.account_type, b.id as beneficiary_long_id,  b.status"
+                        + " as beneficiary_status, b.id as benficiary_id, t.*   FROM `"
                         + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_BENEFICIARIES
                         + "` AS b "
                         + " LEFT JOIN `"
@@ -2482,8 +2482,8 @@ public class TransactionsLogController {
                                                                                                 Level
                                                                                                         .SEVERE,
                                                                                                 "INTERNAL"
-                                                                                                    + " ERROR:"
-                                                                                                    + " "
+                                                                                                        + " ERROR:"
+                                                                                                        + " "
                                                                                                         + e
                                                                                                                 .getMessage(),
                                                                                                 "");
