@@ -1,14 +1,15 @@
 openapi: 3.0.3
 info:
   title: Cito Platform API
-  version: 2.1.1
+  version: 2.1.2
   description: >-
     Merchant platform APIs that sit alongside the CPay payments contract. Operations use
     the authentication mechanism declared by the contract, including Cito merchant sessions
     and signed merchant requests where explicitly specified. Cito is the platform; CPay is
     the payments capability within it.
 servers:
-  - url: /api/v2
+  - url: /
+    description: Current Cito deployment host; versioned prefixes are explicit in each path
 security:
   - MerchantSession: []
 tags:
