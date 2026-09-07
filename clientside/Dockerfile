@@ -4,11 +4,17 @@
 FROM node:20.19.0-alpine AS build
 WORKDIR /app
 
+ARG RAILWAY_GIT_COMMIT_SHA=
+ARG CITO_RELEASE_SHA=unknown
+
 COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run typecheck && npm run build
+RUN npm run typecheck \
+    && npm run build \
+    && printf '{"release_sha":"%s"}\n' \
+      "${RAILWAY_GIT_COMMIT_SHA:-${CITO_RELEASE_SHA}}" > /app/build/releasez
 
 FROM nginx:1.27-alpine
 

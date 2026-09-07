@@ -609,6 +609,35 @@ class DoubleEntryLedgerServiceTest {
         verifyNoInteractions(jdbcTemplate);
     }
 
+    @Test
+    void releasesOnlyActiveReservationsForTheMerchantAndLiteralSourcePrefix() {
+        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
+        when(jdbcTemplate.update(
+                        contains("LEFT(source_reference, CHAR_LENGTH(:source_reference_prefix))"),
+                        any(MapSqlParameterSource.class)))
+                .thenReturn(2);
+        DoubleEntryLedgerService service = new DoubleEntryLedgerService(jdbcTemplate);
+
+        int released = service.releaseReservationsBySourcePrefix(10L, "batch-payout:42:");
+
+        assertThat(released).isEqualTo(2);
+        verify(jdbcTemplate)
+                .update(
+                        contains("merchant_id=:merchant_id AND reservation_status='RESERVED'"),
+                        any(MapSqlParameterSource.class));
+    }
+
+    @Test
+    void rejectsUnscopedBulkReservationReleaseBeforeDatabaseMutation() {
+        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
+        DoubleEntryLedgerService service = new DoubleEntryLedgerService(jdbcTemplate);
+
+        assertThatThrownBy(() -> service.releaseReservationsBySourcePrefix(10L, " "))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("source prefix");
+        verifyNoInteractions(jdbcTemplate);
+    }
+
     private java.util.Map<String, Object> existingReservation(
             long merchantId,
             String sourceReference,

@@ -3741,13 +3741,19 @@ public class TransactionsLogController {
         // String ref = Common.generateUuid();
     }
 
-    private Payment getPaymentById(long id) {
+    int releaseStoppedBatchReservations(Payment payment) {
+        return ledgerService.releaseReservationsBySourcePrefix(
+                payment.getMerchant_id(),
+                BatchPayoutFundingGuard.sourceReferencePrefix(payment.getId()));
+    }
+
+    Payment getPaymentById(long id, long merchantId) {
 
         String sqlSelect =
                 "SELECT *  FROM "
                         + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_LOG
                         + " "
-                        + " WHERE id = :id";
+                        + " WHERE id = :id AND merchant_id = :merchant_id";
 
         RowMapper<Payment> rm =
                 new RowMapper<Payment>() {
@@ -3768,8 +3774,10 @@ public class TransactionsLogController {
                     }
                 };
 
-        List<Payment> blist =
-                jdbcTemplate.query(sqlSelect, new MapSqlParameterSource("id", id), rm);
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("id", id);
+        parameters.addValue("merchant_id", merchantId);
+        List<Payment> blist = jdbcTemplate.query(sqlSelect, parameters, rm);
         if (blist.size() > 0) {
             return blist.get(0);
         } else {
@@ -4470,7 +4478,7 @@ public class TransactionsLogController {
             long id = sObject.getLong("id");
 
             // Check if this payement exists
-            Payment payment = getPaymentById(id);
+            Payment payment = getPaymentById(id, sessionUser.getMerchant_id());
             if (payment == null) {
                 return GeneralException.getError(
                         "108", String.format(GeneralException.ERRORS_108, "Payment ", name));
@@ -4692,7 +4700,7 @@ public class TransactionsLogController {
             long id = sObject.getLong("id");
 
             // Check if this payement exists
-            Payment payment = getPaymentById(id);
+            Payment payment = getPaymentById(id, sessionUser.getMerchant_id());
             if (payment == null) {
                 return GeneralException.getError(
                         "108", String.format(GeneralException.ERRORS_108, "Payment ", id));
@@ -4867,7 +4875,7 @@ public class TransactionsLogController {
             long id = sObject.getLong("id");
 
             // Check if this payement exists
-            Payment payment = getPaymentById(id);
+            Payment payment = getPaymentById(id, sessionUser.getMerchant_id());
             if (payment == null) {
                 return GeneralException.getError(
                         "108", String.format(GeneralException.ERRORS_108, "Payment ", id));
@@ -4907,6 +4915,12 @@ public class TransactionsLogController {
 
                                         // Update Bulk payments
                                         jdbcTemplate.update(sql_, parameters);
+
+                                        // A terminal stop must release any not-yet-captured slice
+                                        // holds in the same database transaction as the status and
+                                        // audit update. If anything below fails, all three changes
+                                        // roll back together.
+                                        releaseStoppedBatchReservations(payment);
 
                                         // Now insert auditTrail
                                         String actionInsert =

@@ -22,8 +22,12 @@ on:
         description: Full production commit SHA reported by the Railway deployment
         required: true
         type: string
-      railway_deployment_id:
-        description: Terminal-success Railway deployment ID checked before dispatch
+      frontend_railway_deployment_id:
+        description: Terminal-success canonical frontend Railway deployment ID
+        required: true
+        type: string
+      backend_railway_deployment_id:
+        description: Terminal-success canonical backend Railway deployment ID
         required: true
         type: string
 
@@ -110,7 +114,8 @@ jobs:
         shell: bash
         env:
           EXPECTED_RELEASE_SHA: ${{ inputs.expected_release_sha }}
-          RAILWAY_DEPLOYMENT_ID: ${{ inputs.railway_deployment_id }}
+          FRONTEND_RAILWAY_DEPLOYMENT_ID: ${{ inputs.frontend_railway_deployment_id }}
+          BACKEND_RAILWAY_DEPLOYMENT_ID: ${{ inputs.backend_railway_deployment_id }}
         run: |
           python3 - <<'PY'
           import http.client
@@ -151,6 +156,17 @@ jobs:
                   and (expected_sha is None or data.get('release_sha') == expected_sha)
               )
 
+          def valid_release(status, content_type, body, expected_sha):
+              if status != 200 or not body.strip() or len(body) > 65536:
+                  return False
+              if 'html' in content_type.lower() or body.lstrip().startswith(b'<'):
+                  return False
+              try:
+                  data = json.loads(body)
+              except (ValueError, UnicodeError):
+                  return False
+              return isinstance(data, dict) and data.get('release_sha') == expected_sha
+
           # Contract checks ensure an SPA fallback or an unhealthy 200 cannot
           # be recorded as readiness. These checks perform no network traffic.
           assert valid_health(200, 'text/plain', b'ok', True)
@@ -162,11 +178,14 @@ jobs:
           assert not valid_health(503, 'application/json', b'{"status":"UP"}', False)
           assert not valid_health(200, 'application/json', b'{}', False)
           assert not valid_health(200, 'text/plain', b'', True)
+          assert valid_release(200, 'application/json', b'{"release_sha":"abc"}', 'abc')
+          assert not valid_release(200, 'application/json', b'{"release_sha":"old"}', 'abc')
+          assert not valid_release(200, 'text/html', b'<html>app</html>', 'abc')
 
           opener = urllib.request.build_opener(NoRedirect)
           results = []
           for host in ('cito.coresynergi.es', 'cito-frontend-production.up.railway.app'):
-              for path in ('/healthz', '/readyz', '/api/status/health'):
+              for path in ('/healthz', '/releasez', '/readyz', '/api/status/health'):
                   result = {'host': host, 'path': path, 'passed': False}
                   for attempt in range(1, 3):
                       started = time.monotonic()
@@ -177,10 +196,15 @@ jobs:
                               headers={'User-Agent': 'Cito-Release-Readiness/1.0', 'Accept': '*/*'})
                           with opener.open(request, timeout=10) as response:
                               result['http_status'] = response.status
-                              result['passed'] = valid_health(
-                                  response.status, response.headers.get('Content-Type', ''),
-                                  response.read(65537), path == '/healthz',
-                                  None if path == '/healthz' else expected_release_sha)
+                              content_type = response.headers.get('Content-Type', '')
+                              body = response.read(65537)
+                              if path == '/releasez':
+                                  result['passed'] = valid_release(
+                                      response.status, content_type, body, expected_release_sha)
+                              else:
+                                  result['passed'] = valid_health(
+                                      response.status, content_type, body, path == '/healthz',
+                                      None if path == '/healthz' else expected_release_sha)
                       except urllib.error.HTTPError as exc:
                           result.update(http_status=exc.code, error_type='HTTPError')
                       except (urllib.error.URLError, http.client.HTTPException,
@@ -198,8 +222,11 @@ jobs:
               'checked_at_utc': datetime.now(timezone.utc).isoformat(),
               'workflow_sha': workflow_sha,
               'expected_release_sha': expected_release_sha,
-              'railway_deployment_id': os.environ['RAILWAY_DEPLOYMENT_ID'],
-              'scope': 'Post-deployment public HTTP health and backend runtime-SHA attestation; not authenticated UAT, provider certification, database restore or load testing.',
+              'railway_deployment_ids': {
+                  'frontend': os.environ['FRONTEND_RAILWAY_DEPLOYMENT_ID'],
+                  'backend': os.environ['BACKEND_RAILWAY_DEPLOYMENT_ID'],
+              },
+              'scope': 'Post-deployment public HTTP liveness plus exact frontend-build and backend-runtime SHA attestation; not authenticated UAT, provider certification, database restore or load testing.',
               'results': results,
               'passed': all(item['passed'] for item in results),
           }

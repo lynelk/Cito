@@ -19,6 +19,13 @@ class BatchPayoutFundingGuardTest {
     }
 
     @Test
+    void stoppedBatchReservationPrefixIsStableAndBatchScoped() {
+        assertThat(BatchPayoutFundingGuard.sourceReferencePrefix(42L))
+                .isEqualTo("batch-payout:42:");
+        assertThat(BatchPayoutFundingGuard.sourceReference(42L, 7L)).isEqualTo("batch-payout:42:7");
+    }
+
+    @Test
     void zeroChargeIsAllowedAndPayoutPrecisionIsNormalized() {
         assertThat(BatchPayoutFundingGuard.requiredAmount(new BigDecimal("1000"), 0D))
                 .isEqualByComparingTo("1000.0000");

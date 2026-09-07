@@ -267,6 +267,24 @@ public class DoubleEntryLedgerService {
         return updateReservation(reservationReference, "RELEASED");
     }
 
+    /** Releases every active reservation belonging to one internal source-reference namespace. */
+    @Transactional
+    public int releaseReservationsBySourcePrefix(long merchantId, String sourceReferencePrefix) {
+        if (merchantId <= 0 || blank(sourceReferencePrefix)) {
+            throw new PaymentGatewayException(
+                    "Ledger reservation release requires merchant and source prefix");
+        }
+        MapSqlParameterSource p = new MapSqlParameterSource();
+        p.addValue("merchant_id", merchantId);
+        p.addValue("source_reference_prefix", sourceReferencePrefix.trim());
+        return jdbcTemplate.update(
+                "UPDATE ledger_reservations SET reservation_status='RELEASED' WHERE"
+                        + " merchant_id=:merchant_id AND reservation_status='RESERVED' AND"
+                        + " LEFT(source_reference, CHAR_LENGTH(:source_reference_prefix))="
+                        + " :source_reference_prefix",
+                p);
+    }
+
     private int updateReservation(String reservationReference, String status) {
         if (blank(reservationReference)) {
             throw new PaymentGatewayException("Ledger reservation reference is required");

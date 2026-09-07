@@ -122,7 +122,11 @@ public class BatchPayoutFundingGuard {
     }
 
     static String sourceReference(long batchId, long beneficiaryId) {
-        return "batch-payout:" + batchId + ":" + beneficiaryId;
+        return sourceReferencePrefix(batchId) + beneficiaryId;
+    }
+
+    static String sourceReferencePrefix(long batchId) {
+        return "batch-payout:" + batchId + ":";
     }
 
     static String legacyBalanceGatewayId(String providerGatewayId) {
