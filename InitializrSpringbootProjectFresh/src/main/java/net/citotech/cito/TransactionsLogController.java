@@ -14,6 +14,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileLock;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
@@ -28,6 +29,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
@@ -53,6 +55,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -87,6 +90,7 @@ public class TransactionsLogController {
     @Autowired TransactionTemplate transactionTemplate;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private net.citotech.cito.ledger.DoubleEntryLedgerService ledgerService;
+    @Autowired private BatchPayoutFundingGuard batchPayoutFundingGuard;
 
     @Autowired
     private net.citotech.cito.ledger.LegacyLedgerPostingService legacyLedgerPostingService;
@@ -360,17 +364,16 @@ public class TransactionsLogController {
 
     private List<Beneficiary> getBatchBeneficiaries(long batch_id) {
         String sqlSelect =
-                "SELECT b.batch_id, b.name as beneficiary_name, b.account, "
-                        + " b.amount as beneficiary_amount, b.account_type, b.id as beneficiary_long_id, "
-                        + " b.status as beneficiary_status, b.id as benficiary_id, t.*  "
-                        + " FROM `"
+                "SELECT b.batch_id, b.name as beneficiary_name, b.account,  b.amount as"
+                        + " beneficiary_amount, b.account_type, b.id as beneficiary_long_id,  b.status"
+                        + " as beneficiary_status, b.id as benficiary_id, t.*   FROM `"
                         + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_BENEFICIARIES
                         + "` AS b "
                         + " LEFT JOIN `"
                         + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                         + "` AS t "
                         + " ON b.id = t.beneficiary_id "
-                        + " WHERE b.batch_id = :batch_id";
+                        + " WHERE b.batch_id = :batch_id ORDER BY b.id";
 
         RowMapper<Beneficiary> rm =
                 new RowMapper<Beneficiary>() {
@@ -806,18 +809,15 @@ public class TransactionsLogController {
                             + "     WHERE "
                             + "         tx_type='"
                             + Transaction.TX_TYPE_PAYIN
-                            + "' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS payins,"
-                            + " (SELECT COUNT(*) "
-                            + "     FROM "
+                            + "' AND              created_on BETWEEN :start_date AND :end_date) AS"
+                            + " payins, (SELECT COUNT(*)      FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " "
                             + "     WHERE "
                             + "         tx_type='"
                             + Transaction.TX_TYPE_PAYOUT
-                            + "' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS payouts"
-                            + " FROM "
+                            + "' AND              created_on BETWEEN :start_date AND :end_date) AS"
+                            + " payouts FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " ";
 
@@ -951,11 +951,8 @@ public class TransactionsLogController {
                             + "' "
                             + "     AND tx_type='"
                             + Transaction.TX_TYPE_PAYIN
-                            + "' "
-                            + "         AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS payins,"
-                            + " (SELECT COUNT(*) "
-                            + "     FROM "
+                            + "'          AND              created_on BETWEEN :start_date AND"
+                            + " :end_date) AS payins, (SELECT COUNT(*)      FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " "
                             + "     WHERE merchant_id='"
@@ -963,9 +960,8 @@ public class TransactionsLogController {
                             + "' AND "
                             + "         tx_type='"
                             + Transaction.TX_TYPE_PAYOUT
-                            + "' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS payouts"
-                            + " FROM "
+                            + "' AND              created_on BETWEEN :start_date AND :end_date) AS"
+                            + " payouts FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " ";
 
@@ -1100,11 +1096,9 @@ public class TransactionsLogController {
                             + " (SELECT COUNT(*) "
                             + "     FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + "      WHERE          gateway_id='AirtelMMPaymentGateway' AND        "
+                            + "      created_on BETWEEN :start_date AND :end_date) AS airtelmm FROM"
                             + " "
-                            + "     WHERE "
-                            + "         gateway_id='AirtelMMPaymentGateway' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS airtelmm"
-                            + " FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " ";
 
@@ -1327,10 +1321,8 @@ public class TransactionsLogController {
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
-                            + "' AND "
-                            + "         gateway_id='AirtelMMPaymentGateway' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS airtelmm"
-                            + " FROM "
+                            + "' AND          gateway_id='AirtelMMPaymentGateway' AND             "
+                            + " created_on BETWEEN :start_date AND :end_date) AS airtelmm FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " ";
 
@@ -1458,32 +1450,20 @@ public class TransactionsLogController {
                             + " (SELECT COUNT(*) "
                             + "     FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + "     WHERE "
-                            + "         status='SUCCESSFUL' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS successful,"
-                            + " (SELECT COUNT(*) "
+                            + "      WHERE          status='SUCCESSFUL' AND              created_on"
+                            + " BETWEEN :start_date AND :end_date) AS successful, (SELECT COUNT(*) "
                             + "     FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + "     WHERE "
-                            + "         status='FAILED' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS failed,"
-                            + " (SELECT COUNT(*) "
-                            + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + "     WHERE "
-                            + "         status='PENDING' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS pending,"
-                            + " (SELECT COUNT(*) "
-                            + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + "     WHERE "
-                            + "         status='UNDETERMINED' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS undetermined"
+                            + "      WHERE          status='FAILED' AND              created_on"
+                            + " BETWEEN :start_date AND :end_date) AS failed, (SELECT COUNT(*)     "
                             + " FROM "
+                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + "      WHERE          status='PENDING' AND              created_on"
+                            + " BETWEEN :start_date AND :end_date) AS pending, (SELECT COUNT(*)    "
+                            + "  FROM "
+                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + "      WHERE          status='UNDETERMINED' AND             "
+                            + " created_on BETWEEN :start_date AND :end_date) AS undetermined FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " ";
 
@@ -1620,37 +1600,27 @@ public class TransactionsLogController {
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
-                            + "' AND "
-                            + "         status='SUCCESSFUL' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS successful,"
-                            + " (SELECT COUNT(*) "
+                            + "' AND          status='SUCCESSFUL' AND              created_on"
+                            + " BETWEEN :start_date AND :end_date) AS successful, (SELECT COUNT(*) "
                             + "     FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
-                            + "' AND "
-                            + "         status='FAILED' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS failed,"
-                            + " (SELECT COUNT(*) "
-                            + "     FROM "
+                            + "' AND          status='FAILED' AND              created_on BETWEEN"
+                            + " :start_date AND :end_date) AS failed, (SELECT COUNT(*)      FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
-                            + "' AND "
-                            + "         status='PENDING' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS pending,"
-                            + " (SELECT COUNT(*) "
-                            + "     FROM "
+                            + "' AND          status='PENDING' AND              created_on BETWEEN"
+                            + " :start_date AND :end_date) AS pending, (SELECT COUNT(*)      FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
-                            + "' AND "
-                            + "         status='UNDETERMINED' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS undetermined"
-                            + " FROM "
+                            + "' AND          status='UNDETERMINED' AND              created_on"
+                            + " BETWEEN :start_date AND :end_date) AS undetermined FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " ";
 
@@ -1784,32 +1754,20 @@ public class TransactionsLogController {
                             + " (SELECT SUM(original_amount) "
                             + "     FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + "     WHERE "
-                            + "         status='SUCCESSFUL' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS successful,"
-                            + " (SELECT SUM(original_amount) "
-                            + "     FROM "
+                            + "      WHERE          status='SUCCESSFUL' AND              created_on"
+                            + " BETWEEN :start_date AND :end_date) AS successful, (SELECT"
+                            + " SUM(original_amount)      FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + "     WHERE "
-                            + "         status='FAILED' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS failed,"
-                            + " (SELECT SUM(original_amount) "
-                            + "     FROM "
+                            + "      WHERE          status='FAILED' AND              created_on"
+                            + " BETWEEN :start_date AND :end_date) AS failed, (SELECT"
+                            + " SUM(original_amount)      FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + "     WHERE "
-                            + "         status='PENDING' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS pending,"
-                            + " (SELECT SUM(original_amount) "
-                            + "     FROM "
+                            + "      WHERE          status='PENDING' AND              created_on"
+                            + " BETWEEN :start_date AND :end_date) AS pending, (SELECT"
+                            + " SUM(original_amount)      FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + "     WHERE "
-                            + "         status='UNDETERMINED' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS undetermined"
-                            + " FROM "
+                            + "      WHERE          status='UNDETERMINED' AND             "
+                            + " created_on BETWEEN :start_date AND :end_date) AS undetermined FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " ";
 
@@ -1947,37 +1905,29 @@ public class TransactionsLogController {
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
-                            + "' AND "
-                            + "         status='SUCCESSFUL' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS successful,"
-                            + " (SELECT SUM(original_amount) "
+                            + "' AND          status='SUCCESSFUL' AND              created_on"
+                            + " BETWEEN :start_date AND :end_date) AS successful, (SELECT"
+                            + " SUM(original_amount)      FROM "
+                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + " "
+                            + "     WHERE merchant_id='"
+                            + sessionUser.getMerchant_id()
+                            + "' AND          status='FAILED' AND              created_on BETWEEN"
+                            + " :start_date AND :end_date) AS failed, (SELECT SUM(original_amount) "
                             + "     FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
-                            + "' AND "
-                            + "         status='FAILED' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS failed,"
-                            + " (SELECT SUM(original_amount) "
-                            + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + "     WHERE merchant_id='"
-                            + sessionUser.getMerchant_id()
-                            + "' AND "
-                            + "         status='PENDING' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS pending,"
-                            + " (SELECT SUM(original_amount) "
-                            + "     FROM "
+                            + "' AND          status='PENDING' AND              created_on BETWEEN"
+                            + " :start_date AND :end_date) AS pending, (SELECT SUM(original_amount)"
+                            + "      FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " "
                             + "     WHERE  merchant_id='"
                             + sessionUser.getMerchant_id()
-                            + "' AND "
-                            + "         status='UNDETERMINED' AND "
-                            + "             created_on BETWEEN :start_date AND :end_date) AS undetermined"
-                            + " FROM "
+                            + "' AND          status='UNDETERMINED' AND              created_on"
+                            + " BETWEEN :start_date AND :end_date) AS undetermined FROM "
                             + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
                             + " ";
 
@@ -2166,10 +2116,7 @@ public class TransactionsLogController {
             List<Transaction> pendingTransactions = jdbcTemplate.query(sqlSelect, parameters, rm);
 
             Logger.getLogger(TransactionsLogController.class.getName())
-                    .log(
-                            Level.SEVERE,
-                            "Checking status for " + pendingTransactions.size() + " TXs",
-                            "");
+                    .log(Level.FINE, "Checking status for " + pendingTransactions.size() + " TXs");
 
             for (Transaction tx : pendingTransactions) {
                 // First check for the status of this transaction
@@ -2492,8 +2439,8 @@ public class TransactionsLogController {
                                                 if (rs != null) {
                                                     String failedCbTraceSql =
                                                             sql_update
-                                                                    + ", callback_trace=:callback_trace "
-                                                                    + " WHERE id=:id";
+                                                                    + ", callback_trace=:callback_trace"
+                                                                    + "  WHERE id=:id";
                                                     MapSqlParameterSource failedCbTraceParams =
                                                             new MapSqlParameterSource();
                                                     failedCbTraceParams.addValue("id", tx.getId());
@@ -2534,7 +2481,9 @@ public class TransactionsLogController {
                                                                                         .log(
                                                                                                 Level
                                                                                                         .SEVERE,
-                                                                                                "INTERNAL ERROR: "
+                                                                                                "INTERNAL"
+                                                                                                        + " ERROR:"
+                                                                                                        + " "
                                                                                                         + e
                                                                                                                 .getMessage(),
                                                                                                 "");
@@ -3792,13 +3741,19 @@ public class TransactionsLogController {
         // String ref = Common.generateUuid();
     }
 
-    private Payment getPaymentById(long id) {
+    int releaseStoppedBatchReservations(Payment payment) {
+        return ledgerService.releaseReservationsBySourcePrefix(
+                payment.getMerchant_id(),
+                BatchPayoutFundingGuard.sourceReferencePrefix(payment.getId()));
+    }
+
+    Payment getPaymentById(long id, long merchantId) {
 
         String sqlSelect =
                 "SELECT *  FROM "
                         + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_LOG
                         + " "
-                        + " WHERE id = :id";
+                        + " WHERE id = :id AND merchant_id = :merchant_id";
 
         RowMapper<Payment> rm =
                 new RowMapper<Payment>() {
@@ -3819,8 +3774,10 @@ public class TransactionsLogController {
                     }
                 };
 
-        List<Payment> blist =
-                jdbcTemplate.query(sqlSelect, new MapSqlParameterSource("id", id), rm);
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("id", id);
+        parameters.addValue("merchant_id", merchantId);
+        List<Payment> blist = jdbcTemplate.query(sqlSelect, parameters, rm);
         if (blist.size() > 0) {
             return blist.get(0);
         } else {
@@ -4521,7 +4478,7 @@ public class TransactionsLogController {
             long id = sObject.getLong("id");
 
             // Check if this payement exists
-            Payment payment = getPaymentById(id);
+            Payment payment = getPaymentById(id, sessionUser.getMerchant_id());
             if (payment == null) {
                 return GeneralException.getError(
                         "108", String.format(GeneralException.ERRORS_108, "Payment ", name));
@@ -4743,7 +4700,7 @@ public class TransactionsLogController {
             long id = sObject.getLong("id");
 
             // Check if this payement exists
-            Payment payment = getPaymentById(id);
+            Payment payment = getPaymentById(id, sessionUser.getMerchant_id());
             if (payment == null) {
                 return GeneralException.getError(
                         "108", String.format(GeneralException.ERRORS_108, "Payment ", id));
@@ -4869,7 +4826,8 @@ public class TransactionsLogController {
                     "message",
                     "This payout's total ("
                             + payment.getTotal_amount()
-                            + ") exceeds the step-up threshold. Provide a fresh mfa_code to continue.");
+                            + ") exceeds the step-up threshold. Provide a fresh mfa_code to"
+                            + " continue.");
             return resJson.toString();
         }
         return null;
@@ -4917,7 +4875,7 @@ public class TransactionsLogController {
             long id = sObject.getLong("id");
 
             // Check if this payement exists
-            Payment payment = getPaymentById(id);
+            Payment payment = getPaymentById(id, sessionUser.getMerchant_id());
             if (payment == null) {
                 return GeneralException.getError(
                         "108", String.format(GeneralException.ERRORS_108, "Payment ", id));
@@ -4957,6 +4915,12 @@ public class TransactionsLogController {
 
                                         // Update Bulk payments
                                         jdbcTemplate.update(sql_, parameters);
+
+                                        // A terminal stop must release any not-yet-captured slice
+                                        // holds in the same database transaction as the status and
+                                        // audit update. If anything below fails, all three changes
+                                        // roll back together.
+                                        releaseStoppedBatchReservations(payment);
 
                                         // Now insert auditTrail
                                         String actionInsert =
@@ -5080,12 +5044,23 @@ public class TransactionsLogController {
             for (Payment p : pendingPayments) {
 
                 template = new TransactionTemplate(transactionManager);
+                template.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
                 result =
                         template.execute(
                                 new TransactionCallback<String>() {
                                     @Override
                                     public String doInTransaction(TransactionStatus status) {
                                         try {
+                                            // Lock the batch and atomically reserve the complete
+                                            // upcoming slice before the first external provider
+                                            // call. A later beneficiary can no longer roll an
+                                            // earlier successful provider payout back merely
+                                            // because the aggregate balance was insufficient.
+                                            if (!batchPayoutFundingGuard.reserveProcessingSlice(
+                                                    p.getId(), p.getMerchant_id())) {
+                                                return "success";
+                                            }
+
                                             // First check if the payment was already started for
                                             // each beneficiary
                                             int ben_count = 0;
@@ -5095,6 +5070,18 @@ public class TransactionsLogController {
                                                 Transaction t =
                                                         Common.getTxByBatchIdBeneficiaryId(
                                                                 p.getId(), b.getId(), jdbcTemplate);
+
+                                                if (t == null
+                                                        && !Transaction.BATCH_PAYMENT_UNPAID.equals(
+                                                                b.getStatus())) {
+                                                    if (Transaction.BATCH_PAYMENT_PAID.equals(
+                                                                    b.getStatus())
+                                                            || Transaction.BATCH_PAYMENT_FAILED
+                                                                    .equals(b.getStatus())) {
+                                                        completelly_processed += 1;
+                                                    }
+                                                    continue;
+                                                }
 
                                                 if (t == null) {
 
@@ -5123,9 +5110,9 @@ public class TransactionsLogController {
                                                                         + " "
                                                                         + Common
                                                                                 .DB_TABLE_MERCHANT_BATCH_TRANSACTION_BENEFICIARIES
-                                                                        + " "
-                                                                        + " SET `reason`=:reason, status=:status "
-                                                                        + " WHERE id=:id";
+                                                                        + "  SET `reason`=:reason,"
+                                                                        + " status=:status  WHERE"
+                                                                        + " id=:id";
 
                                                         MapSqlParameterSource updateBenparams =
                                                                 new MapSqlParameterSource();
@@ -5155,7 +5142,16 @@ public class TransactionsLogController {
                                                                     + b.getAccount();
                                                     newTx.setTx_merchant_description(bDescription);
                                                     newTx.setTx_type(Transaction.TX_TYPE_PAYOUT);
-                                                    String tx_id = Common.generateUuid();
+                                                    String stablePayoutReference =
+                                                            BatchPayoutFundingGuard.sourceReference(
+                                                                    p.getId(), b.getId());
+                                                    String tx_id =
+                                                            UUID.nameUUIDFromBytes(
+                                                                            stablePayoutReference
+                                                                                    .getBytes(
+                                                                                            StandardCharsets
+                                                                                                    .UTF_8))
+                                                                    .toString();
                                                     if (gateway_id.equals(
                                                                     AirtelMoneyPaymentGateway
                                                                             .gateway_id)
@@ -5165,7 +5161,7 @@ public class TransactionsLogController {
                                                         tx_id = tx_id.substring(0, 15);
                                                     }
                                                     newTx.setTx_unique_id(tx_id);
-                                                    newTx.setTx_merchant_ref(Common.generateUuid());
+                                                    newTx.setTx_merchant_ref(stablePayoutReference);
                                                     newTx.setCallback_url("");
                                                     newTx.setOriginate_ip("localhost");
                                                     // First get the charging method
@@ -5249,42 +5245,14 @@ public class TransactionsLogController {
                                                     newTx.setTx_update_trace("");
                                                     newTx.setTx_gateway_ref("");
 
-                                                    // Reserve-then-capture (audit A8): hold the
-                                                    // payout amount in
-                                                    // the ledger before the provider call, capture
-                                                    // it once
-                                                    // Common.doPayOut confirms success, or release
-                                                    // it if the
-                                                    // provider call fails/errors - mirrors the same
-                                                    // pattern
-                                                    // PaymentOrchestrationService.payout() uses for
-                                                    // the v2 path,
-                                                    // extended here to the batch-payout path which
-                                                    // previously had
-                                                    // no ledger-level hold at all.
+                                                    // The complete slice was reserved atomically by
+                                                    // BatchPayoutFundingGuard before entering this
+                                                    // loop. Capture or release this beneficiary's
+                                                    // stable reservation after the provider result.
                                                     String batchReservationReference =
-                                                            "batch-payout-reserve:"
-                                                                    + p.getId()
-                                                                    + ":"
-                                                                    + b.getId();
-                                                    java.math.BigDecimal reservedAmount =
-                                                            net.citotech.cito.money.MoneyAmount.of(
-                                                                            String.valueOf(
-                                                                                    b.getAmount()
-                                                                                            + charges))
-                                                                    .asBigDecimal();
-                                                    String reservationCurrency =
-                                                            newTx.getCurrency() == null
-                                                                            || newTx.getCurrency()
-                                                                                    .isEmpty()
-                                                                    ? "UGX"
-                                                                    : newTx.getCurrency();
-                                                    ledgerService.reserve(
-                                                            batchReservationReference,
-                                                            merchant.getId(),
-                                                            newTx.getTx_merchant_ref(),
-                                                            reservedAmount,
-                                                            reservationCurrency);
+                                                            BatchPayoutFundingGuard
+                                                                    .reservationReference(
+                                                                            p.getId(), b.getId());
 
                                                     String resultPay;
                                                     try {
@@ -5369,9 +5337,9 @@ public class TransactionsLogController {
                                                                         + " "
                                                                         + Common
                                                                                 .DB_TABLE_MERCHANT_BATCH_TRANSACTION_BENEFICIARIES
-                                                                        + " "
-                                                                        + " SET `status`=:status, reason=:reason"
-                                                                        + " WHERE id=:id";
+                                                                        + "  SET `status`=:status,"
+                                                                        + " reason=:reason WHERE"
+                                                                        + " id=:id";
 
                                                         MapSqlParameterSource updateBenparams =
                                                                 new MapSqlParameterSource();
@@ -5396,9 +5364,9 @@ public class TransactionsLogController {
                                                                         + " "
                                                                         + Common
                                                                                 .DB_TABLE_MERCHANT_BATCH_TRANSACTION_BENEFICIARIES
-                                                                        + " "
-                                                                        + " SET `status`=:status, reason=:reason"
-                                                                        + " WHERE id=:id";
+                                                                        + "  SET `status`=:status,"
+                                                                        + " reason=:reason WHERE"
+                                                                        + " id=:id";
 
                                                         MapSqlParameterSource updateBenparams =
                                                                 new MapSqlParameterSource();
@@ -5416,9 +5384,9 @@ public class TransactionsLogController {
                                                                         + " "
                                                                         + Common
                                                                                 .DB_TABLE_MERCHANT_BATCH_TRANSACTION_BENEFICIARIES
-                                                                        + " "
-                                                                        + " SET `status`=:status, reason=:reason"
-                                                                        + " WHERE id=:id";
+                                                                        + "  SET `status`=:status,"
+                                                                        + " reason=:reason WHERE"
+                                                                        + " id=:id";
 
                                                         MapSqlParameterSource updateBenparams =
                                                                 new MapSqlParameterSource();

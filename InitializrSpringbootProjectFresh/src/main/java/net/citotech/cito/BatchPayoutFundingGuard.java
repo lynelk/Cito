@@ -2,220 +2,251 @@ package net.citotech.cito;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import net.citotech.cito.Model.AirtelMoneyOpenApiPaymentGateway;
+import net.citotech.cito.Model.AirtelMoneyPaymentGateway;
 import net.citotech.cito.Model.Balance;
 import net.citotech.cito.Model.GatewayChargeDetails;
 import net.citotech.cito.Model.Merchant;
 import net.citotech.cito.Model.Transaction;
 import net.citotech.cito.ledger.DoubleEntryLedgerService;
+import net.citotech.cito.ledger.DoubleEntryLedgerService.BatchReservationResult;
+import net.citotech.cito.ledger.DoubleEntryLedgerService.ReservationCommand;
 import net.citotech.cito.money.MoneyAmount;
-import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Fail-closed guard for legacy batch payouts.
+ * Fail-closed funding and reservation guard for legacy batch payouts.
  *
- * <p>The legacy payout scheduler keeps a batch in PROCESSING when the immutable ledger correctly
- * rejects a reservation for insufficient available funds. That deterministic business condition
- * then gets retried every 30 seconds forever. This guard does not bypass or alter the ledger. It
- * pauses the batch before the provider call whenever either the legacy gateway balance or the
- * ledger-derived available balance cannot cover the next unstarted beneficiary. An operator can
- * fund/reconcile the merchant and explicitly resume the batch through the existing startPayment
- * workflow.
+ * <p>The legacy scheduler used to validate every beneficiary against the same balance snapshot and
+ * reserve immediately before each provider call. A later reservation failure therefore rolled the
+ * whole database transaction back after an earlier external payout had already happened. This guard
+ * locks the batch and atomically reserves the aggregate amount for the next payout slice before the
+ * first provider call, using stable idempotent reservation references.
  */
 @Component
 public class BatchPayoutFundingGuard {
     private static final Logger LOG = Logger.getLogger(BatchPayoutFundingGuard.class.getName());
     private static final String DEFAULT_CURRENCY = "UGX";
+    private static final int MAX_PAYOUTS_PER_SLICE = 31;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final DoubleEntryLedgerService ledgerService;
-    private final TransactionTemplate transactionTemplate;
 
     public BatchPayoutFundingGuard(
-            NamedParameterJdbcTemplate jdbcTemplate,
-            DoubleEntryLedgerService ledgerService,
-            PlatformTransactionManager transactionManager) {
+            NamedParameterJdbcTemplate jdbcTemplate, DoubleEntryLedgerService ledgerService) {
         this.jdbcTemplate = jdbcTemplate;
         this.ledgerService = ledgerService;
-        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    @Scheduled(fixedDelay = 30000, initialDelay = 5000)
-    @SchedulerLock(
-            name = "batchPayoutFundingGuard",
-            lockAtMostFor = "PT2M",
-            lockAtLeastFor = "PT20S")
-    public void pauseDeterministicallyUnfundedBatches() {
-        for (Candidate candidate : candidates()) {
-            try {
-                FundingCheck check = fundingCheck(candidate);
-                if (!check.funded()) {
-                    pause(candidate, check);
-                }
-            } catch (RuntimeException ex) {
-                // Guard failure must never make a healthy payout unavailable. The authoritative
-                // reserve() invariant still fails closed in the payout scheduler.
-                LOG.log(
-                        Level.WARNING,
-                        "Unable to evaluate payout funding guard for batch "
-                                + candidate.batchId()
-                                + ", beneficiary "
-                                + candidate.beneficiaryId()
-                                + ": "
-                                + ex.getMessage());
+    /**
+     * Locks and reserves the next provider-call slice. Must be called from the payout transaction
+     * before any external payout is attempted.
+     */
+    public boolean reserveProcessingSlice(long batchId, long merchantId) {
+        if (!lockProcessingBatch(batchId, merchantId)) {
+            return false;
+        }
+
+        Merchant merchant = Common.getMerchantById(Long.toString(merchantId), jdbcTemplate);
+        if (merchant == null) {
+            throw new IllegalStateException("Payout merchant not found for batch " + batchId);
+        }
+
+        List<PreparedCandidate> prepared = prepareNextSlice(batchId, merchantId);
+        if (prepared.isEmpty()) {
+            return true;
+        }
+
+        Map<String, BigDecimal> requiredByGateway = new LinkedHashMap<>();
+        List<ReservationCommand> reservations = new ArrayList<>();
+        for (PreparedCandidate candidate : prepared) {
+            requiredByGateway.merge(candidate.gatewayId(), candidate.required(), BigDecimal::add);
+            reservations.add(
+                    new ReservationCommand(
+                            reservationReference(batchId, candidate.beneficiaryId()),
+                            sourceReference(batchId, candidate.beneficiaryId()),
+                            candidate.required()));
+        }
+
+        BatchReservationResult result =
+                ledgerService.reserveAll(merchant.getId(), DEFAULT_CURRENCY, reservations);
+        if (!result.reserved()) {
+            pause(
+                    batchId,
+                    prepared.get(0).beneficiaryId(),
+                    "Batch paused before provider calls: aggregate ledger availability is "
+                            + result.available().toPlainString()
+                            + " but "
+                            + result.required().toPlainString()
+                            + " "
+                            + DEFAULT_CURRENCY
+                            + " is required. Fund/reconcile and explicitly resume the batch.");
+            return false;
+        }
+
+        // reserveAll keeps the merchant/currency control row locked until this surrounding payout
+        // transaction completes. Check the legacy gateway buckets only after that lock is held so
+        // concurrent batches cannot both proceed from the same pre-payout snapshot.
+        Map<String, BigDecimal> legacyAvailable = legacyBalances(merchantId);
+        for (Map.Entry<String, BigDecimal> requirement : requiredByGateway.entrySet()) {
+            BigDecimal available = legacyAvailable.get(requirement.getKey());
+            if (available == null || available.compareTo(requirement.getValue()) < 0) {
+                pause(
+                        batchId,
+                        prepared.get(0).beneficiaryId(),
+                        "Batch paused before provider calls: aggregate gateway balance is "
+                                + (available == null ? "unavailable" : available.toPlainString())
+                                + " but "
+                                + requirement.getValue().toPlainString()
+                                + " "
+                                + DEFAULT_CURRENCY
+                                + " is required for gateway "
+                                + requirement.getKey()
+                                + ". Ledger funds remain reserved for this batch; fund/reconcile "
+                                + "the gateway and explicitly resume it.");
+                return false;
             }
         }
+        return true;
     }
 
-    private List<Candidate> candidates() {
+    static String reservationReference(long batchId, long beneficiaryId) {
+        return "batch-payout-reserve:" + batchId + ":" + beneficiaryId;
+    }
+
+    static String sourceReference(long batchId, long beneficiaryId) {
+        return sourceReferencePrefix(batchId) + beneficiaryId;
+    }
+
+    static String sourceReferencePrefix(long batchId) {
+        return "batch-payout:" + batchId + ":";
+    }
+
+    static String legacyBalanceGatewayId(String providerGatewayId) {
+        if (AirtelMoneyOpenApiPaymentGateway.gateway_id.equals(providerGatewayId)) {
+            return AirtelMoneyPaymentGateway.gateway_id;
+        }
+        return providerGatewayId;
+    }
+
+    static BigDecimal requiredAmount(BigDecimal payoutAmount, double legacyCharges) {
+        BigDecimal normalizedPayout =
+                MoneyAmount.of(payoutAmount == null ? null : payoutAmount.toPlainString())
+                        .asBigDecimal();
+        BigDecimal normalizedCharges = MoneyAmount.normalize(BigDecimal.valueOf(legacyCharges));
+        if (normalizedCharges.signum() < 0) {
+            throw new IllegalArgumentException("payout charges cannot be negative");
+        }
+        return MoneyAmount.normalize(normalizedPayout.add(normalizedCharges));
+    }
+
+    private boolean lockProcessingBatch(long batchId, long merchantId) {
         String sql =
-                "SELECT p.id AS batch_id, p.merchant_id, b.id AS beneficiary_id, "
-                        + "b.account, b.amount "
-                        + "FROM "
+                "SELECT id FROM "
                         + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_LOG
-                        + " p JOIN "
+                        + " WHERE id=:batch_id AND merchant_id=:merchant_id AND status=:processing"
+                        + " FOR UPDATE";
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        params.addValue("batch_id", batchId);
+        params.addValue("merchant_id", merchantId);
+        params.addValue("processing", Transaction.BATCH_PAYMENTS_PROCESSING);
+        return !jdbcTemplate.query(sql, params, (rs, rowNum) -> rs.getLong("id")).isEmpty();
+    }
+
+    private List<Candidate> candidates(long batchId) {
+        String sql =
+                "SELECT b.id AS beneficiary_id, b.account, b.amount "
+                        + "FROM "
                         + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_BENEFICIARIES
-                        + " b ON b.batch_id=p.id "
-                        + "WHERE p.status=:processing AND b.status=:unpaid "
+                        + " b WHERE b.batch_id=:batch_id AND b.status=:unpaid "
                         + "AND NOT EXISTS (SELECT 1 FROM "
                         + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                        + " t WHERE t.merchant_batch_transactions_log_id=p.id "
-                        + "AND t.beneficiary_id=b.id) "
-                        + "ORDER BY p.id, b.id LIMIT 100";
+                        + " t WHERE t.merchant_batch_transactions_log_id=:batch_id "
+                        + "AND t.beneficiary_id=b.id) ORDER BY b.id";
         MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("processing", Transaction.BATCH_PAYMENTS_PROCESSING);
+        params.addValue("batch_id", batchId);
         params.addValue("unpaid", Transaction.BATCH_PAYMENT_UNPAID);
         return jdbcTemplate.query(
                 sql,
                 params,
                 (rs, rowNum) ->
                         new Candidate(
-                                rs.getLong("batch_id"),
-                                rs.getLong("merchant_id"),
                                 rs.getLong("beneficiary_id"),
                                 rs.getString("account"),
-                                BigDecimal.valueOf(rs.getDouble("amount"))));
+                                rs.getBigDecimal("amount")));
     }
 
-    private FundingCheck fundingCheck(Candidate candidate) {
-        String gatewayId = DoPayGateway.getGatewayIdByMsisdn(candidate.account(), jdbcTemplate);
-        if (gatewayId == null || gatewayId.isBlank()) {
-            // The payout scheduler already terminalizes unsupported beneficiaries; do not compete
-            // with that path here.
-            return FundingCheck.allow();
-        }
-
-        Merchant merchant =
-                Common.getMerchantById(Long.toString(candidate.merchantId()), jdbcTemplate);
-        if (merchant == null) {
-            return FundingCheck.allow();
-        }
-
-        GatewayChargeDetails chargeDetails =
-                DoPayGateway.getGatewayChargeDetailsById(
-                        jdbcTemplate, gatewayId, candidate.merchantId());
-        double charges =
-                DoPayGateway.getCustomerOutboundCharges(
-                        candidate.amount().doubleValue(), chargeDetails);
-        BigDecimal required =
-                MoneyAmount.of(candidate.amount().add(BigDecimal.valueOf(charges)).toPlainString())
-                        .asBigDecimal();
-
-        BigDecimal ledgerAvailable =
-                ledgerService.availableMerchantBalance(candidate.merchantId(), DEFAULT_CURRENCY);
-
-        BigDecimal legacyAvailable = null;
-        ArrayList<Balance> balances =
-                Common.getMerchantBalances(Long.toString(candidate.merchantId()), jdbcTemplate);
-        for (Balance balance : balances) {
-            if (gatewayId.equals(balance.getGateway_id())) {
-                legacyAvailable = BigDecimal.valueOf(balance.getAmount());
+    private List<PreparedCandidate> prepareNextSlice(long batchId, long merchantId) {
+        List<PreparedCandidate> prepared = new ArrayList<>();
+        for (Candidate candidate : candidates(batchId)) {
+            String gatewayId = DoPayGateway.getGatewayIdByMsisdn(candidate.account(), jdbcTemplate);
+            if (gatewayId == null || gatewayId.isBlank()) {
+                // The payout scheduler terminalizes unsupported beneficiaries without a provider
+                // call. They do not consume one of its 31 external-payout slots.
+                continue;
+            }
+            GatewayChargeDetails chargeDetails =
+                    DoPayGateway.getGatewayChargeDetailsById(jdbcTemplate, gatewayId, merchantId);
+            double charges =
+                    DoPayGateway.getCustomerOutboundCharges(
+                            candidate.amount().doubleValue(), chargeDetails);
+            BigDecimal required = requiredAmount(candidate.amount(), charges);
+            prepared.add(
+                    new PreparedCandidate(
+                            candidate.beneficiaryId(),
+                            legacyBalanceGatewayId(gatewayId),
+                            required));
+            if (prepared.size() == MAX_PAYOUTS_PER_SLICE) {
                 break;
             }
         }
-
-        boolean legacyFunded = legacyAvailable == null || legacyAvailable.compareTo(required) >= 0;
-        boolean ledgerFunded = ledgerAvailable.compareTo(required) >= 0;
-        return new FundingCheck(
-                legacyFunded && ledgerFunded, required, ledgerAvailable, legacyAvailable, gatewayId);
+        return prepared;
     }
 
-    private void pause(Candidate candidate, FundingCheck check) {
-        transactionTemplate.executeWithoutResult(
-                status -> {
-                    MapSqlParameterSource batch = new MapSqlParameterSource();
-                    batch.addValue("batch_id", candidate.batchId());
-                    batch.addValue("processing", Transaction.BATCH_PAYMENTS_PROCESSING);
-                    batch.addValue("paused", Transaction.BATCH_PAYMENTS_PAUSED);
-                    int changed =
-                            jdbcTemplate.update(
-                                    "UPDATE "
-                                            + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_LOG
-                                            + " SET status=:paused WHERE id=:batch_id AND status=:processing",
-                                    batch);
-                    if (changed == 0) {
-                        return;
-                    }
-
-                    String reason =
-                            "Batch paused: insufficient available balance before ledger reservation. "
-                                    + "Required="
-                                    + check.required().toPlainString()
-                                    + " "
-                                    + DEFAULT_CURRENCY
-                                    + ", ledgerAvailable="
-                                    + check.ledgerAvailable().toPlainString()
-                                    + (check.legacyAvailable() == null
-                                            ? ""
-                                            : ", gatewayAvailable="
-                                                    + check.legacyAvailable().toPlainString())
-                                    + ", gateway="
-                                    + check.gatewayId()
-                                    + ". Fund/reconcile and explicitly resume the batch.";
-                    MapSqlParameterSource beneficiary = new MapSqlParameterSource();
-                    beneficiary.addValue("beneficiary_id", candidate.beneficiaryId());
-                    beneficiary.addValue("reason", reason);
-                    jdbcTemplate.update(
-                            "UPDATE "
-                                    + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_BENEFICIARIES
-                                    + " SET reason=:reason WHERE id=:beneficiary_id",
-                            beneficiary);
-
-                    LOG.log(
-                            Level.WARNING,
-                            "Paused unfunded payout batch "
-                                    + candidate.batchId()
-                                    + " at beneficiary "
-                                    + candidate.beneficiaryId()
-                                    + "; required="
-                                    + check.required()
-                                    + ", ledgerAvailable="
-                                    + check.ledgerAvailable()
-                                    + ", gateway="
-                                    + check.gatewayId());
-                });
-    }
-
-    private record Candidate(
-            long batchId, long merchantId, long beneficiaryId, String account, BigDecimal amount) {}
-
-    private record FundingCheck(
-            boolean funded,
-            BigDecimal required,
-            BigDecimal ledgerAvailable,
-            BigDecimal legacyAvailable,
-            String gatewayId) {
-        static FundingCheck allow() {
-            return new FundingCheck(
-                    true, BigDecimal.ZERO, BigDecimal.ZERO, null, "not-applicable");
+    private Map<String, BigDecimal> legacyBalances(long merchantId) {
+        Map<String, BigDecimal> available = new LinkedHashMap<>();
+        ArrayList<Balance> balances =
+                Common.getMerchantBalances(Long.toString(merchantId), jdbcTemplate);
+        for (Balance balance : balances) {
+            available.put(balance.getGateway_id(), BigDecimal.valueOf(balance.getAmount()));
         }
+        return available;
     }
+
+    private void pause(long batchId, long beneficiaryId, String reason) {
+        MapSqlParameterSource batch = new MapSqlParameterSource();
+        batch.addValue("batch_id", batchId);
+        batch.addValue("processing", Transaction.BATCH_PAYMENTS_PROCESSING);
+        batch.addValue("paused", Transaction.BATCH_PAYMENTS_PAUSED);
+        int changed =
+                jdbcTemplate.update(
+                        "UPDATE "
+                                + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_LOG
+                                + " SET status=:paused WHERE id=:batch_id AND status=:processing",
+                        batch);
+        if (changed == 0) {
+            return;
+        }
+
+        MapSqlParameterSource beneficiary = new MapSqlParameterSource();
+        beneficiary.addValue("beneficiary_id", beneficiaryId);
+        beneficiary.addValue("reason", reason);
+        jdbcTemplate.update(
+                "UPDATE "
+                        + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_BENEFICIARIES
+                        + " SET reason=:reason WHERE id=:beneficiary_id",
+                beneficiary);
+        LOG.log(Level.WARNING, "Paused payout batch " + batchId + ": " + reason);
+    }
+
+    private record Candidate(long beneficiaryId, String account, BigDecimal amount) {}
+
+    private record PreparedCandidate(long beneficiaryId, String gatewayId, BigDecimal required) {}
 }

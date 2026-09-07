@@ -22,6 +22,16 @@ server {
         return 200 'ok';
     }
 
+    # Immutable build identity. Unlike readiness, this is served by the
+    # frontend image itself so release checks cannot mistake a fresh backend
+    # behind stale UI assets for an exact-head deployment.
+    location = /releasez {
+        access_log off;
+        default_type application/json;
+        add_header Cache-Control "no-store, max-age=0" always;
+        try_files $uri =404;
+    }
+
     # Readiness: nginx can reach the CPay backend over Railway private
     # networking. Keep this deliberately narrow and fast so a broken upstream
     # fails deployments instead of leaving a superficially healthy frontend.
