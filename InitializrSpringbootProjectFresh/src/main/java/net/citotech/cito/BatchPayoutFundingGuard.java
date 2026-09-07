@@ -1,5 +1,7 @@
 package net.citotech.cito;
 
+import net.citotech.cito.Model.AirtelMoneyOpenApiPaymentGateway;
+import net.citotech.cito.Model.AirtelMoneyPaymentGateway;
 import net.citotech.cito.Model.Balance;
 import net.citotech.cito.Model.GatewayChargeDetails;
 import net.citotech.cito.Model.Merchant;
@@ -125,6 +127,24 @@ public class BatchPayoutFundingGuard {
         return "batch-payout:" + batchId + ":" + beneficiaryId;
     }
 
+    static String legacyBalanceGatewayId(String providerGatewayId) {
+        if (AirtelMoneyOpenApiPaymentGateway.gateway_id.equals(providerGatewayId)) {
+            return AirtelMoneyPaymentGateway.gateway_id;
+        }
+        return providerGatewayId;
+    }
+
+    static BigDecimal requiredAmount(BigDecimal payoutAmount, double legacyCharges) {
+        BigDecimal normalizedPayout =
+                MoneyAmount.of(payoutAmount == null ? null : payoutAmount.toPlainString())
+                        .asBigDecimal();
+        BigDecimal normalizedCharges = MoneyAmount.normalize(BigDecimal.valueOf(legacyCharges));
+        if (normalizedCharges.signum() < 0) {
+            throw new IllegalArgumentException("payout charges cannot be negative");
+        }
+        return MoneyAmount.normalize(normalizedPayout.add(normalizedCharges));
+    }
+
     private boolean lockProcessingBatch(long batchId, long merchantId) {
         String sql =
                 "SELECT id FROM "
@@ -172,16 +192,15 @@ public class BatchPayoutFundingGuard {
             }
             GatewayChargeDetails chargeDetails =
                     DoPayGateway.getGatewayChargeDetailsById(jdbcTemplate, gatewayId, merchantId);
-            BigDecimal charges =
-                    MoneyAmount.of(
-                                    String.valueOf(
-                                            DoPayGateway.getCustomerOutboundCharges(
-                                                    candidate.amount().doubleValue(),
-                                                    chargeDetails)))
-                            .asBigDecimal();
-            BigDecimal required =
-                    MoneyAmount.of(candidate.amount().add(charges).toPlainString()).asBigDecimal();
-            prepared.add(new PreparedCandidate(candidate.beneficiaryId(), gatewayId, required));
+            double charges =
+                    DoPayGateway.getCustomerOutboundCharges(
+                            candidate.amount().doubleValue(), chargeDetails);
+            BigDecimal required = requiredAmount(candidate.amount(), charges);
+            prepared.add(
+                    new PreparedCandidate(
+                            candidate.beneficiaryId(),
+                            legacyBalanceGatewayId(gatewayId),
+                            required));
             if (prepared.size() == MAX_PAYOUTS_PER_SLICE) {
                 break;
             }
