@@ -53,8 +53,8 @@ async function assertTopbarWithinViewport(page) {
   });
   const viewport = page.viewportSize();
   expect(viewport).not.toBeNull();
-  expect(box.x).toBeGreaterThanOrEqual(-1);
-  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+  expect(box.left).toBeGreaterThanOrEqual(-1);
+  expect(box.right).toBeLessThanOrEqual(viewport.width + 1);
 }
 
 async function attachEvidence(page, testInfo, name) {
@@ -88,6 +88,10 @@ async function primeAdmin(page) {
     }));
   });
 
+  await page.route('**/auth/csrf**', (route) => route.fulfill(json({
+    headerName: 'X-XSRF-TOKEN',
+    token: 'browser-matrix-token',
+  })));
   await page.route('**/auth/isLoggedIn**', (route) => route.fulfill(json({ code: '000', message: 'true' })));
   await page.route('**/api/v2/admin/compliance/summary**', (route) => route.fulfill(json({
     openComplianceCases: 2,
@@ -152,6 +156,10 @@ async function primeMerchant(page) {
     }));
   });
 
+  await page.route('**/auth/csrf**', (route) => route.fulfill(json({
+    headerName: 'X-XSRF-TOKEN',
+    token: 'browser-matrix-token',
+  })));
   await page.route('**/auth/isMerchantUserLoggedIn**', (route) => route.fulfill(json({ code: '000', message: 'true' })));
   await page.route('**/api/v2/merchants/17/overview**', (route) => route.fulfill(json({
     entitlements: [

@@ -93,6 +93,9 @@ class LayoutMerchantWithOutRouter extends React.Component {
     };
     this.menuChanged = this.menuChanged.bind(this);
     this.refreshCurrentPage = this.refreshCurrentPage.bind(this);
+    this.sessionExpired = this.sessionExpired.bind(this);
+    this.logoutUser = this.logoutUser.bind(this);
+    this.startOrStopLoader = this.startOrStopLoader.bind(this);
   }
 
   async componentDidMount() {
@@ -147,9 +150,9 @@ class LayoutMerchantWithOutRouter extends React.Component {
 
   renderModule(item, refreshSignal = this.state?.refreshTick || 0) {
     const moduleProps = {
-      sessionExpired: this.sessionExpired?.bind(this),
-      logOut: this.logoutUser?.bind(this),
-      loader: this.startOrStopLoader?.bind(this),
+      sessionExpired: this.sessionExpired,
+      logOut: this.logoutUser,
+      loader: this.startOrStopLoader,
       refreshSignal,
     };
 
