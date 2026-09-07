@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -478,6 +479,138 @@ class DoubleEntryLedgerServiceTest {
                 .update(
                         contains("INSERT INTO ledger_reservations"),
                         any(MapSqlParameterSource.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void batchReservationRejectsAggregateShortfallWithoutPartialReservations() {
+        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
+        when(jdbcTemplate.queryForList(
+                        contains("FROM ledger_reservations"), any(MapSqlParameterSource.class)))
+                .thenReturn(List.of());
+        when(jdbcTemplate.queryForMap(
+                        contains("active_reservations"), any(MapSqlParameterSource.class)))
+                .thenReturn(
+                        java.util.Map.of(
+                                "posted_balance",
+                                new BigDecimal("100.0000"),
+                                "active_reservations",
+                                new BigDecimal("0.0000")));
+        DoubleEntryLedgerService service = new DoubleEntryLedgerService(jdbcTemplate);
+
+        DoubleEntryLedgerService.BatchReservationResult result =
+                service.reserveAll(
+                        10L,
+                        "ugx",
+                        List.of(
+                                new DoubleEntryLedgerService.ReservationCommand(
+                                        "RES-BATCH-1", "PAYOUT-1", new BigDecimal("60")),
+                                new DoubleEntryLedgerService.ReservationCommand(
+                                        "RES-BATCH-2", "PAYOUT-2", new BigDecimal("60"))));
+
+        assertThat(result.reserved()).isFalse();
+        assertThat(result.required()).isEqualByComparingTo("120.0000");
+        assertThat(result.available()).isEqualByComparingTo("100.0000");
+        verify(jdbcTemplate, never())
+                .update(
+                        contains("INSERT INTO ledger_reservations"),
+                        any(MapSqlParameterSource.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void batchReservationInsertsEveryReservationOnlyAfterAggregateCheckPasses() {
+        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
+        when(jdbcTemplate.queryForList(
+                        contains("FROM ledger_reservations"), any(MapSqlParameterSource.class)))
+                .thenReturn(List.of());
+        when(jdbcTemplate.queryForMap(
+                        contains("active_reservations"), any(MapSqlParameterSource.class)))
+                .thenReturn(
+                        java.util.Map.of(
+                                "posted_balance",
+                                new BigDecimal("120.0000"),
+                                "active_reservations",
+                                new BigDecimal("0.0000")));
+        DoubleEntryLedgerService service = new DoubleEntryLedgerService(jdbcTemplate);
+
+        DoubleEntryLedgerService.BatchReservationResult result =
+                service.reserveAll(
+                        10L,
+                        "UGX",
+                        List.of(
+                                new DoubleEntryLedgerService.ReservationCommand(
+                                        "RES-BATCH-1", "PAYOUT-1", new BigDecimal("60")),
+                                new DoubleEntryLedgerService.ReservationCommand(
+                                        "RES-BATCH-2", "PAYOUT-2", new BigDecimal("60"))));
+
+        assertThat(result.reserved()).isTrue();
+        assertThat(result.required()).isEqualByComparingTo("120.0000");
+        verify(jdbcTemplate, times(2))
+                .update(
+                        contains("INSERT INTO ledger_reservations"),
+                        any(MapSqlParameterSource.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void batchReservationReplayAcceptsAnAlreadyHeldMatchingSlice() {
+        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
+        when(jdbcTemplate.queryForList(
+                        contains("FROM ledger_reservations"), any(MapSqlParameterSource.class)))
+                .thenReturn(
+                        List.of(
+                                existingReservation(
+                                        10L,
+                                        "PAYOUT-1",
+                                        "60.0000",
+                                        "UGX",
+                                        "RESERVED")));
+        when(jdbcTemplate.queryForMap(
+                        contains("active_reservations"), any(MapSqlParameterSource.class)))
+                .thenReturn(
+                        java.util.Map.of(
+                                "posted_balance",
+                                new BigDecimal("50.0000"),
+                                "active_reservations",
+                                new BigDecimal("60.0000")));
+        DoubleEntryLedgerService service = new DoubleEntryLedgerService(jdbcTemplate);
+
+        DoubleEntryLedgerService.BatchReservationResult result =
+                service.reserveAll(
+                        10L,
+                        "UGX",
+                        List.of(
+                                new DoubleEntryLedgerService.ReservationCommand(
+                                        "RES-BATCH-1", "PAYOUT-1", new BigDecimal("60"))));
+
+        assertThat(result.reserved()).isTrue();
+        assertThat(result.required()).isEqualByComparingTo("0.0000");
+        verify(jdbcTemplate, never())
+                .update(
+                        contains("INSERT INTO ledger_reservations"),
+                        any(MapSqlParameterSource.class));
+    }
+
+    @Test
+    void batchReservationRejectsDuplicateInputReferencesBeforeDatabaseMutation() {
+        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
+        DoubleEntryLedgerService service = new DoubleEntryLedgerService(jdbcTemplate);
+
+        assertThatThrownBy(
+                        () ->
+                                service.reserveAll(
+                                        10L,
+                                        "UGX",
+                                        List.of(
+                                                new DoubleEntryLedgerService.ReservationCommand(
+                                                        "RES-DUP", "PAYOUT-1", BigDecimal.ONE),
+                                                new DoubleEntryLedgerService.ReservationCommand(
+                                                        "RES-DUP", "PAYOUT-2", BigDecimal.TEN))))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("duplicate reference");
+
+        verifyNoInteractions(jdbcTemplate);
     }
 
     private java.util.Map<String, Object> existingReservation(

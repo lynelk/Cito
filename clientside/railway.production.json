@@ -3,7 +3,10 @@
   "build": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "Dockerfile",
-    "watchPatterns": ["clientside/**"]
+    "watchPatterns": [
+      "clientside/**",
+      ".railway/target-production-deploy/frontend/**"
+    ]
   },
   "deploy": {
     "startCommand": "/start.sh",

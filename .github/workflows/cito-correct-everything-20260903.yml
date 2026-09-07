@@ -6,13 +6,26 @@ on:
     branches: [main, production]
     paths:
       - 'clientside/**'
+      - 'InitializrSpringbootProjectFresh/**'
+      - '.railway/**'
       - '.github/workflows/cito-correct-everything-20260903.yml'
   push:
     branches: [main, production]
     paths:
       - 'clientside/**'
+      - 'InitializrSpringbootProjectFresh/**'
+      - '.railway/**'
       - '.github/workflows/cito-correct-everything-20260903.yml'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      expected_release_sha:
+        description: Full production commit SHA reported by the Railway deployment
+        required: true
+        type: string
+      railway_deployment_id:
+        description: Terminal-success Railway deployment ID checked before dispatch
+        required: true
+        type: string
 
 concurrency:
   group: cito-exact-head-${{ github.workflow }}-${{ github.ref }}
@@ -86,17 +99,21 @@ jobs:
           if-no-files-found: warn
 
   production-public-health:
-    name: Read-only public production health
-    # This probes the CURRENT runtime, not the proposed PR artifact. Railway
-    # deployment metadata remains the authority for the running release SHA.
-    if: github.ref == 'refs/heads/production' || (github.event_name == 'pull_request' && github.base_ref == 'production' && github.event.pull_request.head.repo.full_name == github.repository)
+    name: Attested public production health
+    # Dispatch this only after Railway reports terminal SUCCESS for the production
+    # revision. The backend readiness payload must attest that same full SHA.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/production'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 7
     steps:
       - name: Check fixed public liveness and backend-readiness endpoints
         shell: bash
+        env:
+          EXPECTED_RELEASE_SHA: ${{ inputs.expected_release_sha }}
+          RAILWAY_DEPLOYMENT_ID: ${{ inputs.railway_deployment_id }}
         run: |
           python3 - <<'PY'
+          import http.client
           import json
           import os
           import time
@@ -111,7 +128,12 @@ jobs:
               def redirect_request(self, req, fp, code, msg, headers, newurl):
                   return None
 
-          def valid_health(status, content_type, body, liveness):
+          expected_release_sha = os.environ['EXPECTED_RELEASE_SHA'].strip()
+          workflow_sha = os.environ.get('GITHUB_SHA', '').strip()
+          if not expected_release_sha or expected_release_sha != workflow_sha:
+              raise SystemExit('Expected release SHA must exactly match the dispatched production revision.')
+
+          def valid_health(status, content_type, body, liveness, expected_sha=None):
               if status != 200 or not body.strip() or len(body) > 65536:
                   return False
               if 'html' in content_type.lower() or body.lstrip().startswith(b'<'):
@@ -122,19 +144,24 @@ jobs:
               try:
                   data = json.loads(body)
               except (ValueError, UnicodeError):
-                  return body.strip().lower() in (b'ok', b'up', b'healthy')
-              return isinstance(data, dict) and str(data.get('status', '')).upper() in ('UP', 'OK', 'HEALTHY')
+                  return expected_sha is None and body.strip().lower() in (b'ok', b'up', b'healthy')
+              return (
+                  isinstance(data, dict)
+                  and str(data.get('status', '')).upper() in ('UP', 'OK', 'HEALTHY')
+                  and (expected_sha is None or data.get('release_sha') == expected_sha)
+              )
 
           # Contract checks ensure an SPA fallback or an unhealthy 200 cannot
           # be recorded as readiness. These checks perform no network traffic.
           assert valid_health(200, 'text/plain', b'ok', True)
-          assert valid_health(200, 'application/json', b'{"status":"UP"}', False)
+          assert valid_health(200, 'application/json', b'{"status":"UP","release_sha":"abc"}', False, 'abc')
           assert not valid_health(200, 'text/html', b'<html>login</html>', False)
           assert not valid_health(200, 'application/json', b'{"status":"DOWN"}', False)
+          assert not valid_health(200, 'application/json', b'{"status":"UP"}', False, 'abc')
+          assert not valid_health(200, 'application/json', b'{"status":"UP","release_sha":"old"}', False, 'abc')
           assert not valid_health(503, 'application/json', b'{"status":"UP"}', False)
           assert not valid_health(200, 'application/json', b'{}', False)
           assert not valid_health(200, 'text/plain', b'', True)
-          assert not valid_health(200, 'text/plain', b'ok', False) is False
 
           opener = urllib.request.build_opener(NoRedirect)
           results = []
@@ -152,10 +179,12 @@ jobs:
                               result['http_status'] = response.status
                               result['passed'] = valid_health(
                                   response.status, response.headers.get('Content-Type', ''),
-                                  response.read(65537), path == '/healthz')
+                                  response.read(65537), path == '/healthz',
+                                  None if path == '/healthz' else expected_release_sha)
                       except urllib.error.HTTPError as exc:
                           result.update(http_status=exc.code, error_type='HTTPError')
-                      except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+                      except (urllib.error.URLError, http.client.HTTPException,
+                              TimeoutError, OSError, ValueError) as exc:
                           result['error_type'] = type(exc).__name__
                       result['elapsed_ms'] = round((time.monotonic() - started) * 1000)
                       if result['passed']:
@@ -167,8 +196,10 @@ jobs:
 
           report = {
               'checked_at_utc': datetime.now(timezone.utc).isoformat(),
-              'workflow_sha': os.environ.get('GITHUB_SHA'),
-              'scope': 'Point-in-time public HTTP health only; not authenticated UAT, provider certification, database restore, load testing or runtime SHA attestation.',
+              'workflow_sha': workflow_sha,
+              'expected_release_sha': expected_release_sha,
+              'railway_deployment_id': os.environ['RAILWAY_DEPLOYMENT_ID'],
+              'scope': 'Post-deployment public HTTP health and backend runtime-SHA attestation; not authenticated UAT, provider certification, database restore or load testing.',
               'results': results,
               'passed': all(item['passed'] for item in results),
           }

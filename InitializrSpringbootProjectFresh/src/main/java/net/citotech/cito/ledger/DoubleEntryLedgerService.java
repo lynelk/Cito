@@ -3,6 +3,7 @@ package net.citotech.cito.ledger;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -146,58 +147,91 @@ public class DoubleEntryLedgerService {
             String sourceReference,
             BigDecimal amount,
             String currency) {
-        if (blank(reservationReference)
-                || merchantId <= 0
-                || blank(sourceReference)
-                || blank(currency)) {
-            throw new PaymentGatewayException(
-                    "Ledger reservation requires reference, merchant, source, and currency");
-        }
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new PaymentGatewayException(
-                    "Ledger reservation amount must be greater than zero");
-        }
-        BigDecimal normalizedAmount = amount.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
-        String normalizedCurrency = currency.trim().toUpperCase();
-        ExistingReservation existing = findReservation(reservationReference);
+        NormalizedReservation reservation =
+                normalizeReservation(
+                        merchantId,
+                        currency,
+                        new ReservationCommand(reservationReference, sourceReference, amount));
+        ExistingReservation existing = findReservation(reservation.reservationReference());
         if (existing != null) {
             if (existing.matches(
-                    merchantId, sourceReference, normalizedAmount, normalizedCurrency)) {
+                    merchantId,
+                    reservation.sourceReference(),
+                    reservation.amount(),
+                    reservation.currency())) {
                 return;
             }
             throw new PaymentGatewayException(
                     "Ledger reservation reference already exists with different attributes");
         }
 
-        lockReservationScope(merchantId, normalizedCurrency);
-        BigDecimal availableBalance = availableMerchantBalance(merchantId, normalizedCurrency);
-        if (availableBalance.compareTo(normalizedAmount) < 0) {
+        lockReservationScope(merchantId, reservation.currency());
+        BigDecimal availableBalance = availableMerchantBalance(merchantId, reservation.currency());
+        if (availableBalance.compareTo(reservation.amount()) < 0) {
             throw new PaymentGatewayException(
                     "Insufficient ledger-derived available balance for reservation");
         }
+        insertReservation(reservation);
+    }
 
-        MapSqlParameterSource p = new MapSqlParameterSource();
-        p.addValue("reservation_reference", reservationReference);
-        p.addValue("merchant_id", merchantId);
-        p.addValue("source_reference", sourceReference);
-        p.addValue("amount", normalizedAmount);
-        p.addValue("currency", normalizedCurrency);
-        try {
-            jdbcTemplate.update(
-                    "INSERT INTO ledger_reservations "
-                            + "(reservation_reference, merchant_id, source_reference, amount, currency, reservation_status) "
-                            + "VALUES (:reservation_reference, :merchant_id, :source_reference, :amount, :currency, 'RESERVED')",
-                    p);
-        } catch (DuplicateKeyException ignored) {
-            existing = findReservation(reservationReference);
-            if (existing != null
-                    && existing.matches(
-                            merchantId, sourceReference, normalizedAmount, normalizedCurrency)) {
-                return;
-            }
+    /**
+     * Atomically reserves an entire payout slice before any external provider is called.
+     *
+     * <p>Every missing reservation is checked against one locked merchant/currency balance. If the
+     * aggregate cannot be funded, no reservation is inserted. Existing matching reservations are
+     * treated as idempotent replays and are already reflected in {@link
+     * #availableMerchantBalance(long, String)}.
+     */
+    @Transactional
+    public BatchReservationResult reserveAll(
+            long merchantId, String currency, List<ReservationCommand> commands) {
+        if (merchantId <= 0 || blank(currency)) {
             throw new PaymentGatewayException(
-                    "Ledger reservation reference already exists with different attributes");
+                    "Ledger batch reservation requires merchant and currency");
         }
+        if (commands == null || commands.isEmpty()) {
+            BigDecimal zero = BigDecimal.ZERO.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            return new BatchReservationResult(true, zero, zero);
+        }
+
+        Map<String, NormalizedReservation> unique = new LinkedHashMap<>();
+        for (ReservationCommand command : commands) {
+            NormalizedReservation reservation =
+                    normalizeReservation(merchantId, currency, command);
+            if (unique.putIfAbsent(reservation.reservationReference(), reservation) != null) {
+                throw new PaymentGatewayException(
+                        "Ledger batch reservation contains a duplicate reference");
+            }
+        }
+
+        String normalizedCurrency = currency.trim().toUpperCase();
+        lockReservationScope(merchantId, normalizedCurrency);
+
+        List<NormalizedReservation> missing = new ArrayList<>();
+        BigDecimal required = BigDecimal.ZERO.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        for (NormalizedReservation reservation : unique.values()) {
+            ExistingReservation existing = findReservation(reservation.reservationReference());
+            if (existing == null) {
+                missing.add(reservation);
+                required = required.add(reservation.amount());
+            } else if (!existing.matches(
+                    merchantId,
+                    reservation.sourceReference(),
+                    reservation.amount(),
+                    normalizedCurrency)) {
+                throw new PaymentGatewayException(
+                        "Ledger reservation reference already exists with different attributes");
+            }
+        }
+
+        BigDecimal available = availableMerchantBalance(merchantId, normalizedCurrency);
+        if (required.signum() > 0 && available.compareTo(required) < 0) {
+            return new BatchReservationResult(false, required, available);
+        }
+        for (NormalizedReservation reservation : missing) {
+            insertReservation(reservation);
+        }
+        return new BatchReservationResult(true, required, available);
     }
 
     public BigDecimal availableMerchantBalance(long merchantId, String currency) {
@@ -259,6 +293,57 @@ public class DoubleEntryLedgerService {
                         + "WHERE merchant_id=:merchant_id AND currency=:currency FOR UPDATE",
                 p,
                 (rs, rowNum) -> rs.getLong("id"));
+    }
+
+    private NormalizedReservation normalizeReservation(
+            long merchantId, String currency, ReservationCommand command) {
+        if (command == null
+                || blank(command.reservationReference())
+                || merchantId <= 0
+                || blank(command.sourceReference())
+                || blank(currency)) {
+            throw new PaymentGatewayException(
+                    "Ledger reservation requires reference, merchant, source, and currency");
+        }
+        if (command.amount() == null || command.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new PaymentGatewayException(
+                    "Ledger reservation amount must be greater than zero");
+        }
+        return new NormalizedReservation(
+                command.reservationReference(),
+                merchantId,
+                command.sourceReference(),
+                command.amount().setScale(MONEY_SCALE, RoundingMode.HALF_UP),
+                currency.trim().toUpperCase());
+    }
+
+    private void insertReservation(NormalizedReservation reservation) {
+        MapSqlParameterSource p = new MapSqlParameterSource();
+        p.addValue("reservation_reference", reservation.reservationReference());
+        p.addValue("merchant_id", reservation.merchantId());
+        p.addValue("source_reference", reservation.sourceReference());
+        p.addValue("amount", reservation.amount());
+        p.addValue("currency", reservation.currency());
+        try {
+            jdbcTemplate.update(
+                    "INSERT INTO ledger_reservations "
+                            + "(reservation_reference, merchant_id, source_reference, amount, currency, reservation_status) "
+                            + "VALUES (:reservation_reference, :merchant_id, :source_reference, :amount, :currency, 'RESERVED')",
+                    p);
+        } catch (DuplicateKeyException ignored) {
+            ExistingReservation existing =
+                    findReservation(reservation.reservationReference());
+            if (existing != null
+                    && existing.matches(
+                            reservation.merchantId(),
+                            reservation.sourceReference(),
+                            reservation.amount(),
+                            reservation.currency())) {
+                return;
+            }
+            throw new PaymentGatewayException(
+                    "Ledger reservation reference already exists with different attributes");
+        }
     }
 
     private void validateEntries(List<LedgerEntryCommand> entries) {
@@ -463,6 +548,19 @@ public class DoubleEntryLedgerService {
     private boolean blank(String value) {
         return value == null || value.trim().isEmpty();
     }
+
+    public record ReservationCommand(
+            String reservationReference, String sourceReference, BigDecimal amount) {}
+
+    public record BatchReservationResult(
+            boolean reserved, BigDecimal required, BigDecimal available) {}
+
+    private record NormalizedReservation(
+            String reservationReference,
+            long merchantId,
+            String sourceReference,
+            BigDecimal amount,
+            String currency) {}
 
     private record ExistingReservation(
             long merchantId,
