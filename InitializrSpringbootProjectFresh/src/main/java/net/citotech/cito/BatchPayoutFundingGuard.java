@@ -1,5 +1,12 @@
 package net.citotech.cito;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import net.citotech.cito.Model.AirtelMoneyOpenApiPaymentGateway;
 import net.citotech.cito.Model.AirtelMoneyPaymentGateway;
 import net.citotech.cito.Model.Balance;
@@ -10,18 +17,9 @@ import net.citotech.cito.ledger.DoubleEntryLedgerService;
 import net.citotech.cito.ledger.DoubleEntryLedgerService.BatchReservationResult;
 import net.citotech.cito.ledger.DoubleEntryLedgerService.ReservationCommand;
 import net.citotech.cito.money.MoneyAmount;
-
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
-
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Fail-closed funding and reservation guard for legacy batch payouts.

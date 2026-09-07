@@ -3,12 +3,10 @@ package net.citotech.cito;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
 import net.citotech.cito.Model.AirtelMoneyOpenApiPaymentGateway;
 import net.citotech.cito.Model.AirtelMoneyPaymentGateway;
-
 import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
 
 class BatchPayoutFundingGuardTest {
 
