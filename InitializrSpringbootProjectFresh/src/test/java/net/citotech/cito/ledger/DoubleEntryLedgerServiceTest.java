@@ -13,12 +13,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.math.BigDecimal;
-import java.util.List;
 import net.citotech.cito.gateway.PaymentGatewayException;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+
+import java.math.BigDecimal;
+import java.util.List;
 
 class DoubleEntryLedgerServiceTest {
 
@@ -561,11 +563,7 @@ class DoubleEntryLedgerServiceTest {
                 .thenReturn(
                         List.of(
                                 existingReservation(
-                                        10L,
-                                        "PAYOUT-1",
-                                        "60.0000",
-                                        "UGX",
-                                        "RESERVED")));
+                                        10L, "PAYOUT-1", "60.0000", "UGX", "RESERVED")));
         when(jdbcTemplate.queryForMap(
                         contains("active_reservations"), any(MapSqlParameterSource.class)))
                 .thenReturn(

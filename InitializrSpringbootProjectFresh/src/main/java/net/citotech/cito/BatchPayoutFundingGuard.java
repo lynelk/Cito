@@ -1,12 +1,5 @@
 package net.citotech.cito;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import net.citotech.cito.Model.Balance;
 import net.citotech.cito.Model.GatewayChargeDetails;
 import net.citotech.cito.Model.Merchant;
@@ -15,18 +8,27 @@ import net.citotech.cito.ledger.DoubleEntryLedgerService;
 import net.citotech.cito.ledger.DoubleEntryLedgerService.BatchReservationResult;
 import net.citotech.cito.ledger.DoubleEntryLedgerService.ReservationCommand;
 import net.citotech.cito.money.MoneyAmount;
+
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Fail-closed funding and reservation guard for legacy batch payouts.
  *
  * <p>The legacy scheduler used to validate every beneficiary against the same balance snapshot and
  * reserve immediately before each provider call. A later reservation failure therefore rolled the
- * whole database transaction back after an earlier external payout had already happened. This
- * guard locks the batch and atomically reserves the aggregate amount for the next payout slice
- * before the first provider call, using stable idempotent reservation references.
+ * whole database transaction back after an earlier external payout had already happened. This guard
+ * locks the batch and atomically reserves the aggregate amount for the next payout slice before the
+ * first provider call, using stable idempotent reservation references.
  */
 @Component
 public class BatchPayoutFundingGuard {
@@ -38,8 +40,7 @@ public class BatchPayoutFundingGuard {
     private final DoubleEntryLedgerService ledgerService;
 
     public BatchPayoutFundingGuard(
-            NamedParameterJdbcTemplate jdbcTemplate,
-            DoubleEntryLedgerService ledgerService) {
+            NamedParameterJdbcTemplate jdbcTemplate, DoubleEntryLedgerService ledgerService) {
         this.jdbcTemplate = jdbcTemplate;
         this.ledgerService = ledgerService;
     }
@@ -66,8 +67,7 @@ public class BatchPayoutFundingGuard {
         Map<String, BigDecimal> requiredByGateway = new LinkedHashMap<>();
         List<ReservationCommand> reservations = new ArrayList<>();
         for (PreparedCandidate candidate : prepared) {
-            requiredByGateway.merge(
-                    candidate.gatewayId(), candidate.required(), BigDecimal::add);
+            requiredByGateway.merge(candidate.gatewayId(), candidate.required(), BigDecimal::add);
             reservations.add(
                     new ReservationCommand(
                             reservationReference(batchId, candidate.beneficiaryId()),
@@ -129,14 +129,13 @@ public class BatchPayoutFundingGuard {
         String sql =
                 "SELECT id FROM "
                         + Common.DB_TABLE_MERCHANT_BATCH_TRANSACTION_LOG
-                        + " WHERE id=:batch_id AND merchant_id=:merchant_id AND status=:processing FOR UPDATE";
+                        + " WHERE id=:batch_id AND merchant_id=:merchant_id AND status=:processing"
+                        + " FOR UPDATE";
         MapSqlParameterSource params = new MapSqlParameterSource();
         params.addValue("batch_id", batchId);
         params.addValue("merchant_id", merchantId);
         params.addValue("processing", Transaction.BATCH_PAYMENTS_PROCESSING);
-        return !jdbcTemplate
-                .query(sql, params, (rs, rowNum) -> rs.getLong("id"))
-                .isEmpty();
+        return !jdbcTemplate.query(sql, params, (rs, rowNum) -> rs.getLong("id")).isEmpty();
     }
 
     private List<Candidate> candidates(long batchId) {
@@ -165,16 +164,14 @@ public class BatchPayoutFundingGuard {
     private List<PreparedCandidate> prepareNextSlice(long batchId, long merchantId) {
         List<PreparedCandidate> prepared = new ArrayList<>();
         for (Candidate candidate : candidates(batchId)) {
-            String gatewayId =
-                    DoPayGateway.getGatewayIdByMsisdn(candidate.account(), jdbcTemplate);
+            String gatewayId = DoPayGateway.getGatewayIdByMsisdn(candidate.account(), jdbcTemplate);
             if (gatewayId == null || gatewayId.isBlank()) {
                 // The payout scheduler terminalizes unsupported beneficiaries without a provider
                 // call. They do not consume one of its 31 external-payout slots.
                 continue;
             }
             GatewayChargeDetails chargeDetails =
-                    DoPayGateway.getGatewayChargeDetailsById(
-                            jdbcTemplate, gatewayId, merchantId);
+                    DoPayGateway.getGatewayChargeDetailsById(jdbcTemplate, gatewayId, merchantId);
             BigDecimal charges =
                     MoneyAmount.of(
                                     String.valueOf(
@@ -184,8 +181,7 @@ public class BatchPayoutFundingGuard {
                             .asBigDecimal();
             BigDecimal required =
                     MoneyAmount.of(candidate.amount().add(charges).toPlainString()).asBigDecimal();
-            prepared.add(
-                    new PreparedCandidate(candidate.beneficiaryId(), gatewayId, required));
+            prepared.add(new PreparedCandidate(candidate.beneficiaryId(), gatewayId, required));
             if (prepared.size() == MAX_PAYOUTS_PER_SLICE) {
                 break;
             }
@@ -198,8 +194,7 @@ public class BatchPayoutFundingGuard {
         ArrayList<Balance> balances =
                 Common.getMerchantBalances(Long.toString(merchantId), jdbcTemplate);
         for (Balance balance : balances) {
-            available.put(
-                    balance.getGateway_id(), BigDecimal.valueOf(balance.getAmount()));
+            available.put(balance.getGateway_id(), BigDecimal.valueOf(balance.getAmount()));
         }
         return available;
     }

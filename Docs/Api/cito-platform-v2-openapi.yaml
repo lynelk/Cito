@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Cito Platform API
-  version: 2.1.0
+  version: 2.1.1
   description: >-
     Merchant platform APIs that sit alongside the CPay payments contract. Operations use
     the authentication mechanism declared by the contract, including Cito merchant sessions
@@ -30,6 +30,27 @@ tags:
   - name: Public Experience
   - name: Merchant Self Service
 paths:
+  /status/health:
+    get:
+      tags: [Support]
+      summary: Read public application and database readiness
+      description: >-
+        Returns HTTP 200 only when database connectivity and the operational transaction
+        and callback queries succeed. HTTP 503 is fail-closed readiness and must not be
+        treated as a healthy deployment. release_sha identifies the Railway source revision.
+      operationId: getApplicationReadiness
+      security: []
+      responses:
+        '200':
+          description: Application and database-backed readiness checks succeeded
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HealthStatus'}
+        '503':
+          description: Database connectivity or an operational readiness query failed
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HealthStatus'}
   /api/v2/identity/capabilities:
     get:
       tags: [Identity & Validation]
@@ -881,6 +902,19 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorResponse'}
   schemas:
+    HealthStatus:
+      type: object
+      required: [status, code, db, release_sha]
+      properties:
+        status: {type: string, enum: [UP, DOWN, ERROR]}
+        code: {type: string, enum: ['000', '503']}
+        db: {type: string, enum: [UP, DOWN]}
+        pending_transactions: {type: integer, format: int64}
+        failed_callbacks: {type: integer, format: int64}
+        gateway_mode: {type: string}
+        release_sha:
+          type: string
+          description: Full Railway Git commit SHA, or unknown outside a source deployment.
     ErrorResponse:
       type: object
       required: [code, message]

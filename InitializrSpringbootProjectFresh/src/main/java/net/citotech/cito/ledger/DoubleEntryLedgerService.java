@@ -1,5 +1,13 @@
 package net.citotech.cito.ledger;
 
+import net.citotech.cito.gateway.PaymentGatewayException;
+
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -9,12 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import net.citotech.cito.gateway.PaymentGatewayException;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DoubleEntryLedgerService {
@@ -105,12 +107,12 @@ public class DoubleEntryLedgerService {
         p.addValue("currency", currency);
         Map<String, Object> row =
                 jdbcTemplate.queryForMap(
-                        "SELECT "
-                                + "COALESCE(SUM(CASE WHEN le.entry_direction='DR' THEN le.amount ELSE 0 END), 0) AS debits, "
-                                + "COALESCE(SUM(CASE WHEN le.entry_direction='CR' THEN le.amount ELSE 0 END), 0) AS credits "
-                                + "FROM ledger_entries le "
-                                + "JOIN ledger_transactions lt ON lt.id = le.ledger_transaction_id "
-                                + "WHERE DATE(lt.created_at) <= :run_date AND le.currency=:currency",
+                        "SELECT COALESCE(SUM(CASE WHEN le.entry_direction='DR' THEN le.amount ELSE"
+                            + " 0 END), 0) AS debits, COALESCE(SUM(CASE WHEN"
+                            + " le.entry_direction='CR' THEN le.amount ELSE 0 END), 0) AS credits"
+                            + " FROM ledger_entries le JOIN ledger_transactions lt ON lt.id ="
+                            + " le.ledger_transaction_id WHERE DATE(lt.created_at) <= :run_date AND"
+                            + " le.currency=:currency",
                         p);
         BigDecimal debits = decimal(row.get("debits"));
         BigDecimal credits = decimal(row.get("credits"));
@@ -124,11 +126,11 @@ public class DoubleEntryLedgerService {
         write.addValue("balanced", result.isBalanced() ? "YES" : "NO");
         write.addValue("message", result.isBalanced() ? "balanced" : "debits and credits differ");
         jdbcTemplate.update(
-                "INSERT INTO ledger_trial_balance_runs "
-                        + "(run_date, currency, total_debits, total_credits, balanced_flag, message) "
-                        + "VALUES (:run_date, :currency, :debits, :credits, :balanced, :message) "
-                        + "ON DUPLICATE KEY UPDATE total_debits=:debits, total_credits=:credits, "
-                        + "balanced_flag=:balanced, message=:message, created_at=CURRENT_TIMESTAMP",
+                "INSERT INTO ledger_trial_balance_runs (run_date, currency, total_debits,"
+                        + " total_credits, balanced_flag, message) VALUES (:run_date, :currency,"
+                        + " :debits, :credits, :balanced, :message) ON DUPLICATE KEY UPDATE"
+                        + " total_debits=:debits, total_credits=:credits, balanced_flag=:balanced,"
+                        + " message=:message, created_at=CURRENT_TIMESTAMP",
                 write);
         return result;
     }
@@ -196,8 +198,7 @@ public class DoubleEntryLedgerService {
 
         Map<String, NormalizedReservation> unique = new LinkedHashMap<>();
         for (ReservationCommand command : commands) {
-            NormalizedReservation reservation =
-                    normalizeReservation(merchantId, currency, command);
+            NormalizedReservation reservation = normalizeReservation(merchantId, currency, command);
             if (unique.putIfAbsent(reservation.reservationReference(), reservation) != null) {
                 throw new PaymentGatewayException(
                         "Ledger batch reservation contains a duplicate reference");
@@ -244,13 +245,16 @@ public class DoubleEntryLedgerService {
         p.addValue("currency", normalizedCurrency);
         Map<String, Object> row =
                 jdbcTemplate.queryForMap(
-                        "SELECT "
-                                + "COALESCE(SUM(CASE WHEN la.account_type='MERCHANT_LIABILITY' AND le.entry_direction='CR' THEN le.amount "
-                                + "WHEN la.account_type='MERCHANT_LIABILITY' AND le.entry_direction='DR' THEN -le.amount ELSE 0 END), 0) AS posted_balance, "
-                                + "COALESCE((SELECT SUM(amount) FROM ledger_reservations lr "
-                                + "WHERE lr.merchant_id=:merchant_id AND lr.currency=:currency AND lr.reservation_status='RESERVED'), 0) AS active_reservations "
-                                + "FROM ledger_entries le JOIN ledger_accounts la ON la.id = le.account_id "
-                                + "WHERE la.owner_type='MERCHANT' AND la.owner_id=:merchant_id AND le.currency=:currency",
+                        "SELECT COALESCE(SUM(CASE WHEN la.account_type='MERCHANT_LIABILITY' AND"
+                            + " le.entry_direction='CR' THEN le.amount WHEN"
+                            + " la.account_type='MERCHANT_LIABILITY' AND le.entry_direction='DR'"
+                            + " THEN -le.amount ELSE 0 END), 0) AS posted_balance, COALESCE((SELECT"
+                            + " SUM(amount) FROM ledger_reservations lr WHERE"
+                            + " lr.merchant_id=:merchant_id AND lr.currency=:currency AND"
+                            + " lr.reservation_status='RESERVED'), 0) AS active_reservations FROM"
+                            + " ledger_entries le JOIN ledger_accounts la ON la.id = le.account_id"
+                            + " WHERE la.owner_type='MERCHANT' AND la.owner_id=:merchant_id AND"
+                            + " le.currency=:currency",
                         p);
         return decimal(row.get("posted_balance")).subtract(decimal(row.get("active_reservations")));
     }
@@ -273,8 +277,9 @@ public class DoubleEntryLedgerService {
         p.addValue("reservation_reference", reservationReference);
         p.addValue("status", status);
         return jdbcTemplate.update(
-                "UPDATE ledger_reservations SET reservation_status=:status "
-                        + "WHERE reservation_reference=:reservation_reference AND reservation_status='RESERVED'",
+                "UPDATE ledger_reservations SET reservation_status=:status WHERE"
+                        + " reservation_reference=:reservation_reference AND"
+                        + " reservation_status='RESERVED'",
                 p);
     }
 
@@ -326,13 +331,13 @@ public class DoubleEntryLedgerService {
         p.addValue("currency", reservation.currency());
         try {
             jdbcTemplate.update(
-                    "INSERT INTO ledger_reservations "
-                            + "(reservation_reference, merchant_id, source_reference, amount, currency, reservation_status) "
-                            + "VALUES (:reservation_reference, :merchant_id, :source_reference, :amount, :currency, 'RESERVED')",
+                    "INSERT INTO ledger_reservations (reservation_reference, merchant_id,"
+                            + " source_reference, amount, currency, reservation_status) VALUES"
+                            + " (:reservation_reference, :merchant_id, :source_reference, :amount,"
+                            + " :currency, 'RESERVED')",
                     p);
         } catch (DuplicateKeyException ignored) {
-            ExistingReservation existing =
-                    findReservation(reservation.reservationReference());
+            ExistingReservation existing = findReservation(reservation.reservationReference());
             if (existing != null
                     && existing.matches(
                             reservation.merchantId(),
@@ -393,10 +398,9 @@ public class DoubleEntryLedgerService {
         for (String currency : currencies) {
             List<String> lockedBy =
                     jdbcTemplate.query(
-                            "SELECT locked_by FROM ledger_period_locks "
-                                    + "WHERE currency = :currency AND released_at IS NULL "
-                                    + "AND period_start <= CURRENT_DATE AND period_end >= CURRENT_DATE "
-                                    + "LIMIT 1",
+                            "SELECT locked_by FROM ledger_period_locks WHERE currency = :currency"
+                                + " AND released_at IS NULL AND period_start <= CURRENT_DATE AND"
+                                + " period_end >= CURRENT_DATE LIMIT 1",
                             new MapSqlParameterSource("currency", currency),
                             (rs, rowNum) -> rs.getString("locked_by"));
             if (!lockedBy.isEmpty()) {
@@ -413,11 +417,10 @@ public class DoubleEntryLedgerService {
     private List<LedgerEntryCommand> mirrorEntries(long originalTxId, String memo) {
         MapSqlParameterSource p = new MapSqlParameterSource("ledger_transaction_id", originalTxId);
         return jdbcTemplate.query(
-                "SELECT la.account_code, la.account_name, la.account_type, la.owner_type, la.owner_id, "
-                        + "le.entry_direction, le.amount, le.currency "
-                        + "FROM ledger_entries le "
-                        + "JOIN ledger_accounts la ON la.id = le.account_id "
-                        + "WHERE le.ledger_transaction_id = :ledger_transaction_id",
+                "SELECT la.account_code, la.account_name, la.account_type, la.owner_type,"
+                    + " la.owner_id, le.entry_direction, le.amount, le.currency FROM ledger_entries"
+                    + " le JOIN ledger_accounts la ON la.id = le.account_id WHERE"
+                    + " le.ledger_transaction_id = :ledger_transaction_id",
                 p,
                 (rs, rowNum) -> {
                     String flipped =
@@ -439,8 +442,9 @@ public class DoubleEntryLedgerService {
     private ExistingReservation findReservation(String reservationReference) {
         List<Map<String, Object>> reservations =
                 jdbcTemplate.queryForList(
-                        "SELECT merchant_id, source_reference, amount, currency, reservation_status "
-                                + "FROM ledger_reservations WHERE reservation_reference=:reservation_reference",
+                        "SELECT merchant_id, source_reference, amount, currency, reservation_status"
+                                + " FROM ledger_reservations WHERE"
+                                + " reservation_reference=:reservation_reference",
                         new MapSqlParameterSource("reservation_reference", reservationReference));
         if (reservations.isEmpty()) {
             return null;
@@ -504,10 +508,10 @@ public class DoubleEntryLedgerService {
         p.addValue("owner_scope_id", entry.ownerId() == null ? 0L : entry.ownerId());
         p.addValue("currency", entry.currency().trim().toUpperCase());
         jdbcTemplate.update(
-                "INSERT INTO ledger_accounts "
-                        + "(account_code, account_name, account_type, owner_type, owner_id, owner_scope_id, currency) "
-                        + "VALUES (:account_code, :account_name, :account_type, :owner_type, :owner_id, :owner_scope_id, :currency) "
-                        + "ON DUPLICATE KEY UPDATE account_name=:account_name, account_status='ACTIVE'",
+                "INSERT INTO ledger_accounts (account_code, account_name, account_type, owner_type,"
+                    + " owner_id, owner_scope_id, currency) VALUES (:account_code, :account_name,"
+                    + " :account_type, :owner_type, :owner_id, :owner_scope_id, :currency) ON"
+                    + " DUPLICATE KEY UPDATE account_name=:account_name, account_status='ACTIVE'",
                 p);
         Long id =
                 jdbcTemplate.queryForObject(
@@ -529,9 +533,9 @@ public class DoubleEntryLedgerService {
         p.addValue("currency", entry.currency().trim().toUpperCase());
         p.addValue("memo", entry.memo());
         jdbcTemplate.update(
-                "INSERT INTO ledger_entries "
-                        + "(ledger_transaction_id, account_id, entry_direction, amount, currency, entry_memo) "
-                        + "VALUES (:ledger_transaction_id, :account_id, :direction, :amount, :currency, :memo)",
+                "INSERT INTO ledger_entries (ledger_transaction_id, account_id, entry_direction,"
+                    + " amount, currency, entry_memo) VALUES (:ledger_transaction_id, :account_id,"
+                    + " :direction, :amount, :currency, :memo)",
                 p);
     }
 

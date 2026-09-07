@@ -153,10 +153,10 @@
       "target": "0 unresolved material variances at approved close",
       "measurementSource": "reconciliation/settlement close records",
       "reviewCadence": "DAILY",
-      "nextReviewAt": "2026-09-06",
-      "lastReviewedAt": "2026-09-05",
+      "nextReviewAt": "2026-09-08",
+      "lastReviewedAt": "2026-09-07",
       "reviewOutcome": "EVIDENCE_PENDING",
-      "reviewEvidence": "ops/iso/evidence/finance-objective-review-2026-09-05.md"
+      "reviewEvidence": "ops/iso/evidence/finance-objective-review-2026-09-07.md"
     },
     {
       "id": "OBJ-IR-01",
