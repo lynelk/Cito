@@ -13,8 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Ensures password recovery always has safe, non-secret message templates.
  *
  * <p>Legacy deployments may have the settings table but no password-reset template rows. The
- * authentication controller expects these rows to exist, so a missing row previously caused a
- * 500 response after a valid reset token had already been issued. This bootstrap is idempotent and
+ * authentication controller expects these rows to exist, so a missing row previously caused a 500
+ * response after a valid reset token had already been issued. This bootstrap is idempotent and
  * never overwrites an operator-customized template.
  */
 @Component
