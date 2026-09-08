@@ -8,7 +8,7 @@ const dockerfile = fs.readFileSync(path.join(clientRoot, 'Dockerfile'), 'utf8');
 const startScript = fs.readFileSync(path.join(clientRoot, 'start.sh'), 'utf8');
 const nginxTemplate = fs.readFileSync(path.join(clientRoot, 'default.conf.template'), 'utf8');
 
-// Keep the repository default aligned with the canonical Railway service name.
+// Keep repository defaults aligned with the canonical Cito Backend private endpoint.
 const canonicalBackend = 'cito-backend.railway.internal:8080';
 const obsoleteBackend = 'cpay.railway.internal:8080';
 
