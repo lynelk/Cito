@@ -4,15 +4,14 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const routers = fs.readFileSync(path.join(__dirname, 'Routers.tsx'), 'utf8');
-const layout = fs.readFileSync(path.join(__dirname, 'components/Layout.jsx'), 'utf8');
 const mainMenu = fs.readFileSync(path.join(__dirname, 'components/MainMenu.jsx'), 'utf8');
 const insights = fs.readFileSync(path.join(__dirname, 'components/modules/ModuleInsights.jsx'), 'utf8');
 
 describe('admin insights-first experience', () => {
-  test('routes legacy admin dashboard entry points to the canonical Insights path', () => {
-    expect(routers).toContain('to="/bo/admin/insights"');
-    expect(layout).toContain("insights: '/bo/admin/insights'");
-    expect(layout).toContain("history.replace('/bo/admin/insights')");
+  test('keeps canonical and legacy admin Insights entry points usable', () => {
+    expect(routers).toContain('path="/bo/*" element={protectAdmin(<Layout />)}');
+    expect(routers).toContain('path="/bo/admin/*" element={protectAdmin(<Layout />)}');
+    expect(routers).toContain('path="/dashboard/*" element={<Navigate to="/bo/insights" replace />}');
   });
 
   test('makes Insights the first admin navigation destination', () => {

@@ -1,0 +1,337 @@
+/*
+ * Cito product theme
+ * Brand baseline: 1.2 (8 September 2026)
+ * Source: approved Cito logo/toolkit supplied for the product rollout.
+ *
+ * The reference dashboard supplied with the rollout informs density, hierarchy
+ * and card treatment only. No decorative/header imagery is introduced.
+ */
+:root,
+:root[data-brand-mode='cito'] {
+  --cito-primary: #0066FF;
+  --cito-deep-blue: #0047B3;
+  --cito-sky: #2EA3FF;
+  --cito-ice: #E6F2FF;
+  --cito-navy: #0B2545;
+  --cito-slate: #94A3B8;
+  --cito-page: #F8FAFC;
+  --cito-divider: #D9E4F2;
+
+  --cpay-brand-teal: var(--cito-primary);
+  --cpay-brand-gold: var(--cito-sky);
+  --cpay-brand-navy: var(--cito-navy);
+  --cpay-brand-slate: #64748B;
+  --cpay-brand-soft-gray: var(--cito-page);
+  --cpay-brand-white: #FFFFFF;
+  --cpay-heading-font: "Space Grotesk", Inter, system-ui, "Segoe UI", Arial, sans-serif;
+  --cpay-body-font: Inter, system-ui, "Segoe UI", Arial, sans-serif;
+  --ios-font: Inter, system-ui, "Segoe UI", Arial, sans-serif;
+  --ios-font-display: "Space Grotesk", Inter, system-ui, "Segoe UI", Arial, sans-serif;
+
+  --cpay-fuse-bg: var(--cito-page);
+  --cpay-fuse-sidebar: #FFFFFF;
+  --cpay-fuse-surface: #FFFFFF;
+  --cpay-fuse-surface-soft: #F7FAFF;
+  --cpay-fuse-line: var(--cito-divider);
+  --cpay-fuse-line-strong: #B8C9DD;
+  --cpay-fuse-text: var(--cito-navy);
+  --cpay-fuse-muted: #64748B;
+  --cpay-fuse-blue: var(--cito-primary);
+  --cpay-fuse-blue-dark: var(--cito-deep-blue);
+  --cpay-fuse-dark: var(--cito-navy);
+
+  --ios-accent: var(--cito-primary);
+  --ios-accent-press: var(--cito-deep-blue);
+  --ios-canvas-top: #F7FAFF;
+  --ios-canvas-bottom: #EDF5FF;
+  --ios-surface: rgba(255, 255, 255, 0.84);
+  --ios-surface-solid: #FFFFFF;
+  --ios-elevated: #F7FAFF;
+  --ios-text: var(--cito-navy);
+  --ios-text-secondary: rgba(71, 85, 105, 0.92);
+  --ios-text-tertiary: rgba(100, 116, 139, 0.72);
+  --ios-separator: rgba(148, 163, 184, 0.24);
+  --ios-field-border: rgba(100, 116, 139, 0.38);
+}
+
+html[data-brand-mode='mono'] {
+  --cito-primary: #111827;
+  --cito-deep-blue: #000000;
+  --cito-sky: #4B5563;
+  --cito-ice: #F3F4F6;
+  --cito-navy: #111827;
+  --cito-slate: #6B7280;
+  --cito-page: #F7F7F7;
+  --cito-divider: #D1D5DB;
+
+  --cpay-brand-teal: #111827;
+  --cpay-brand-gold: #4B5563;
+  --cpay-brand-navy: #111827;
+  --cpay-brand-slate: #6B7280;
+  --cpay-brand-soft-gray: #F7F7F7;
+  --cpay-fuse-bg: #F7F7F7;
+  --cpay-fuse-sidebar: #FFFFFF;
+  --cpay-fuse-surface: #FFFFFF;
+  --cpay-fuse-surface-soft: #FAFAFA;
+  --cpay-fuse-line: #D1D5DB;
+  --cpay-fuse-line-strong: #9CA3AF;
+  --cpay-fuse-text: #111827;
+  --cpay-fuse-muted: #4B5563;
+  --cpay-fuse-blue: #111827;
+  --cpay-fuse-blue-dark: #000000;
+  --cpay-fuse-dark: #000000;
+
+  --ios-accent: #111827;
+  --ios-accent-press: #000000;
+  --ios-canvas-top: #FAFAFA;
+  --ios-canvas-bottom: #EEEEEE;
+  --ios-surface: rgba(255, 255, 255, 0.88);
+  --ios-surface-solid: #FFFFFF;
+  --ios-elevated: #F5F5F5;
+  --ios-text: #111827;
+  --ios-text-secondary: rgba(55, 65, 81, 0.9);
+  --ios-text-tertiary: rgba(75, 85, 99, 0.68);
+  --ios-separator: rgba(75, 85, 99, 0.22);
+  --ios-field-border: rgba(75, 85, 99, 0.42);
+}
+
+/* Brand mode and appearance are independent. These surface overrides preserve
+ * the existing light/dark/system control while keeping the selected Cito or
+ * monochrome accent family. */
+:root[data-theme='dark'] {
+  --cpay-fuse-bg: #0B0F14;
+  --cpay-fuse-sidebar: #15181D;
+  --cpay-fuse-surface: #1C1C1E;
+  --cpay-fuse-surface-soft: #24262B;
+  --cpay-fuse-line: #343841;
+  --cpay-fuse-line-strong: #59616D;
+  --cpay-fuse-text: #F8FAFC;
+  --cpay-fuse-muted: #B7C0CC;
+  --ios-canvas-top: #101418;
+  --ios-canvas-bottom: #000000;
+  --ios-surface: rgba(28, 28, 30, 0.82);
+  --ios-surface-solid: #1C1C1E;
+  --ios-elevated: #2C2C2E;
+  --ios-text: #F8FAFC;
+  --ios-text-secondary: rgba(235, 235, 245, 0.72);
+  --ios-text-tertiary: rgba(235, 235, 245, 0.48);
+  --ios-separator: rgba(235, 235, 245, 0.18);
+  --ios-field-bg: rgba(44, 44, 46, 0.92);
+  --ios-field-border: rgba(235, 235, 245, 0.24);
+  --ios-app-bg: #0B0F14;
+  --ios-sidebar-bg: #15181D;
+  --ios-topbar-bg: rgba(28, 28, 30, 0.92);
+  --ios-card-bg: #1C1C1E;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --cpay-fuse-bg: #0B0F14;
+    --cpay-fuse-sidebar: #15181D;
+    --cpay-fuse-surface: #1C1C1E;
+    --cpay-fuse-surface-soft: #24262B;
+    --cpay-fuse-line: #343841;
+    --cpay-fuse-line-strong: #59616D;
+    --cpay-fuse-text: #F8FAFC;
+    --cpay-fuse-muted: #B7C0CC;
+    --ios-canvas-top: #101418;
+    --ios-canvas-bottom: #000000;
+    --ios-surface: rgba(28, 28, 30, 0.82);
+    --ios-surface-solid: #1C1C1E;
+    --ios-elevated: #2C2C2E;
+    --ios-text: #F8FAFC;
+    --ios-text-secondary: rgba(235, 235, 245, 0.72);
+    --ios-text-tertiary: rgba(235, 235, 245, 0.48);
+    --ios-separator: rgba(235, 235, 245, 0.18);
+    --ios-field-bg: rgba(44, 44, 46, 0.92);
+    --ios-field-border: rgba(235, 235, 245, 0.24);
+    --ios-app-bg: #0B0F14;
+    --ios-sidebar-bg: #15181D;
+    --ios-topbar-bg: rgba(28, 28, 30, 0.92);
+    --ios-card-bg: #1C1C1E;
+  }
+}
+
+body {
+  background: var(--cpay-fuse-bg);
+  color: var(--cpay-fuse-text);
+  font-family: var(--cpay-body-font);
+}
+
+h1, h2, h3, h4, h5, h6,
+.cpay-topbar-heading h1,
+.cito-workspace-hero h2,
+.cito-section-heading h2 {
+  font-family: var(--cpay-heading-font);
+  letter-spacing: -0.015em;
+}
+
+.ios-sidebar {
+  background: var(--ios-sidebar-bg, #FFFFFF);
+  border-right: 1px solid var(--cpay-fuse-line);
+  box-shadow: 8px 0 28px rgba(15, 37, 69, 0.035);
+}
+
+.ios-topbar {
+  background: var(--ios-topbar-bg, rgba(255, 255, 255, 0.96));
+  border-bottom: 1px solid var(--cpay-fuse-line);
+  box-shadow: 0 1px 0 rgba(15, 37, 69, 0.04);
+}
+
+.ios-page {
+  background: var(--ios-app-bg, var(--cpay-fuse-bg));
+}
+
+.ios-brand__logo {
+  width: 46px;
+  height: 40px;
+  object-fit: contain;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+}
+
+.ios-brand__logo,
+.ios-auth__header img,
+.ios-auth__aside:not(.ios-auth__aside--media) img {
+  content: url('../media/images/cito-mark.svg');
+}
+
+html[data-brand-mode='mono'] .ios-brand__logo,
+html[data-brand-mode='mono'] .ios-auth__header img,
+html[data-brand-mode='mono'] .ios-auth__aside:not(.ios-auth__aside--media) img {
+  content: url('../media/images/cito-mark-mono.svg');
+}
+
+.ios-brand__name {
+  color: var(--ios-text);
+  font-family: var(--cpay-heading-font);
+  font-weight: 700;
+}
+
+.ios-nav-item--active,
+.cpay-nav-item-active {
+  background: var(--cito-primary);
+  color: #FFFFFF;
+  box-shadow: 0 8px 18px rgba(0, 102, 255, 0.18);
+}
+
+html[data-brand-mode='mono'] .ios-nav-item--active,
+html[data-brand-mode='mono'] .cpay-nav-item-active {
+  box-shadow: none;
+}
+
+.ios-btn--primary,
+.cpay-primary-button,
+.cito-button-primary {
+  background: var(--cito-primary) !important;
+  border-color: var(--cito-primary) !important;
+  color: #FFFFFF !important;
+}
+
+.ios-btn--primary:hover:not(:disabled),
+.cpay-primary-button:hover,
+.cito-button-primary:hover {
+  background: var(--cito-deep-blue) !important;
+  border-color: var(--cito-deep-blue) !important;
+}
+
+.ios-auth-merchant .ios-btn--primary {
+  background: var(--cito-primary);
+  box-shadow: 0 10px 20px rgba(0, 102, 255, 0.18);
+}
+
+.ios-auth-merchant .ios-btn--primary:hover:not(:disabled) {
+  background: var(--cito-deep-blue);
+}
+
+.ios-auth-merchant .ios-btn--link {
+  color: var(--cito-primary);
+}
+
+.cpay-dashboard-card,
+.cito-service-card,
+.cito-compliance-panel,
+.cito-product-card,
+.cito-feature-card {
+  background: var(--ios-card-bg, #FFFFFF);
+  border-color: var(--cpay-fuse-line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 37, 69, 0.055);
+}
+
+html[data-brand-mode='mono'] .cpay-dashboard-card,
+html[data-brand-mode='mono'] .cito-service-card,
+html[data-brand-mode='mono'] .cito-compliance-panel,
+html[data-brand-mode='mono'] .cito-product-card,
+html[data-brand-mode='mono'] .cito-feature-card {
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.045);
+}
+
+.cito-workspace-hero {
+  background: linear-gradient(135deg, var(--ios-card-bg, #FFFFFF) 0%, var(--ios-elevated, #F3F8FF) 100%);
+  border: 1px solid var(--cpay-fuse-line);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+html[data-brand-mode='mono'] .cito-workspace-hero {
+  background: var(--ios-card-bg, #FFFFFF);
+}
+
+.cpay-dashboard-section-header > div > span,
+.cito-workspace-hero__eyebrow,
+.cito-eyebrow {
+  color: var(--cito-primary);
+}
+
+.cito-theme-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cito-brand-mode-toggle {
+  width: auto;
+  min-width: 58px;
+  padding: 0 10px;
+  color: var(--cito-primary);
+  font-family: var(--cpay-body-font);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cito-brand-mode-toggle span {
+  line-height: 1;
+}
+
+.cito-brand-mark {
+  width: 44px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 0;
+  background: center / contain no-repeat url('../media/images/cito-mark.svg');
+  color: transparent !important;
+  font-size: 0 !important;
+}
+
+html[data-brand-mode='mono'] .cito-brand-mark {
+  background-image: url('../media/images/cito-mark-mono.svg');
+}
+
+@media (max-width: 760px) {
+  .cito-brand-mode-toggle {
+    min-width: 44px;
+    padding: 0 8px;
+  }
+  .cito-brand-mode-toggle span {
+    font-size: 0;
+  }
+  .cito-brand-mode-toggle span::after {
+    content: 'M';
+    font-size: 12px;
+  }
+  html[data-brand-mode='cito'] .cito-brand-mode-toggle span::after {
+    content: 'C';
+  }
+}
