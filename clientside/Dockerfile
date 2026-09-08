@@ -1,6 +1,6 @@
 # Production frontend image for Railway.
 # Vite builds the Cito SPA into /app/build; nginx serves it and proxies
-# same-origin API requests to the CPay backend over Railway private networking.
+# same-origin API requests to the canonical Cito backend over Railway private networking.
 FROM node:20.19.0-alpine AS build
 WORKDIR /app
 
@@ -24,7 +24,7 @@ COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
 ENV PORT=8080
-ENV BACKEND_UPSTREAM=cpay.railway.internal:8080
+ENV BACKEND_UPSTREAM=cito-backend.railway.internal:8080
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
