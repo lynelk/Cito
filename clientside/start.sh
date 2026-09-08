@@ -2,7 +2,7 @@
 set -eu
 
 : "${PORT:=8080}"
-: "${BACKEND_UPSTREAM:=cpay.railway.internal:8080}"
+: "${BACKEND_UPSTREAM:=cito-backend.railway.internal:8080}"
 
 # nginx resolves ordinary proxy_pass hostnames only when its configuration is
 # loaded. Railway rotates private instance addresses during rolling deploys, so
