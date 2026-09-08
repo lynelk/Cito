@@ -4,7 +4,6 @@ import AdminSessionGate from './components/AdminSessionGate';
 
 // Public and authenticated surfaces are code-split so each entry point stays focused and light.
 const CitoLandingPage = lazy(() => import('./components/CitoLandingPage'));
-const CitoAccessGateway = lazy(() => import('./components/CitoAccessGateway'));
 const CitoSignupGateway = lazy(() => import('./components/CitoSignupGateway'));
 const VerifyEmail = lazy(() => import('./components/VerifyEmail'));
 const PlatformLogin = lazy(() => import('./components/Login'));
@@ -44,32 +43,39 @@ function Routers(): React.ReactElement {
           <Route path="/signup" element={<CitoSignupGateway />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
 
-          {/* Canonical single-domain back-office surfaces. */}
-          <Route path="/bo" element={<CitoAccessGateway />} />
-          <Route path="/bo/admin" element={<PlatformLogin />} />
-          <Route path="/bo/admin/operations" element={protectAdmin(<OperationsConsole />)} />
-          <Route path="/bo/admin/provider-treasury" element={protectAdmin(<ProviderTreasuryConsole />)} />
-          <Route path="/bo/admin/production-maturity" element={protectAdmin(<ProductionMaturityDashboard />)} />
-          <Route path="/bo/admin/*" element={protectAdmin(<Layout />)} />
+          {/* Canonical portal roots: BO = platform administration, FO = merchant/partner operations. */}
+          <Route path="/bo" element={<PlatformLogin />} />
+          <Route path="/bo/operations" element={protectAdmin(<OperationsConsole />)} />
+          <Route path="/bo/provider-treasury" element={protectAdmin(<ProviderTreasuryConsole />)} />
+          <Route path="/bo/production-maturity" element={protectAdmin(<ProductionMaturityDashboard />)} />
+          <Route path="/bo/*" element={protectAdmin(<Layout />)} />
 
-          <Route path="/bo/partner" element={<PartnerLogin />} />
-          <Route path="/bo/partner/*" element={<LayoutMerchant />} />
+          <Route path="/fo" element={<PartnerLogin />} />
+          <Route path="/fo/*" element={<LayoutMerchant />} />
 
-          {/* Backward-compatible aliases. Admin aliases now converge on Insights. */}
+          {/* Backward-compatible aliases. Old portal URLs redirect to the canonical roots. */}
+          <Route path="/bo/admin" element={<Navigate to="/bo" replace />} />
+          <Route path="/bo/admin/operations" element={<Navigate to="/bo/operations" replace />} />
+          <Route path="/bo/admin/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
+          <Route path="/bo/admin/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
+          <Route path="/bo/admin/*" element={<Navigate to="/bo/insights" replace />} />
+          <Route path="/bo/partner" element={<Navigate to="/fo" replace />} />
+          <Route path="/bo/partner/*" element={<Navigate to="/fo/dashboard" replace />} />
+
           <Route path="/login" element={<Navigate to="/bo" replace />} />
-          <Route path="/portal" element={<Navigate to="/bo/admin" replace />} />
-          <Route path="/admin" element={<Navigate to="/bo/admin" replace />} />
-          <Route path="/admin/operations" element={<Navigate to="/bo/admin/operations" replace />} />
-          <Route path="/admin/provider-treasury" element={<Navigate to="/bo/admin/provider-treasury" replace />} />
-          <Route path="/admin/production-maturity" element={<Navigate to="/bo/admin/production-maturity" replace />} />
-          <Route path="/admin/*" element={<Navigate to="/bo/admin/insights" replace />} />
-          <Route path="/partner" element={<Navigate to="/bo/partner" replace />} />
-          <Route path="/partner/*" element={<Navigate to="/bo/partner/dashboard" replace />} />
-          <Route path="/dashboard/*" element={<Navigate to="/bo/admin/insights" replace />} />
-          <Route path="/dashboardMerchant/*" element={<Navigate to="/bo/partner/dashboard" replace />} />
-          <Route path="/operations" element={<Navigate to="/bo/admin/operations" replace />} />
-          <Route path="/provider-treasury" element={<Navigate to="/bo/admin/provider-treasury" replace />} />
-          <Route path="/production-maturity" element={<Navigate to="/bo/admin/production-maturity" replace />} />
+          <Route path="/portal" element={<Navigate to="/bo" replace />} />
+          <Route path="/admin" element={<Navigate to="/bo" replace />} />
+          <Route path="/admin/operations" element={<Navigate to="/bo/operations" replace />} />
+          <Route path="/admin/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
+          <Route path="/admin/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
+          <Route path="/admin/*" element={<Navigate to="/bo/insights" replace />} />
+          <Route path="/partner" element={<Navigate to="/fo" replace />} />
+          <Route path="/partner/*" element={<Navigate to="/fo/dashboard" replace />} />
+          <Route path="/dashboard/*" element={<Navigate to="/bo/insights" replace />} />
+          <Route path="/dashboardMerchant/*" element={<Navigate to="/fo/dashboard" replace />} />
+          <Route path="/operations" element={<Navigate to="/bo/operations" replace />} />
+          <Route path="/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
+          <Route path="/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
