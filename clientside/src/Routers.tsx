@@ -53,12 +53,13 @@ function Routers(): React.ReactElement {
           <Route path="/fo" element={<PartnerLogin />} />
           <Route path="/fo/*" element={<LayoutMerchant />} />
 
-          {/* Backward-compatible aliases. Old portal URLs redirect to the canonical roots. */}
+          {/* Backward-compatible aliases. Keep the legacy BO workspace mounted while its
+              internal menu routes are migrated incrementally to the canonical /bo/* paths. */}
           <Route path="/bo/admin" element={<Navigate to="/bo" replace />} />
           <Route path="/bo/admin/operations" element={<Navigate to="/bo/operations" replace />} />
           <Route path="/bo/admin/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
           <Route path="/bo/admin/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
-          <Route path="/bo/admin/*" element={<Navigate to="/bo/insights" replace />} />
+          <Route path="/bo/admin/*" element={protectAdmin(<Layout />)} />
           <Route path="/bo/partner" element={<Navigate to="/fo" replace />} />
           <Route path="/bo/partner/*" element={<Navigate to="/fo/dashboard" replace />} />
 

@@ -1,31 +1,31 @@
 # Current Cito brand standard
 
-Read `LATEST.json` before each task. It identifies the current standard and token release. Root `AGENTS.md` makes this part of contributor/agent instructions. The complete Cito Brand Toolkit v1.1 contains the editable documents, original artwork, digital examples, messaging and quality report; obtain the controlled distribution from the brand owner rather than copying an obsolete attachment.
+Read `LATEST.json` before every design, writing or development task. It identifies the current standard and token release. Root `AGENTS.md` makes this part of contributor and agent instructions.
 
-## Release 1.1
-The user instructed application of the guidelines across the kit and use of the latest baseline in future development on 6 September 2026. This adopts the brand foundation for implementation, not a legal signature, provider certification or production approval. This folder is the engineering mirror, not the entire binary toolkit. No live application code or infrastructure is changed by this brand-governance commit.
+## Release 1.2
+Effective 8 September 2026, release 1.2 supersedes the 1.1 implementation baseline for product-facing brand work. It adopts the supplied circuit-C colour mark and monochrome mark, the new Cito blue palette, Space Grotesk-style display stack with Inter/system fallbacks, the approved favicon/app icon treatment, and separate **Cito** and **Monochrome** product modes. Light/dark/system appearance remains an independent setting.
+
+The reference dashboard supplied with this rollout may inform compact navigation, information hierarchy, card density and analytical composition. Its decorative header image is explicitly excluded.
 
 ## Required PR evidence
-Add the following to every PR description. A non-customer-facing change still records a reason rather than silently skipping the assessment.
+Every brand-facing PR records:
 
-Brand version: 1.1
+Brand version: 1.2
 
 Brand impact: [changed touchpoints, or not applicable with a reason]
 
-Evidence: [tokens/assets; claims and status mapping; functional and responsive/state tests; keyboard/focus/200% text and relevant assistive technology; screenshots or reason not applicable]
+Evidence: [controlled assets/tokens, functional tests, responsive/state checks, accessibility evidence and runtime verification]
 
-Approvals/exceptions: [reviewer or exception reference, expiry and mitigation; no invented approval]
+Release scope: [exact surfaces changed and remaining external/provider dependencies]
 
-Release scope: [exact surfaces changed and remaining production/specialist verification]
+Run `python3 Docs/Brand/check_brand.py`. The automated check validates the engineering brand mirror and selected token/contrast rules; it does not replace visual, accessibility, legal or runtime review.
 
-Run `python3 Docs/Brand/check_brand.py`. The workflow checks version consistency, approved token roles, selected contrast pairs and an explicit PR brand assessment. It cannot certify the UI, legal claims, full accessibility or all future behaviour. Making this check required in branch protection is a separate administrator decision; this commit does not change repository rulesets.
+## Controlled product assets
+- `clientside/src/media/images/cito-mark.svg` — colour circuit-C mark
+- `clientside/src/media/images/cito-mark-mono.svg` — monochrome mark
+- `clientside/public/favicon.svg` — rounded-square browser/PWA favicon derived from the supplied mark
+
+Keep proportions intact. Do not skew, rotate or recreate the supplied mark. Semantic transaction, risk and system states retain text labels and may retain their semantic colours in monochrome mode.
 
 ## Synchronisation
-The JSON tokens mirror `03_Digital/cito.tokens.json` in the distributed kit. Keep their parsed content identical. Update the current pointer, standard, tokens, generated assets, document metadata, messaging and change log together in a reviewed release. Archive superseded versions. The package's build and verification scripts remain with the complete toolkit.
-
-## Preserved artwork
-Landscape-Logos-Cito.png SHA-256: fa3d73c73f7b41e974fb9336416d6a7a00e87bc46da2d51ec7d96bc4724ba853
-
-CT - AW _ Logo 512x512.jpg SHA-256: a5d0ad6a6c73ff8b0ba2695408760685276108f6d83a2500f7d6b620ce52ef28
-
-Use the supplied originals and documented clear-space crop. Do not trace, recolour or invent an app icon. New logo variants, official contacts, current service/CPay limits, claims evidence and production rollout require their own verification and approval.
+Update `LATEST.json`, the standard, toolkit, token metadata, generated product assets, tests and change log together. Keep superseded standards for history, but do not use them as the current implementation source.

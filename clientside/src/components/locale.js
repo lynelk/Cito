@@ -34,7 +34,7 @@ const strings = new LocalizedStrings({
         details: "Details",
         add_payin: "Make Pay In",
         resolve: "Resolve",
-        portal_title: "CPay: Admin Portal",
+        portal_title: "Cito: Admin Portal",
         merchant_title: "Cito",
         upload_excel_file: "Import Beneficiaries",
         upload_phones_file: "Import Phones",
@@ -43,9 +43,6 @@ const strings = new LocalizedStrings({
         send_sms: "Send SMS",
         buy_sms: "Buy SMS",
         buy_now: "Buy SMS Now",
-
-        // Pre-login / auth screens: Login.tsx, LoginMerchant.tsx, MerchantSignup.tsx,
-        // LoginForgotPassword.jsx, LoginForgotPasswordMerchant.jsx
         username_label: "Username",
         password_label: "Password",
         email_label: "Email",
@@ -113,8 +110,6 @@ const strings = new LocalizedStrings({
         verify_email_success_instructions: "Your email address has been confirmed. You can now log in to Cito.",
         signup_verify_instructions: "We sent a verification code to your inbox. Confirm your email before logging in to Cito.",
         verify_email_link: "Verify email",
-
-        // Authenticated shell chrome: Layout.jsx, LayoutMerchant.jsx (menuTitles + top bar)
         settings: "Settings",
         refresh: "Refresh",
         session_expired_title: "Session Expired!",
@@ -136,20 +131,20 @@ const strings = new LocalizedStrings({
         menu_dashboard_subtitle_admin: "Track balances, transactions, and operational health.",
         menu_merchants_subtitle: "Manage merchant profiles, accounts, and access.",
         menu_transactions_subtitle_admin: "Review payments, callbacks, ledger movement, and exports.",
-        menu_reconciliation_subtitle: "Match provider statement rows to CPay transactions.",
+        menu_reconciliation_subtitle: "Match provider statement rows to Cito Payments transactions.",
         menu_admins_subtitle_admin: "Manage portal users and permissions.",
         menu_audittrail_subtitle_admin: "Review administrator activity and system events.",
-        menu_settings_subtitle_admin: "Configure payment gateways, SMS, email, and application controls.",
+        menu_settings_subtitle_admin: "Configure payment gateways, communications, email, and application controls.",
         menu_dashboard_subtitle_merchant: "Track balances, activity, and service status.",
         menu_channels_subtitle: "Manage MTN, Airtel, and payment channel access.",
         menu_statement_subtitle: "Review merchant account movement and balances.",
         menu_payments_subtitle: "Create and monitor payment activity.",
         menu_sms_subtitle: "Send SMS and review SMS balance activity.",
-        menu_transactions_subtitle_merchant: "Review merchant payment and SMS transactions.",
+        menu_transactions_subtitle_merchant: "Review merchant payment and communication transactions.",
         menu_admins_subtitle_merchant: "Manage merchant portal users.",
         menu_audittrail_subtitle_merchant: "Review merchant user activity.",
-        menu_settings_subtitle_merchant: "Configure merchant overrides, IP access, limits, and SMS charges.",
-    }/*You an can other languages here*/
+        menu_settings_subtitle_merchant: "Configure merchant overrides, IP access, limits, and communication charges.",
+    }
 });
 
 export default strings;

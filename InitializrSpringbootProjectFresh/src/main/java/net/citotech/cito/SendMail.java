@@ -2,113 +2,97 @@ package net.citotech.cito;
 
 import java.util.Properties;
 import net.citotech.cito.Model.Setting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
+ * SMTP mail sender used by legacy and current Cito flows.
  *
- * @author josephtabajjwa
+ * <p>Some legacy callers instantiate this class directly instead of obtaining the Spring bean. The
+ * application-level JDBC reference keeps those callers functional without copying credentials into
+ * code. Production SMTP values can be injected through CITO_SMTP_* variables; existing database
+ * settings remain supported for backwards compatibility.
  */
 @Component
 public class SendMail implements EmailService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(SendMail.class);
+    private static volatile NamedParameterJdbcTemplate applicationJdbcTemplate;
+
+    private NamedParameterJdbcTemplate jdbcTemplate;
+
     @Autowired
-    NamedParameterJdbcTemplate jdbcTemplate;
-    
-    public void sendSimpleMessage(String to, String subject, String text) {
-        JavaMailSenderImpl mailSender = buildMailSender();
-        String from = Setting.getGeneralSettingByKey("mail.smtp.from") != null
-                ? Setting.getGeneralSettingByKey("mail.smtp.from") : "";
-        String username = Setting.getGeneralSettingByKey("mail.smtp.username") != null
-                ? Setting.getGeneralSettingByKey("mail.smtp.username") : "";
-
-        if (from == null || from.trim().isEmpty()) {
-            from = username;
-        }
-        if (from == null || from.trim().isEmpty()) {
-            from = "noreply@localhost";
-        }
-
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(from);
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(text);
-        mailSender.send(message);
-    }
-
-
-    public void sendSimpleMessage(String to, String subject, String text, NamedParameterJdbcTemplate jdbcTemplate) {
+    public void setJdbcTemplate(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        applicationJdbcTemplate = jdbcTemplate;
+    }
 
-        JavaMailSenderImpl mailSender = buildMailSender();
-        /*String from = Setting.getGeneralSettingByKey("mail.smtp.from") != null
-                ? Setting.getGeneralSettingByKey("mail.smtp.from") : "";
+    public void sendSimpleMessage(String to, String subject, String text) {
+        sendWithTemplate(to, subject, text, effectiveJdbcTemplate());
+    }
 
-         */
-        String username = Setting.getGeneralSettingByKey("mail.smtp.username") != null
-                ? Setting.getGeneralSettingByKey("mail.smtp.username") : "";
-
-        String from = Common.getSettings("mail.smtp.from", jdbcTemplate) == null ?
-                "" : Common.getSettings("mail.smtp.from", jdbcTemplate).getSetting_value();
-
-        if (from == null || from.trim().isEmpty()) {
-            from = username;
+    public void sendSimpleMessage(
+            String to, String subject, String text, NamedParameterJdbcTemplate jdbcTemplate) {
+        if (jdbcTemplate != null) {
+            this.jdbcTemplate = jdbcTemplate;
+            applicationJdbcTemplate = jdbcTemplate;
         }
+        sendWithTemplate(to, subject, text, effectiveJdbcTemplate());
+    }
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(from);
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(text);
+    private void sendWithTemplate(
+            String to, String subject, String text, NamedParameterJdbcTemplate template) {
         try {
+            JavaMailSenderImpl mailSender = buildMailSender(template);
+            String username = setting("mail.smtp.username", "CITO_SMTP_USERNAME", "", template);
+            String from = setting("mail.smtp.from", "CITO_SMTP_FROM", username, template);
+            if (isBlank(from)) {
+                from = "noreply@cito.coresynergi.es";
+            }
+
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(from);
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(text);
             mailSender.send(message);
-        } catch (MailException ex) {
-            ex.printStackTrace();
+        } catch (MailException | IllegalStateException ex) {
+            LOGGER.error(
+                    "Cito email delivery failed for subject '{}': {}", subject, ex.getMessage());
         }
     }
 
-    private JavaMailSenderImpl buildMailSender() {
+    private JavaMailSenderImpl buildMailSender(NamedParameterJdbcTemplate template) {
+        String host = setting("mail.smtp.host", "CITO_SMTP_HOST", "", template);
+        String portValue = setting("mail.smtp.port", "CITO_SMTP_PORT", "587", template);
+        String username = setting("mail.smtp.username", "CITO_SMTP_USERNAME", "", template);
+        String password = setting("mail.smtp.password", "CITO_SMTP_PASSWORD", "", template);
+        String auth =
+                setting(
+                        "mail.smtp.auth",
+                        "CITO_SMTP_AUTH",
+                        isBlank(username) ? "false" : "true",
+                        template);
+        String starttls =
+                setting("mail.smtp.starttls.enable", "CITO_SMTP_STARTTLS", "true", template);
 
-        /*
-        String host = Setting.getGeneralSettingByKey("mail.smtp.host") != null
-                ? Setting.getGeneralSettingByKey("mail.smtp.host") : "localhost";
-        int port = Integer.parseInt(
-                Setting.getGeneralSettingByKey("mail.smtp.port") != null
-                ? Setting.getGeneralSettingByKey("mail.smtp.port") : "25");
-        String username = Setting.getGeneralSettingByKey("mail.smtp.username") != null
-                ? Setting.getGeneralSettingByKey("mail.smtp.username") : "";
-        String password = Setting.getGeneralSettingByKey("mail.smtp.password") != null
-                ? Setting.getGeneralSettingByKey("mail.smtp.password") : "";
-        boolean auth = Boolean.parseBoolean(
-                Setting.getGeneralSettingByKey("mail.smtp.auth") != null
-                ? Setting.getGeneralSettingByKey("mail.smtp.auth") : "false");
-        boolean starttls = Boolean.parseBoolean(
-                Setting.getGeneralSettingByKey("mail.smtp.starttls.enable") != null
-                ? Setting.getGeneralSettingByKey("mail.smtp.starttls.enable") : "false");
+        if (isBlank(host)) {
+            throw new IllegalStateException(
+                    "SMTP is not configured; set CITO_SMTP_HOST or the mail.smtp.host setting");
+        }
 
-         */
-
-        String host = Common.getSettings("mail.smtp.host", jdbcTemplate) == null ?
-                "" : Common.getSettings("mail.smtp.host", jdbcTemplate).getSetting_value();
-
-        int port = Common.getSettings("mail.smtp.port", jdbcTemplate) == null ?
-                25 : Integer.parseInt(Common.getSettings("mail.smtp.port", jdbcTemplate).getSetting_value());
-
-        String username = Common.getSettings("mail.smtp.username", jdbcTemplate) == null ?
-                "" : Common.getSettings("mail.smtp.username", jdbcTemplate).getSetting_value();
-
-        String password = Common.getSettings("mail.smtp.password", jdbcTemplate) == null ?
-                "" : Common.getSettings("mail.smtp.password", jdbcTemplate).getSetting_value();
-
-        String starttls = Common.getSettings("mail.smtp.starttls.enable", jdbcTemplate) == null ?
-                "" : Common.getSettings("mail.smtp.starttls.enable", jdbcTemplate).getSetting_value();
-
-        String auth = Common.getSettings("mail.smtp.auth", jdbcTemplate) == null ?
-                "" : Common.getSettings("mail.smtp.auth", jdbcTemplate).getSetting_value();
+        int port;
+        try {
+            port = Integer.parseInt(portValue.trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalStateException("SMTP port is invalid");
+        }
 
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost(host);
@@ -120,12 +104,39 @@ public class SendMail implements EmailService {
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", auth);
         props.put("mail.smtp.starttls.enable", starttls);
-        //props.put("mail.smtp.ssl.enable", starttls);
-        props.put("mail.debug", "true");
+        props.put("mail.debug", "false");
 
         return mailSender;
     }
-    
+
+    private String setting(
+            String databaseKey,
+            String environmentKey,
+            String defaultValue,
+            NamedParameterJdbcTemplate template) {
+        String environmentValue = System.getenv(environmentKey);
+        if (!isBlank(environmentValue)) {
+            return environmentValue.trim();
+        }
+
+        if (template != null) {
+            try {
+                Setting configured = Common.getSettings(databaseKey, template);
+                if (configured != null && !isBlank(configured.getSetting_value())) {
+                    return configured.getSetting_value().trim();
+                }
+            } catch (RuntimeException ex) {
+                LOGGER.warn("Unable to read SMTP setting '{}' from the database", databaseKey);
+            }
+        }
+        return defaultValue == null ? "" : defaultValue;
+    }
+
+    private NamedParameterJdbcTemplate effectiveJdbcTemplate() {
+        return jdbcTemplate != null ? jdbcTemplate : applicationJdbcTemplate;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
 }
-
-
