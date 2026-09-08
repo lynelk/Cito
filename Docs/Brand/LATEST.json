@@ -1,10 +1,10 @@
 {
   "brand": "Cito Technologies",
-  "version": "1.1",
+  "version": "1.2",
   "status": "Active implementation baseline",
-  "effective_date": "2026-09-06",
-  "standard": "Cito-Brand-Standard-v1.1.md",
+  "effective_date": "2026-09-08",
+  "standard": "Cito-Brand-Standard-v1.2.md",
   "tokens": "cito.tokens.json",
-  "supersedes": "1.0",
-  "scope": "Engineering mirror of the Cito Brand Toolkit v1.1; not proof of live-product rollout."
+  "supersedes": "1.1",
+  "scope": "Engineering mirror of the approved Cito logo and product toolkit rollout, including Cito and monochrome product themes."
 }
