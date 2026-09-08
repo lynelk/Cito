@@ -27,6 +27,7 @@ jobs:
 
           import http.client
           import json
+          import os
           import socket
           import ssl
           from datetime import datetime, timezone
@@ -36,10 +37,9 @@ jobs:
           import dns.exception
           import dns.resolver
 
-          HOSTS = (
-              "cito-frontend-production.up.railway.app",
-              "cito.coresynergi.es",
-          )
+          CANONICAL_HOST = "cito.coresynergi.es"
+          INFORMATIONAL_HOST = "cito-frontend-production.up.railway.app"
+          HOSTS = (CANONICAL_HOST, INFORMATIONAL_HOST)
           PATHS = ("/", "/healthz", "/readyz", "/releasez", "/api/status/health")
 
           def dns_values(name: str, record_type: str) -> dict[str, Any]:
@@ -70,7 +70,7 @@ jobs:
                               issuer=cert.get("issuer"),
                               not_after=cert.get("notAfter"),
                           )
-              except Exception as exc:  # Diagnostic output, deliberately sanitized.
+              except Exception as exc:
                   result["error"] = f"{type(exc).__name__}: {exc}"
               return result
 
@@ -88,7 +88,7 @@ jobs:
                       "GET",
                       path,
                       headers={
-                          "User-Agent": "Cito-Railway-Public-Route-Diagnostic/1.0",
+                          "User-Agent": "Cito-Railway-Public-Route-Diagnostic/1.1",
                           "Accept": "*/*",
                           "Cache-Control": "no-cache",
                       },
@@ -122,14 +122,21 @@ jobs:
           http_checks = [http_probe(host, path) for host in HOSTS for path in PATHS]
 
           required_paths = {"/", "/healthz", "/readyz"}
-          required_http = [item for item in http_checks if item["path"] in required_paths]
-          passed = all(item.get("passed") for item in tls_checks) and all(
-              item.get("passed") for item in required_http
+          canonical_tls = next(item for item in tls_checks if item["host"] == CANONICAL_HOST)
+          canonical_http = [
+              item
+              for item in http_checks
+              if item["host"] == CANONICAL_HOST and item["path"] in required_paths
+          ]
+          passed = bool(canonical_tls.get("passed")) and all(
+              item.get("passed") for item in canonical_http
           )
 
           report = {
               "checked_at_utc": datetime.now(timezone.utc).isoformat(),
-              "scope": "Public DNS, verified TLS handshake and read-only HTTP GET probes. No authentication, provider calls or money movement.",
+              "scope": "Canonical public-domain TLS and HTTP readiness; Railway-generated hostname is informational only. No authentication, provider calls or money movement.",
+              "canonical_host": CANONICAL_HOST,
+              "informational_host": INFORMATIONAL_HOST,
               "passed": passed,
               "dns": dns_checks,
               "tls": tls_checks,
@@ -140,9 +147,12 @@ jobs:
           )
 
           print(json.dumps(report, indent=2, default=str))
-          with open("railway-public-route-diagnostic.md", "w", encoding="utf-8") as markdown:
+          markdown_path = Path("railway-public-route-diagnostic.md")
+          with markdown_path.open("w", encoding="utf-8") as markdown:
               markdown.write("# Railway public-route diagnostic\n\n")
-              markdown.write(f"Overall passed: **{passed}**\n\n")
+              markdown.write(f"Canonical host: `{CANONICAL_HOST}`\n\n")
+              markdown.write(f"Canonical release gate passed: **{passed}**\n\n")
+              markdown.write("The Railway-generated hostname is probed for diagnostics but is not the customer-facing release gate.\n\n")
               markdown.write("## TLS\n\n| Host | Passed | Protocol | Error |\n|---|---:|---|---|\n")
               for item in tls_checks:
                   markdown.write(
@@ -154,12 +164,13 @@ jobs:
                       f"| {item['host']} | {item['path']} | {item.get('status', '')} | {item.get('passed')} | {item.get('error', '')} |\n"
                   )
 
-          summary_path = Path("railway-public-route-diagnostic.md")
-          with open("$GITHUB_STEP_SUMMARY", "a", encoding="utf-8") as summary:
-              summary.write(summary_path.read_text(encoding="utf-8"))
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as summary:
+                  summary.write(markdown_path.read_text(encoding="utf-8"))
 
           if not passed:
-              raise SystemExit("Railway public routing is not yet healthy; inspect the diagnostic artifact.")
+              raise SystemExit("Canonical Cito public routing is not healthy; inspect the diagnostic artifact.")
           PY
 
       - name: Upload diagnostic evidence
