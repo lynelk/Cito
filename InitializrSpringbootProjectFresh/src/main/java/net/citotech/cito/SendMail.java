@@ -38,10 +38,7 @@ public class SendMail implements EmailService {
     }
 
     public void sendSimpleMessage(
-            String to,
-            String subject,
-            String text,
-            NamedParameterJdbcTemplate jdbcTemplate) {
+            String to, String subject, String text, NamedParameterJdbcTemplate jdbcTemplate) {
         if (jdbcTemplate != null) {
             this.jdbcTemplate = jdbcTemplate;
             applicationJdbcTemplate = jdbcTemplate;
@@ -50,10 +47,7 @@ public class SendMail implements EmailService {
     }
 
     private void sendWithTemplate(
-            String to,
-            String subject,
-            String text,
-            NamedParameterJdbcTemplate template) {
+            String to, String subject, String text, NamedParameterJdbcTemplate template) {
         try {
             JavaMailSenderImpl mailSender = buildMailSender(template);
             String username = setting("mail.smtp.username", "CITO_SMTP_USERNAME", "", template);
@@ -69,7 +63,8 @@ public class SendMail implements EmailService {
             message.setText(text);
             mailSender.send(message);
         } catch (MailException | IllegalStateException ex) {
-            LOGGER.error("Cito email delivery failed for subject '{}': {}", subject, ex.getMessage());
+            LOGGER.error(
+                    "Cito email delivery failed for subject '{}': {}", subject, ex.getMessage());
         }
     }
 
