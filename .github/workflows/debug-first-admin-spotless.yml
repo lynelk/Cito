@@ -7,9 +7,6 @@ permissions:
 jobs:
   spotless-diff:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: InitializrSpringbootProjectFresh
     steps:
       - uses: actions/checkout@v7
         with:
@@ -19,7 +16,13 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - name: Apply formatter and print exact diff
-        run: |
-          mvn -B spotless:apply --no-transfer-progress
-          git diff -- src/main/java/net/citotech/cito/security/InitialAdminBootstrap.java
+      - name: Apply formatter
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B spotless:apply --no-transfer-progress
+      - name: Upload formatted source
+        uses: actions/upload-artifact@v4
+        with:
+          name: formatted-initial-admin-bootstrap
+          path: InitializrSpringbootProjectFresh/src/main/java/net/citotech/cito/security/InitialAdminBootstrap.java
+          if-no-files-found: error
+          retention-days: 1
