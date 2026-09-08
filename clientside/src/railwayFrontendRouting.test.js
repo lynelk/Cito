@@ -18,9 +18,11 @@ describe('Railway frontend routing contract', () => {
     expect(startScript).toContain(`BACKEND_UPSTREAM:=${canonicalBackend}`);
   });
 
-  test('does not retain the obsolete CPay private hostname', () => {
-    expect(dockerfile).not.toContain(obsoleteBackend);
-    expect(startScript).not.toContain(obsoleteBackend);
+  test('migrates a stale CPay upstream override instead of accepting it', () => {
+    expect(dockerfile).not.toContain(`ENV BACKEND_UPSTREAM=${obsoleteBackend}`);
+    expect(startScript).not.toContain(`BACKEND_UPSTREAM:=${obsoleteBackend}`);
+    expect(startScript).toContain('cpay.railway.internal|cpay.railway.internal:*');
+    expect(startScript).toContain(`BACKEND_UPSTREAM="${canonicalBackend}"`);
   });
 
   test('keeps liveness, readiness, and SPA routing as separate contracts', () => {
