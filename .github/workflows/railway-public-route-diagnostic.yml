@@ -1,0 +1,174 @@
+name: Railway Public Route Diagnostic
+
+on:
+  push:
+    branches:
+      - ops/verify-railway-public-routing
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: DNS TLS and public HTTP routing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Install DNS client
+        run: python3 -m pip install --quiet dnspython
+
+      - name: Probe Railway and custom domains
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import http.client
+          import json
+          import socket
+          import ssl
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from typing import Any
+
+          import dns.exception
+          import dns.resolver
+
+          HOSTS = (
+              "cito-frontend-production.up.railway.app",
+              "cito.coresynergi.es",
+          )
+          PATHS = ("/", "/healthz", "/readyz", "/releasez", "/api/status/health")
+
+          def dns_values(name: str, record_type: str) -> dict[str, Any]:
+              result: dict[str, Any] = {"name": name, "type": record_type, "values": []}
+              try:
+                  answer = dns.resolver.resolve(name, record_type, lifetime=8)
+                  result["values"] = [str(item).rstrip(".") for item in answer]
+              except dns.resolver.NXDOMAIN:
+                  result["error"] = "NXDOMAIN"
+              except dns.resolver.NoAnswer:
+                  result["error"] = "NO_ANSWER"
+              except dns.exception.DNSException as exc:
+                  result["error"] = f"{type(exc).__name__}: {exc}"
+              return result
+
+          def tls_probe(host: str) -> dict[str, Any]:
+              result: dict[str, Any] = {"host": host, "passed": False}
+              try:
+                  context = ssl.create_default_context()
+                  with socket.create_connection((host, 443), timeout=10) as raw:
+                      with context.wrap_socket(raw, server_hostname=host) as secure:
+                          cert = secure.getpeercert()
+                          result.update(
+                              passed=True,
+                              protocol=secure.version(),
+                              cipher=secure.cipher()[0] if secure.cipher() else None,
+                              subject=cert.get("subject"),
+                              issuer=cert.get("issuer"),
+                              not_after=cert.get("notAfter"),
+                          )
+              except Exception as exc:  # Diagnostic output, deliberately sanitized.
+                  result["error"] = f"{type(exc).__name__}: {exc}"
+              return result
+
+          def http_probe(host: str, path: str) -> dict[str, Any]:
+              result: dict[str, Any] = {"host": host, "path": path, "passed": False}
+              connection: http.client.HTTPSConnection | None = None
+              try:
+                  connection = http.client.HTTPSConnection(
+                      host,
+                      port=443,
+                      timeout=12,
+                      context=ssl.create_default_context(),
+                  )
+                  connection.request(
+                      "GET",
+                      path,
+                      headers={
+                          "User-Agent": "Cito-Railway-Public-Route-Diagnostic/1.0",
+                          "Accept": "*/*",
+                          "Cache-Control": "no-cache",
+                      },
+                  )
+                  response = connection.getresponse()
+                  body = response.read(2048)
+                  result.update(
+                      status=response.status,
+                      reason=response.reason,
+                      content_type=response.getheader("Content-Type", ""),
+                      server=response.getheader("Server", ""),
+                      location=response.getheader("Location", ""),
+                      body_preview=body.decode("utf-8", "replace")[:300],
+                      passed=response.status == 200,
+                  )
+              except Exception as exc:
+                  result["error"] = f"{type(exc).__name__}: {exc}"
+              finally:
+                  if connection is not None:
+                      connection.close()
+              return result
+
+          dns_checks = []
+          for host in HOSTS:
+              for record_type in ("CNAME", "A", "AAAA"):
+                  dns_checks.append(dns_values(host, record_type))
+          dns_checks.append(dns_values("_railway-verify.cito.coresynergi.es", "TXT"))
+          dns_checks.append(dns_values("coresynergi.es", "CAA"))
+
+          tls_checks = [tls_probe(host) for host in HOSTS]
+          http_checks = [http_probe(host, path) for host in HOSTS for path in PATHS]
+
+          required_paths = {"/", "/healthz", "/readyz"}
+          required_http = [item for item in http_checks if item["path"] in required_paths]
+          passed = all(item.get("passed") for item in tls_checks) and all(
+              item.get("passed") for item in required_http
+          )
+
+          report = {
+              "checked_at_utc": datetime.now(timezone.utc).isoformat(),
+              "scope": "Public DNS, verified TLS handshake and read-only HTTP GET probes. No authentication, provider calls or money movement.",
+              "passed": passed,
+              "dns": dns_checks,
+              "tls": tls_checks,
+              "http": http_checks,
+          }
+          Path("railway-public-route-diagnostic.json").write_text(
+              json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8"
+          )
+
+          print(json.dumps(report, indent=2, default=str))
+          with open("railway-public-route-diagnostic.md", "w", encoding="utf-8") as markdown:
+              markdown.write("# Railway public-route diagnostic\n\n")
+              markdown.write(f"Overall passed: **{passed}**\n\n")
+              markdown.write("## TLS\n\n| Host | Passed | Protocol | Error |\n|---|---:|---|---|\n")
+              for item in tls_checks:
+                  markdown.write(
+                      f"| {item['host']} | {item.get('passed')} | {item.get('protocol', '')} | {item.get('error', '')} |\n"
+                  )
+              markdown.write("\n## HTTP\n\n| Host | Path | Status | Passed | Error |\n|---|---|---:|---:|---|\n")
+              for item in http_checks:
+                  markdown.write(
+                      f"| {item['host']} | {item['path']} | {item.get('status', '')} | {item.get('passed')} | {item.get('error', '')} |\n"
+                  )
+
+          summary_path = Path("railway-public-route-diagnostic.md")
+          with open("$GITHUB_STEP_SUMMARY", "a", encoding="utf-8") as summary:
+              summary.write(summary_path.read_text(encoding="utf-8"))
+
+          if not passed:
+              raise SystemExit("Railway public routing is not yet healthy; inspect the diagnostic artifact.")
+          PY
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: railway-public-route-diagnostic-${{ github.run_id }}
+          path: |
+            railway-public-route-diagnostic.json
+            railway-public-route-diagnostic.md
+          retention-days: 14
+          if-no-files-found: error
