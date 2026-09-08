@@ -8,9 +8,9 @@ const mainMenu = fs.readFileSync(path.join(__dirname, 'components/MainMenu.jsx')
 const insights = fs.readFileSync(path.join(__dirname, 'components/modules/ModuleInsights.jsx'), 'utf8');
 
 describe('admin insights-first experience', () => {
-  test('routes legacy admin dashboard entry points to the canonical Insights path', () => {
+  test('keeps canonical and legacy admin Insights entry points usable', () => {
     expect(routers).toContain('path="/bo/*" element={protectAdmin(<Layout />)}');
-    expect(routers).toContain('path="/bo/admin/*" element={<Navigate to="/bo/insights" replace />}');
+    expect(routers).toContain('path="/bo/admin/*" element={protectAdmin(<Layout />)}');
     expect(routers).toContain('path="/dashboard/*" element={<Navigate to="/bo/insights" replace />}');
   });
 
