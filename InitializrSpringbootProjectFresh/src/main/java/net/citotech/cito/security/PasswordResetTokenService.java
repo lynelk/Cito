@@ -35,7 +35,9 @@ public class PasswordResetTokenService {
         p.addValue("email", normalizeEmail(email));
         p.addValue("token_hash", CanonicalRequestSigner.sha256Hex(token));
         p.addValue("request_ip", requestIp);
-        p.addValue("expires_at", Timestamp.from(Instant.now().plus(expiryMinutes, ChronoUnit.MINUTES)));
+        p.addValue(
+                "expires_at",
+                Timestamp.from(Instant.now().plus(expiryMinutes, ChronoUnit.MINUTES)));
         try {
             // Browser-issued reset tokens supersede earlier browser tokens, but an explicitly
             // configured operational recovery token must survive the request step long enough for
