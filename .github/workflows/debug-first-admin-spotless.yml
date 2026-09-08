@@ -1,0 +1,25 @@
+name: Debug First Admin Spotless
+on:
+  push:
+    branches: ["fix/first-admin-bootstrap-20260908"]
+permissions:
+  contents: read
+jobs:
+  spotless-diff:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: InitializrSpringbootProjectFresh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Apply formatter and print exact diff
+        run: |
+          mvn -B spotless:apply --no-transfer-progress
+          git diff -- src/main/java/net/citotech/cito/security/InitialAdminBootstrap.java
