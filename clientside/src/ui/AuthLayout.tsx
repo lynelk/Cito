@@ -1,5 +1,5 @@
 import React from 'react';
-import Logo from '../media/images/gwlogo.png';
+import Logo from '../media/images/cito-mark.svg';
 import * as Icons from './Icons';
 
 export type AuthAsideIcon =
@@ -63,9 +63,7 @@ const iconMap: Record<AuthAsideIcon, React.ComponentType<Icons.IconProps>> = {
 
 function mediaBackground(imageUrl?: string): React.CSSProperties | undefined {
   const trimmedUrl = imageUrl?.trim();
-  if (!trimmedUrl) {
-    return undefined;
-  }
+  if (!trimmedUrl) return undefined;
   return {
     backgroundImage: `linear-gradient(180deg, rgba(8, 26, 42, 0.08), rgba(8, 26, 42, 0.14)), url("${trimmedUrl.replace(/"/g, '\\"')}")`,
   };
@@ -76,18 +74,14 @@ function AsideIcon({ icon, size = 26 }: { icon: AuthAsideIcon; size?: number }):
   return <Icon size={size} />;
 }
 
-/**
- * iOS-style authentication shell: a frosted, translucent card with a branded
- * aside. Replaces the rc-easyui-era AuthShell for migrated screens.
- */
 export function AuthLayout({
   title,
   subtitle,
-  asideTitle = 'CPay',
+  asideTitle = 'Cito',
   asideCopy,
   asideVariant = 'brand',
   asideImageUrl,
-  asideImageAlt = 'CPay merchant workspace',
+  asideImageAlt = 'Cito business services workspace',
   asideCards = [],
   asideBenefits = [],
   footer,
@@ -101,7 +95,7 @@ export function AuthLayout({
       <main className="ios-auth__card" role="main">
         <aside
           className={`ios-auth__aside ${mediaAside ? 'ios-auth__aside--media' : ''}`.trim()}
-          aria-label={mediaAside ? `${asideTitle}. ${asideCopy || asideImageAlt}` : 'CPay access context'}
+          aria-label={mediaAside ? `${asideTitle}. ${asideCopy || asideImageAlt}` : 'Cito access context'}
           style={mediaAside ? mediaBackground(asideImageUrl) : undefined}
         >
           {mediaAside ? (
@@ -116,9 +110,7 @@ export function AuthLayout({
                   className={`ios-auth__media-card ios-auth__media-card--${card.id} ${card.tone === 'success' ? 'ios-auth__media-card--success' : ''}`.trim()}
                   key={card.id}
                 >
-                  <span className="ios-auth__media-card-icon">
-                    <AsideIcon icon={card.icon} />
-                  </span>
+                  <span className="ios-auth__media-card-icon"><AsideIcon icon={card.icon} /></span>
                   <span className="ios-auth__media-card-copy">
                     <strong>{card.title}</strong>
                     {card.eyebrow ? <span className="ios-auth__media-card-eyebrow">{card.eyebrow}</span> : null}
@@ -130,9 +122,7 @@ export function AuthLayout({
                 <div className="ios-auth__benefit-strip">
                   {asideBenefits.map((benefit) => (
                     <div className="ios-auth__benefit" key={benefit.title}>
-                      <span className="ios-auth__benefit-icon">
-                        <AsideIcon icon={benefit.icon} size={24} />
-                      </span>
+                      <span className="ios-auth__benefit-icon"><AsideIcon icon={benefit.icon} size={24} /></span>
                       <strong>{benefit.title}</strong>
                       <span>{benefit.copy}</span>
                     </div>
@@ -142,7 +132,7 @@ export function AuthLayout({
             </>
           ) : (
             <>
-              <img src={Logo} alt="CPay" />
+              <img src={Logo} alt="Cito" />
               <h2>{asideTitle}</h2>
               {asideCopy ? <p>{asideCopy}</p> : null}
             </>
@@ -150,7 +140,7 @@ export function AuthLayout({
         </aside>
         <section className="ios-auth__main">
           <header className="ios-auth__header">
-            <img src={Logo} alt="CPay" />
+            <img src={Logo} alt="Cito" />
             <h1 className="ios-auth__title">{title}</h1>
             {subtitle ? <p className="ios-auth__subtitle">{subtitle}</p> : null}
           </header>

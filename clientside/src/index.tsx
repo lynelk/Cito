@@ -7,13 +7,16 @@ import './styles/ios-system.css';
 import './styles/experience-reconstruction.css';
 import './styles/experience-reconstruction-overrides.css';
 import './styles/admin-insights.css';
+import './styles/cito-brand.css';
 import App from './App';
 import { installCsrfFetch } from './shared/csrfFetch';
 import { queryClient } from './shared/queryClient';
 import { initTheme } from './shared/theme';
+import { initBrandMode } from './shared/brandMode';
 
 installCsrfFetch();
 initTheme();
+initBrandMode();
 
 const container = document.getElementById('root');
 if (!container) {

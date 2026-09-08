@@ -4,7 +4,7 @@
  */
 [data-testid='admin-insights'] .cpay-dashboard-snapshot-grid {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 [data-testid='admin-insights'] .cpay-dashboard-snapshot-grid > .cpay-dashboard-card {

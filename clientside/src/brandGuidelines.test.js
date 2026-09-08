@@ -3,46 +3,46 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 const read = relativePath => fs.readFileSync(path.join(__dirname, relativePath), 'utf8');
 
-describe('CPay brand guideline tokens', () => {
-  test('defines the approved CPay palette as reusable application tokens', () => {
-    const css = read('index.css');
-
-    expect(css).toContain('--cpay-brand-teal: #1198C4;');
-    expect(css).toContain('--cpay-brand-gold: #F3B01B;');
-    expect(css).toContain('--cpay-brand-navy: #163B5C;');
-    expect(css).toContain('--cpay-brand-slate: #667085;');
-    expect(css).toContain('--cpay-brand-soft-gray: #F5F7FA;');
-    expect(css).toContain('--cpay-brand-white: #FFFFFF;');
+describe('Cito brand toolkit v1.2 integration', () => {
+  test('loads the approved Cito palette and type roles', () => {
+    const css = read('styles/cito-brand.css');
+    expect(css).toContain('--cito-primary: #0066FF;');
+    expect(css).toContain('--cito-deep-blue: #0047B3;');
+    expect(css).toContain('--cito-sky: #2EA3FF;');
+    expect(css).toContain('--cito-ice: #E6F2FF;');
+    expect(css).toContain('--cito-navy: #0B2545;');
+    expect(css).toContain('--cito-slate: #94A3B8;');
+    expect(css).toContain('"Space Grotesk", Inter');
   });
 
-  test('uses the approved Montserrat heading and Inter body font stacks', () => {
-    const css = read('index.css');
-
-    expect(css).toContain('--cpay-heading-font: Montserrat, Inter, -apple-system');
-    expect(css).toContain('--cpay-body-font: Inter, -apple-system');
-    expect(css).toMatch(/\.cpay-page-heading h1\s*\{[^}]*font-family:\s*var\(--cpay-heading-font\);/s);
-    expect(css).toMatch(/body\s*\{[^}]*font-family:\s*var\(--cpay-body-font\);/s);
+  test('supports an explicit monochrome brand mode without replacing status semantics', () => {
+    const css = read('styles/cito-brand.css');
+    const toggle = read('ui/ThemeToggle.tsx');
+    const controller = read('shared/brandMode.ts');
+    expect(css).toContain("html[data-brand-mode='mono']");
+    expect(css).toContain("content: url('../media/images/cito-mark-mono.svg')");
+    expect(toggle).toContain('Switch to monochrome theme');
+    expect(toggle).toContain('Switch to Cito brand theme');
+    expect(controller).toContain("export type BrandMode = 'cito' | 'mono'");
   });
 
-  test('maps the active shell theme to CPay brand colors instead of the old blue system', () => {
-    const css = read('index.css');
-
-    expect(css).toContain('--cpay-fuse-blue: var(--cpay-brand-teal);');
-    expect(css).toContain('--cpay-fuse-blue-dark: #0E7FA5;');
-    expect(css).not.toContain('--cpay-fuse-blue: #0a84ff;');
+  test('applies the Cito identity to authentication and browser surfaces', () => {
+    const auth = read('ui/AuthLayout.tsx');
+    const locale = read('components/locale.js');
+    const html = read('../index.html');
+    expect(auth).toContain("import Logo from '../media/images/cito-mark.svg';");
+    expect(auth).toContain('alt="Cito"');
+    expect(locale).toContain('portal_title: "Cito: Admin Portal"');
+    expect(html).toContain('href="/favicon.svg"');
+    expect(html).toContain('content="#0066FF"');
   });
 
-  test('aligns the shared iOS CSS theme with the brand guide', () => {
-    const iosCss = read('styles/ios.css');
-    const iosSystemCss = read('styles/ios-system.css');
-
-    expect(iosCss).toContain('--ios-accent: var(--cpay-brand-teal, #1198C4);');
-    expect(iosCss).toContain('--ios-text: #163B5C;');
-    expect(iosSystemCss).toContain('--ios-warning: #F3B01B;');
-    expect(iosSystemCss).toContain('--ios-font-display: Montserrat, var(--ios-font);');
-    expect(iosCss).not.toContain('#007AFF');
+  test('initialises the brand mode before the application renders', () => {
+    const entry = read('index.tsx');
+    expect(entry).toContain("import './styles/cito-brand.css';");
+    expect(entry).toContain("import { initBrandMode } from './shared/brandMode';");
+    expect(entry.indexOf('initBrandMode();')).toBeLessThan(entry.indexOf('createRoot(container).render'));
   });
 });
