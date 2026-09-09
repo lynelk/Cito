@@ -13,24 +13,12 @@ import net.citotech.cito.communication.provider.ProviderRegistry;
 import net.citotech.cito.communication.provider.ProviderSendRequest;
 import net.citotech.cito.communication.provider.ProviderSendResult;
 import net.citotech.cito.communication.provider.SmsCommunicationProviderAdapter;
+import net.citotech.cito.communication.routing.SmartSmsRoutingService;
 import net.citotech.cito.communication.sms.SmsGatewayAdapter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-/**
- * Provider-neutral outbound dispatcher (ISO domain mapping: communication/delivery, track B5a). One
- * entry point that every channel producer (campaign sweeps, WhatsApp sends, USSD responses) calls
- * to deliver one message: it writes a {@code communication_message_deliveries} row (V58) through
- * {@link DeliveryLogRepository}, hands the send to the channel's adapter — EMAIL via {@link
- * EmailDeliveryService}, every other channel via a {@link CommunicationProviderAdapter} resolved
- * from the {@link ProviderRegistry} by provider code + channel — and records the terminal status
- * with trace/response.
- *
- * <p>Channels with no registered adapter (e.g. WHATSAPP/USSD before a provider is certified) fail
- * closed: the send is recorded REJECTED (refundable, audit P5) with an explicit "adapter not yet
- * implemented" trace, so the delivery row never reaches SENT and the usage relay (B5b) never
- * meters it.
- */
+/** Provider-neutral outbound dispatcher with dynamic SMS smart routing. */
 @Service
 public class CommunicationDeliveryDispatcher {
 
@@ -40,12 +28,9 @@ public class CommunicationDeliveryDispatcher {
     private final DeliveryLogRepository deliveryLogRepository;
     private final ProviderRegistry providerRegistry;
     private final EmailDeliveryService emailDeliveryService;
+    private final SmartSmsRoutingService smartSmsRoutingService;
 
-    /**
-     * Legacy constructor kept for compatibility with existing callers/tests: the single injected
-     * {@link SmsGatewayAdapter} is registered under every known SMS provider code so a legacy
-     * dispatcher instance handles any SMS code exactly as before.
-     */
+    /** Compatibility constructor retained for existing tests and legacy callers. */
     public CommunicationDeliveryDispatcher(
             DeliveryLogRepository deliveryLogRepository,
             SmsGatewayAdapter smsGateway,
@@ -54,30 +39,35 @@ public class CommunicationDeliveryDispatcher {
                 deliveryLogRepository,
                 new ProviderRegistry(
                         List.of(
-                                new SmsCommunicationProviderAdapter(
-                                        smsGateway, "LEGACY_SETTINGS"),
+                                new SmsCommunicationProviderAdapter(smsGateway, "LEGACY_SETTINGS"),
                                 new SmsCommunicationProviderAdapter(smsGateway, "YO_SMS"),
-                                new SmsCommunicationProviderAdapter(
-                                        smsGateway, "AFRICAS_TALKING"),
+                                new SmsCommunicationProviderAdapter(smsGateway, "AFRICAS_TALKING"),
                                 new SmsCommunicationProviderAdapter(smsGateway, "TWILIO_SMS"))),
-                emailDeliveryService);
+                emailDeliveryService,
+                null);
     }
 
-    /** Primary production constructor: dispatches every non-email channel through the registry. */
-    @Autowired
+    /** Compatibility constructor retained for direct unit-test construction. */
     public CommunicationDeliveryDispatcher(
             DeliveryLogRepository deliveryLogRepository,
             ProviderRegistry providerRegistry,
             EmailDeliveryService emailDeliveryService) {
+        this(deliveryLogRepository, providerRegistry, emailDeliveryService, null);
+    }
+
+    /** Production constructor. */
+    @Autowired
+    public CommunicationDeliveryDispatcher(
+            DeliveryLogRepository deliveryLogRepository,
+            ProviderRegistry providerRegistry,
+            EmailDeliveryService emailDeliveryService,
+            SmartSmsRoutingService smartSmsRoutingService) {
         this.deliveryLogRepository = deliveryLogRepository;
         this.providerRegistry = providerRegistry;
         this.emailDeliveryService = emailDeliveryService;
+        this.smartSmsRoutingService = smartSmsRoutingService;
     }
 
-    /**
-     * Delivers one message and records the outcome in the V58 delivery log. Returns the delivery
-     * row id plus the terminal status so callers (campaign sweeps) can correlate item state.
-     */
     public DeliveryOutcome dispatch(
             long merchantId,
             String channel,
@@ -86,18 +76,70 @@ public class CommunicationDeliveryDispatcher {
             String content,
             String providerCode,
             Long referenceId) {
+        return dispatch(
+                merchantId,
+                channel,
+                recipient,
+                subject,
+                content,
+                providerCode,
+                referenceId,
+                Map.of());
+    }
+
+    /**
+     * Delivers one message. When an SMS has no provider pinned, Cito selects the best currently
+     * eligible route at dispatch time. This keeps scheduled traffic and retries sensitive to live
+     * cost, capability and provider health instead of freezing an old route at compose time.
+     */
+    public DeliveryOutcome dispatch(
+            long merchantId,
+            String channel,
+            String recipient,
+            String subject,
+            String content,
+            String providerCode,
+            Long referenceId,
+            Map<String, Object> metadata) {
         String normalizedChannel = normalizeChannel(channel);
+        String resolvedProviderCode = trimToNull(providerCode);
+        String routeExplanation = null;
+
+        if ("SMS".equals(normalizedChannel)
+                && resolvedProviderCode == null
+                && smartSmsRoutingService != null) {
+            var decision =
+                    smartSmsRoutingService.selectForDispatch(
+                            referenceId, merchantId, content, metadata == null ? Map.of() : metadata);
+            resolvedProviderCode = decision.selectedProviderCode();
+            routeExplanation = decision.explanation();
+        }
+
         long deliveryId =
                 deliveryLogRepository.insert(
-                        merchantId, normalizedChannel, providerCode, null, referenceId, recipient);
+                        merchantId,
+                        normalizedChannel,
+                        resolvedProviderCode,
+                        null,
+                        referenceId,
+                        recipient);
+
+        if ("SMS".equals(normalizedChannel) && resolvedProviderCode == null) {
+            String trace =
+                    routeExplanation == null || routeExplanation.isBlank()
+                            ? "No eligible SMS provider is currently available"
+                            : routeExplanation;
+            deliveryLogRepository.updateStatus(deliveryId, DeliveryStatus.REJECTED, trace, "");
+            return new DeliveryOutcome(deliveryId, DeliveryStatus.REJECTED, null);
+        }
+
         try {
             DeliveryStatus status;
             String trace;
             String gwResponse;
             if ("EMAIL".equals(normalizedChannel)) {
                 EmailSendResult result =
-                        emailDeliveryService.send(
-                                new EmailSendRequest(recipient, subject, content));
+                        emailDeliveryService.send(new EmailSendRequest(recipient, subject, content));
                 status =
                         result.status() == EmailSendResult.Status.SENT
                                 ? DeliveryStatus.SENT
@@ -105,19 +147,18 @@ public class CommunicationDeliveryDispatcher {
                 trace = result.trace();
                 gwResponse = result.response();
             } else {
-                CommunicationChannel channelEnum =
-                        CommunicationChannel.fromString(normalizedChannel);
+                CommunicationChannel channelEnum = CommunicationChannel.fromString(normalizedChannel);
                 CommunicationProviderAdapter adapter =
-                        providerRegistry.find(providerCode, channelEnum).orElse(null);
+                        providerRegistry.find(resolvedProviderCode, channelEnum).orElse(null);
                 if (adapter == null) {
                     status = DeliveryStatus.REJECTED;
-                    trace = normalizedChannel + " adapter not yet implemented";
+                    trace = normalizedChannel + " adapter not implemented for " + resolvedProviderCode;
                     gwResponse = "";
                 } else {
                     ProviderSendResult result =
                             adapter.send(
                                     new ProviderSendRequest(
-                                            0L,
+                                            referenceId == null ? 0L : referenceId,
                                             deliveryId,
                                             merchantId,
                                             recipient,
@@ -125,14 +166,18 @@ public class CommunicationDeliveryDispatcher {
                                             content,
                                             null,
                                             Map.of(),
-                                            Map.of()));
+                                            metadata == null ? Map.of() : Map.copyOf(metadata)));
                     status = mapProviderStatus(result);
-                    trace = result.trace();
-                    gwResponse = result.safeResponse();
+                    trace = result == null ? "No provider result" : result.trace();
+                    gwResponse = result == null ? "" : result.safeResponse();
+                    if (result != null && result.providerMessageId() != null) {
+                        deliveryLogRepository.updateProviderMessageId(
+                                deliveryId, result.providerMessageId());
+                    }
                 }
             }
             deliveryLogRepository.updateStatus(deliveryId, status, trace, gwResponse);
-            return new DeliveryOutcome(deliveryId, status);
+            return new DeliveryOutcome(deliveryId, status, resolvedProviderCode);
         } catch (Exception ex) {
             logger.log(
                     Level.WARNING,
@@ -145,14 +190,12 @@ public class CommunicationDeliveryDispatcher {
                     ex);
             deliveryLogRepository.updateStatus(
                     deliveryId, DeliveryStatus.FAILED, ex.getMessage(), "");
-            return new DeliveryOutcome(deliveryId, DeliveryStatus.FAILED);
+            return new DeliveryOutcome(deliveryId, DeliveryStatus.FAILED, resolvedProviderCode);
         }
     }
 
     private DeliveryStatus mapProviderStatus(ProviderSendResult result) {
-        if (result == null || result.status() == null) {
-            return DeliveryStatus.FAILED;
-        }
+        if (result == null || result.status() == null) return DeliveryStatus.FAILED;
         return switch (result.status()) {
             case ACCEPTED, SENT, DELIVERED -> DeliveryStatus.SENT;
             case REJECTED -> DeliveryStatus.REJECTED;
@@ -164,5 +207,9 @@ public class CommunicationDeliveryDispatcher {
         return channel == null || channel.isBlank() ? "SMS" : channel.trim().toUpperCase();
     }
 
-    public record DeliveryOutcome(long deliveryId, DeliveryStatus status) {}
+    private String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim().toUpperCase();
+    }
+
+    public record DeliveryOutcome(long deliveryId, DeliveryStatus status, String providerCode) {}
 }
