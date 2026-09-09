@@ -37,6 +37,14 @@ describe('Cito clean product UI system', () => {
     });
   });
 
+  test('uses canonical /fo routes for merchant workspace navigation', () => {
+    const merchant = read('components/LayoutMerchant.jsx');
+    expect(merchant).toContain("home: '/fo/dashboard'");
+    expect(merchant).toContain("payments: '/fo/payments'");
+    expect(merchant).toContain("services: '/fo/services'");
+    expect(merchant).toContain("const segment = pathname.replace(/^\\/(?:fo|bo\\/partner)\\/?/, '').split('/')[0];");
+  });
+
   test('groups admin navigation by user intent rather than implementation detail', () => {
     const menu = read('components/MainMenu.jsx');
     ['Overview', 'Services', 'Business', 'Operations', 'Platform', 'Account'].forEach((group) => {
