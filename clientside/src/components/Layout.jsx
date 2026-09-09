@@ -7,7 +7,7 @@ import Progress from "./Progress";
 import Logo from "../media/images/gwlogo.png";
 import {
   Shell, Sidebar, Brand, TopBar, IconButton, UserChip, Page,
-  Button, EnvironmentSwitcher, ThemeToggle, Icons,
+  EnvironmentSwitcher, ThemeToggle, Icons,
 } from '../ui';
 import ExperienceWorkspace from '../features/ExperienceWorkspace';
 
@@ -38,38 +38,38 @@ import { apiUrl } from '../shared/config';
 import { readStoredUser } from '../shared/useAuth';
 
 const menuTitles = {
-  insights: { title: 'Insights', subtitle: 'Live priorities, today’s activity, service health, recent activity, and performance' },
-  home: { title: 'Insights', subtitle: 'Live priorities, today’s activity, service health, recent activity, and performance' },
-  'merchants-accounts': { title: 'Merchants & Accounts', subtitle: 'Activation, account controls, lifecycle, and merchant 360' },
-  'money-operations': { title: 'Money Operations', subtitle: 'Payments, payouts, refunds, disputes, reconciliation, and settlements' },
-  'risk-compliance': { title: 'Risk & Compliance', subtitle: 'KYB, identity, CRB/scoring, screening, reviews, and compliance controls' },
-  'providers-integrations': { title: 'Providers & Integrations', subtitle: 'Credentials, certification, health, incidents, and routing' },
-  platform: { title: 'Services & Products', subtitle: 'Payments, communications, identity & scoring, vending, billing, integrations, and entitlements' },
-  administration: { title: 'Administration', subtitle: 'Users, roles, audit, settings, and support operations' },
-  engineering: { title: 'Engineering / Internal', subtitle: 'Production maturity, observability, and internal control planes' },
-  search: { title: 'Global Search', subtitle: 'Scoped search across merchants, transactions, and support cases' },
-  support: { title: 'Support', subtitle: 'Cases, SLA queues, and merchant context' },
-  notifications: { title: 'Notifications', subtitle: 'Operational and account updates' },
-  'transaction-detail': { title: 'Transaction Detail', subtitle: 'Finality, provider, reconciliation, and settlement evidence' },
-  'provider-incidents': { title: 'Provider Incidents', subtitle: 'Incident handling and safe status communication' },
-  dashboard: { title: 'Insights', subtitle: 'Live priorities, today’s activity, service health, recent activity, and performance' },
-  citoplatform: { title: 'Services & Products', subtitle: 'Service catalogue, merchant entitlements and access governance' },
-  vending: { title: 'Vending', subtitle: 'Multi-tenant device estate, rentals, callbacks and manufacturer commands' },
+  insights: { title: 'Dashboard', subtitle: 'Live priorities, money movement, service health and recent activity.' },
+  home: { title: 'Dashboard', subtitle: 'Live priorities, money movement, service health and recent activity.' },
+  'merchants-accounts': { title: 'Merchants / Businesses', subtitle: 'Activation, account controls, lifecycle and merchant context.' },
+  'money-operations': { title: 'Payments', subtitle: 'Collections, payouts, transaction review, reconciliation and settlement controls.' },
+  'risk-compliance': { title: 'KYC & Identity', subtitle: 'KYB, identity, CRB/scoring, screening, review and compliance controls.' },
+  'providers-integrations': { title: 'Integrations / API', subtitle: 'Provider credentials, certification, health, incidents and routing.' },
+  platform: { title: 'Billing & BaaS', subtitle: 'Service entitlements, metering, billing, monetisation and product access.' },
+  administration: { title: 'Administration', subtitle: 'Users, roles, audit and support operations.' },
+  engineering: { title: 'Engineering / Internal', subtitle: 'Production maturity, observability and internal control planes.' },
+  search: { title: 'Global Search', subtitle: 'Scoped search across merchants, transactions and support cases.' },
+  support: { title: 'Support', subtitle: 'Cases, SLA queues and merchant context.' },
+  notifications: { title: 'Notifications', subtitle: 'Operational and account updates.' },
+  'transaction-detail': { title: 'Transaction Detail', subtitle: 'Finality, provider, reconciliation and settlement evidence.' },
+  'provider-incidents': { title: 'Provider Incidents', subtitle: 'Incident handling and safe status communication.' },
+  dashboard: { title: 'Dashboard', subtitle: 'Live priorities, money movement, service health and recent activity.' },
+  citoplatform: { title: 'Billing & BaaS', subtitle: 'Service catalogue, merchant entitlements and access governance.' },
+  vending: { title: 'Vending & Utilities', subtitle: 'Vending estate, rentals, callbacks, fulfilment and operational events.' },
   merchants: { title: strings.menu_merchants, subtitle: strings.menu_merchants_subtitle },
-  transactions: { title: strings.menu_transactions, subtitle: strings.menu_transactions_subtitle_admin },
-  reconciliation: { title: strings.menu_reconciliation, subtitle: strings.menu_reconciliation_subtitle },
-  financeclose: { title: 'Finance Close', subtitle: 'Maker-checker daily close for reconciliation' },
-  payoutapprovals: { title: 'Payout Approvals', subtitle: 'Maker-checker approval queue for limit-parked payouts' },
-  payoutcontrols: { title: 'Payout Controls', subtitle: 'Configure payout risk limits enforced on the v2 path' },
-  settlementclose: { title: 'Settlement Close', subtitle: 'Maker-checker settlement batch close' },
-  webhookops: { title: 'Webhook Ops', subtitle: 'Merchant callback verification and test events' },
-  communicationrouting: { title: 'Communications', subtitle: 'SMS and configured communication channels, provider routing and delivery operations' },
-  compliance: { title: 'Compliance', subtitle: 'AML/KYC cases, screening events and compliance profiles' },
-  kybreview: { title: 'KYB Review', subtitle: 'Approve or reject beneficial owners and KYC documents' },
-  certification: { title: 'Certification', subtitle: 'Provider sandbox/statement evidence and approvals' },
-  sandboxgolive: { title: 'Sandbox Go-Live', subtitle: 'Review readiness, promote safe configuration, validate live smoke tests and stage production rollout' },
-  treasury: { title: 'Treasury', subtitle: 'Channel/currency positions and balance monitoring' },
-  productionmaturity: { title: 'Production Maturity', subtitle: 'Finance, compliance, cross-border and automation readiness' },
+  transactions: { title: 'Payments', subtitle: strings.menu_transactions_subtitle_admin },
+  reconciliation: { title: 'Reconciliation', subtitle: strings.menu_reconciliation_subtitle },
+  financeclose: { title: 'Finance Close', subtitle: 'Maker-checker daily close for reconciliation.' },
+  payoutapprovals: { title: 'Payout Approvals', subtitle: 'Maker-checker approval queue for limit-parked payouts.' },
+  payoutcontrols: { title: 'Payout Controls', subtitle: 'Configure payout risk limits enforced on the v2 path.' },
+  settlementclose: { title: 'Settlement Close', subtitle: 'Maker-checker settlement batch close.' },
+  webhookops: { title: 'Webhook Ops', subtitle: 'Merchant callback verification and test events.' },
+  communicationrouting: { title: 'Communications', subtitle: 'Communication providers, routing rules and delivery configuration.' },
+  compliance: { title: 'Compliance', subtitle: 'AML/KYC cases, screening events and compliance profiles.' },
+  kybreview: { title: 'KYB Review', subtitle: 'Approve or reject beneficial owners and KYC documents.' },
+  certification: { title: 'Certification', subtitle: 'Provider sandbox and statement evidence and approvals.' },
+  sandboxgolive: { title: 'Sandbox Go-Live', subtitle: 'Review readiness, promote safe configuration and stage production rollout.' },
+  treasury: { title: 'Treasury / Float', subtitle: 'Channel and currency positions, balances and liquidity monitoring.' },
+  productionmaturity: { title: 'Production Maturity', subtitle: 'Finance, compliance, cross-border and automation readiness.' },
   admins: { title: strings.menu_admins, subtitle: strings.menu_admins_subtitle_admin },
   audittrail: { title: strings.menu_audittrail, subtitle: strings.menu_audittrail_subtitle_admin },
   settings: { title: strings.settings, subtitle: strings.menu_settings_subtitle_admin },
@@ -81,6 +81,9 @@ const adminRoutes = {
   dashboard: '/bo/admin/insights',
   'merchants-accounts': '/bo/admin/merchants-accounts',
   'money-operations': '/bo/admin/money-operations',
+  communicationrouting: '/bo/admin/communicationrouting',
+  vending: '/bo/admin/vending',
+  reconciliation: '/bo/admin/reconciliation',
   treasury: '/bo/admin/treasury',
   'risk-compliance': '/bo/admin/risk-compliance',
   'providers-integrations': '/bo/admin/providers-integrations',
@@ -90,7 +93,7 @@ const adminRoutes = {
   search: '/bo/admin/search',
   support: '/bo/admin/support',
   notifications: '/bo/admin/notifications',
-  settings: '/bo/admin/administration/settings',
+  settings: '/bo/admin/settings',
 };
 
 function adminMenuFromPath(pathname) {
@@ -354,19 +357,23 @@ class LayoutWithOutRouter extends React.Component {
                 <IconButton label="Navigation" onClick={() => this.setState(s => ({ navOpen: !s.navOpen }))}>
                   <Icons.MenuIcon size={20} />
                 </IconButton>
-                <div className="cpay-topbar-heading">
-                  <h1>{current.title}</h1>
-                  <p>{current.subtitle}</p>
-                </div>
+                <button type="button" className="cito-global-search-trigger" onClick={() => this.goToScreen('search')}>
+                  <Icons.SearchIcon size={18} />
+                  <span>Search Cito</span>
+                  <kbd>/</kbd>
+                </button>
               </>
             }
             right={
               <>
                 <EnvironmentSwitcher portal="admin" />
                 <ThemeToggle />
-                <Button variant="ghost" className="ios-btn--sm" onClick={() => this.goToScreen('search')}>Search</Button>
-                <Button variant="ghost" className="ios-btn--sm" onClick={() => this.goToScreen('notifications')}>Notifications</Button>
-                <Button variant="primary" className="ios-btn--sm" onClick={this.refreshCurrentPage}>{strings.refresh}</Button>
+                <IconButton label="Notifications" onClick={() => this.goToScreen('notifications')}>
+                  <Icons.MailIcon size={19} />
+                </IconButton>
+                <IconButton label={strings.refresh} onClick={this.refreshCurrentPage}>
+                  <Icons.RefreshIcon size={19} />
+                </IconButton>
                 <UserChip name={user.name || 'User'} meta={user.email || 'Signed in'} />
               </>
             }
@@ -374,7 +381,16 @@ class LayoutWithOutRouter extends React.Component {
         }
       >
         <Page>
-          {this.state.currentMenuItem}
+          <div className="cito-page-shell">
+            <header className="cito-page-heading">
+              <div>
+                <span className="cito-page-heading__eyebrow">Cito workspace</span>
+                <h1>{current.title}</h1>
+                <p>{current.subtitle}</p>
+              </div>
+            </header>
+            {this.state.currentMenuItem}
+          </div>
         </Page>
 
         <Messager ref={ref => this.messager = ref}></Messager>
