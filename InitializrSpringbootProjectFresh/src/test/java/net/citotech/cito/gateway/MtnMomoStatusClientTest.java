@@ -110,8 +110,7 @@ class MtnMomoStatusClientTest {
                     headersSeen.set(new LinkedHashMap<>(headers));
                     HttpRequestResponse response = new HttpRequestResponse();
                     response.setStatusCode(200);
-                    response.setResponse(
-                            "{\"status\":\"PENDING\",\"externalId\":\"ORDER-42\"}");
+                    response.setResponse("{\"status\":\"PENDING\",\"externalId\":\"ORDER-42\"}");
                     return response;
                 });
         try {
@@ -127,8 +126,7 @@ class MtnMomoStatusClientTest {
 
             assertThat(verified.status()).isEqualTo("PENDING");
             assertThat(calls.get()).isEqualTo(1);
-            assertThat(headersSeen.get())
-                    .containsEntry("Authorization", "Bearer cached-token");
+            assertThat(headersSeen.get()).containsEntry("Authorization", "Bearer cached-token");
         } finally {
             Common.setOutboundHttpExecutor(null);
         }

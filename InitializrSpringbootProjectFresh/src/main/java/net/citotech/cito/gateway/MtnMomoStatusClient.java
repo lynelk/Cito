@@ -14,7 +14,9 @@ import net.citotech.cito.Model.HttpRequestResponse;
 import org.json.JSONObject;
 import org.springframework.stereotype.Service;
 
-/** Authenticated MTN status lookup used to verify callback signals before financial state changes. */
+/**
+ * Authenticated MTN status lookup used to verify callback signals before financial state changes.
+ */
 @Service
 public class MtnMomoStatusClient {
     private final ProviderTokenStoreService tokenStoreService;
@@ -45,7 +47,8 @@ public class MtnMomoStatusClient {
         if (statusResponse != null && statusResponse.getStatusCode() == 401) {
             token = accessToken(operation, environment, credentials, segment, true);
             statusResponse =
-                    statusRequest(operation, providerReference, credentials, subscriptionKey, token);
+                    statusRequest(
+                            operation, providerReference, credentials, subscriptionKey, token);
         }
         if (statusResponse == null || statusResponse.getStatusCode() != 200) {
             int status = statusResponse == null ? 0 : statusResponse.getStatusCode();
@@ -123,7 +126,9 @@ public class MtnMomoStatusClient {
         if (tokenResponse == null || tokenResponse.getStatusCode() != 200) {
             int status = tokenResponse == null ? 0 : tokenResponse.getStatusCode();
             throw new PaymentGatewayException(
-                    "MTN status verification could not obtain an access token (HTTP " + status + ")");
+                    "MTN status verification could not obtain an access token (HTTP "
+                            + status
+                            + ")");
         }
         JSONObject tokenJson = new JSONObject(tokenResponse.getResponse());
         String token = tokenJson.optString("access_token", "").trim();
@@ -151,8 +156,7 @@ public class MtnMomoStatusClient {
     private String sha256(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of()
-                    .formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             throw new PaymentGatewayException("Unable to derive MTN token cache key");
         }

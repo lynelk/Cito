@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
 /** Recovers MTN transactions when the provider's single-attempt callback is missed. */
 @Component
 public class MtnMomoStatusPollingScheduler {
-    private static final Logger logger = LoggerFactory.getLogger(MtnMomoStatusPollingScheduler.class);
+    private static final Logger logger =
+            LoggerFactory.getLogger(MtnMomoStatusPollingScheduler.class);
 
     private final MtnMomoCorrelationService correlationService;
     private final int batchSize;

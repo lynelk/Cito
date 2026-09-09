@@ -26,8 +26,8 @@ import org.springframework.transaction.PlatformTransactionManager;
  * <p>MTN callbacks are not treated as authoritative financial state. The callback UUID is first
  * correlated to the exact merchant transaction and then Cito performs an authenticated MTN status
  * lookup with the same credential source used for execution. The same verification path is used by
- * the missed-callback poller. Only the verified provider result may move merchant or shared-provider
- * treasury state to a final status.
+ * the missed-callback poller. Only the verified provider result may move merchant or
+ * shared-provider treasury state to a final status.
  */
 @Service
 public class MtnMomoCorrelationService {
@@ -76,7 +76,9 @@ public class MtnMomoCorrelationService {
         String country = required(metadata.get("country"), "country").toUpperCase(Locale.ROOT);
         String currency = required(metadata.get("currency"), "currency").toUpperCase(Locale.ROOT);
         String credentialSource =
-                firstNonBlank(metadata.get("credentialSource"), SharedProviderAccessService.MERCHANT)
+                firstNonBlank(
+                                metadata.get("credentialSource"),
+                                SharedProviderAccessService.MERCHANT)
                         .toUpperCase(Locale.ROOT);
         if (!credentialSource.equals(SharedProviderAccessService.MERCHANT)
                 && !credentialSource.equals(SharedProviderAccessService.PLATFORM_SHARED)) {
@@ -159,8 +161,7 @@ public class MtnMomoCorrelationService {
             String providerReference = text(row.get("provider_reference"));
             try {
                 Map<String, Object> outcome =
-                        verifyAndApply(
-                                correlation(row), providerReference, "", "", false);
+                        verifyAndApply(correlation(row), providerReference, "", "", false);
                 if (Boolean.TRUE.equals(outcome.get("transactionUpdated"))) finalized++;
             } catch (Exception e) {
                 logger.warn(
@@ -182,8 +183,7 @@ public class MtnMomoCorrelationService {
         if (merchant == null) {
             throw new PaymentGatewayException("MTN correlation merchant was not found");
         }
-        Transaction transaction =
-                findTransaction(merchant, correlation.merchantReference());
+        Transaction transaction = findTransaction(merchant, correlation.merchantReference());
         if (transaction == null) {
             throw new PaymentGatewayException("MTN merchant transaction was not found");
         }
@@ -374,8 +374,7 @@ public class MtnMomoCorrelationService {
         String environment = normalizedEnvironment(text(environments.get(0).get("environment")));
         String currency = text(tx.getCurrency()).toUpperCase(Locale.ROOT);
         if (currency.isEmpty()) currency = "SANDBOX".equals(environment) ? "EUR" : "UGX";
-        String operation =
-                "PAYOUT".equalsIgnoreCase(text(tx.getTx_type())) ? "PAYOUT" : "COLLECT";
+        String operation = "PAYOUT".equalsIgnoreCase(text(tx.getTx_type())) ? "PAYOUT" : "COLLECT";
         return new Correlation(
                 merchant.getAccount_number(),
                 mappedReference,
@@ -420,7 +419,8 @@ public class MtnMomoCorrelationService {
         try {
             new TxCallback(transaction, merchant).start(jdbc, transactionManager);
         } catch (Exception ignored) {
-            // MTN acknowledgement/polling must not fail because merchant callback delivery is async.
+            // MTN acknowledgement/polling must not fail because merchant callback delivery is
+            // async.
         }
     }
 
