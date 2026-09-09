@@ -10,6 +10,7 @@ import net.citotech.cito.Model.Merchant;
 import net.citotech.cito.Model.Setting;
 import net.citotech.cito.Model.Transaction;
 import net.citotech.cito.Model.TxCallback;
+import net.citotech.cito.gateway.LegacyGatewayIds;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +26,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Scheduler that auto-resolves PENDING transactions that have exceeded the timeout threshold.
  * Default timeout: 30 minutes, overridable per gateway via a {@code
  * transaction_timeout_minutes_<gateway_id>} row in the settings table.
+ *
+ * <p>MTN MoMo is deliberately excluded from generic timeout-to-FAILED handling. RequestToPay and
+ * Transfer are asynchronous and MTN sends callbacks only once, so an absent callback is not
+ * evidence of failure. MTN transactions are reconciled by {@link MtnMomoStatusPollScheduler}
+ * against the provider's GET status endpoint instead.
  */
 @Component
 public class TransactionTimeoutScheduler {
@@ -58,6 +64,9 @@ public class TransactionTimeoutScheduler {
 
             Map<String, Integer> resolvedTimeouts = new HashMap<>();
             for (String gatewayId : gatewayIds) {
+                if (LegacyGatewayIds.MTN_MOMO.equals(gatewayId)) {
+                    continue;
+                }
                 int timeoutMinutes = timeoutMinutesForGateway(gatewayId, resolvedTimeouts);
                 for (Transaction tx : fetchStalePendingTransactions(gatewayId, timeoutMinutes)) {
                     timeoutTransaction(tx, timeoutMinutes);
