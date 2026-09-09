@@ -20,9 +20,14 @@ describe('admin clean dashboard experience', () => {
   });
 
   test('keeps the overview focused on one trend, one status panel, recent activity and actions', () => {
-    const headings = ['Money movement', 'Needs attention', 'Recent activity', 'Quick actions'];
+    const renderedHeadings = [
+      'title="Money movement"',
+      'title="Needs attention"',
+      'title="Recent activity"',
+      'title="Quick actions"',
+    ];
     let previous = -1;
-    headings.forEach((heading) => {
+    renderedHeadings.forEach((heading) => {
       const index = insights.indexOf(heading);
       expect(index).toBeGreaterThan(previous);
       previous = index;
