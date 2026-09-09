@@ -13,6 +13,8 @@ import net.citotech.cito.Model.TxCallback;
 import net.citotech.cito.merchant.MerchantChannelCredentialService;
 import net.citotech.cito.sharedprovider.SharedProviderAccessService;
 import net.citotech.cito.treasury.ProviderTreasuryService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -23,11 +25,14 @@ import org.springframework.transaction.PlatformTransactionManager;
  *
  * <p>MTN callbacks are not treated as authoritative financial state. The callback UUID is first
  * correlated to the exact merchant transaction and then Cito performs an authenticated MTN status
- * lookup with the same credential source used for execution. Only the verified provider result may
- * move merchant or shared-provider treasury state to a final status.
+ * lookup with the same credential source used for execution. The same verification path is used by
+ * the missed-callback poller. Only the verified provider result may move merchant or shared-provider
+ * treasury state to a final status.
  */
 @Service
 public class MtnMomoCorrelationService {
+    private static final Logger logger = LoggerFactory.getLogger(MtnMomoCorrelationService.class);
+
     private final NamedParameterJdbcTemplate jdbc;
     private final ProviderTreasuryService treasuryService;
     private final PlatformTransactionManager transactionManager;
@@ -60,7 +65,8 @@ public class MtnMomoCorrelationService {
         String merchantNumber = required(request.getMerchantNumber(), "merchantNumber");
         String merchantReference = required(request.getReference(), "merchantReference");
         String normalizedOperation = normalizedOperation(operation);
-        Map<String, String> metadata = request.getMetadata();
+        Map<String, String> metadata =
+                request.getMetadata() == null ? Map.of() : request.getMetadata();
         String environment =
                 normalizedEnvironment(
                         firstNonBlank(
@@ -116,10 +122,65 @@ public class MtnMomoCorrelationService {
         if (!merchantReference.equals(correlation.merchantReference())) {
             throw new PaymentGatewayException("MTN callback externalId does not match correlation");
         }
+        return verifyAndApply(
+                correlation,
+                providerReference,
+                callbackStatus,
+                callbackFinancialTransactionId,
+                true);
+    }
 
+    /**
+     * Polls provider state for exact, unresolved MTN correlations. This is the recovery path for
+     * MTN's single-attempt callbacks and intentionally uses the same authenticated verification as
+     * the callback handler.
+     */
+    public int reconcilePending(int requestedLimit) {
+        int limit = Math.max(1, Math.min(requestedLimit, 500));
+        List<Map<String, Object>> rows =
+                jdbc.queryForList(
+                        "SELECT c.provider_reference, c.merchant_number, c.merchant_reference,"
+                                + " c.operation, c.environment, c.country_code, c.currency_code,"
+                                + " c.credential_source"
+                                + " FROM mtn_momo_correlations c"
+                                + " JOIN merchants m ON m.account_number=c.merchant_number"
+                                + " JOIN "
+                                + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                                + " t ON t.merchant_id=m.id"
+                                + " AND t.tx_merchant_ref=c.merchant_reference"
+                                + " AND t.gateway_id=:gateway_id"
+                                + " WHERE t.status IN ('PENDING','UNDETERMINED')"
+                                + " ORDER BY c.updated_at ASC LIMIT :limit",
+                        new MapSqlParameterSource()
+                                .addValue("gateway_id", LegacyGatewayIds.MTN_MOMO)
+                                .addValue("limit", limit));
+        int finalized = 0;
+        for (Map<String, Object> row : rows) {
+            String providerReference = text(row.get("provider_reference"));
+            try {
+                Map<String, Object> outcome =
+                        verifyAndApply(
+                                correlation(row), providerReference, "", "", false);
+                if (Boolean.TRUE.equals(outcome.get("transactionUpdated"))) finalized++;
+            } catch (Exception e) {
+                logger.warn(
+                        "MTN pending-status verification failed for provider reference {}: {}",
+                        providerReference,
+                        e.getMessage());
+            }
+        }
+        return finalized;
+    }
+
+    private Map<String, Object> verifyAndApply(
+            Correlation correlation,
+            String providerReference,
+            String callbackStatus,
+            String callbackFinancialTransactionId,
+            boolean callbackDriven) {
         Merchant merchant = Common.getMerchantByAccountNumber(correlation.merchantNumber(), jdbc);
         if (merchant == null) {
-            throw new PaymentGatewayException("MTN callback merchant was not found");
+            throw new PaymentGatewayException("MTN correlation merchant was not found");
         }
         Transaction transaction =
                 findTransaction(merchant, correlation.merchantReference());
@@ -137,7 +198,7 @@ public class MtnMomoCorrelationService {
                         correlation.currency(),
                         credentials);
         if (text(verified.externalId()).isEmpty()
-                || !merchantReference.equals(text(verified.externalId()))) {
+                || !correlation.merchantReference().equals(text(verified.externalId()))) {
             throw new PaymentGatewayException(
                     "MTN verified status externalId does not match the callback correlation");
         }
@@ -148,7 +209,7 @@ public class MtnMomoCorrelationService {
                     treasuryService.resolveProviderCallback(
                             MtnMomoCredentialSchema.CHANNEL_CODE,
                             providerReference,
-                            merchantReference,
+                            correlation.merchantReference(),
                             verified.status(),
                             verified.financialTransactionId());
         } catch (PaymentGatewayException e) {
@@ -161,13 +222,15 @@ public class MtnMomoCorrelationService {
         String finalStatus = finalTransactionStatus(verified.status());
         if (finalStatus == null) {
             return result(
-                    merchantReference,
+                    correlation.merchantReference(),
                     verified.status(),
                     callbackStatus,
                     false,
                     true,
                     treasuryReservation,
-                    "MTN callback correlated and provider status verified; transaction remains pending");
+                    callbackDriven
+                            ? "MTN callback correlated and provider status verified; transaction remains pending"
+                            : "MTN status poll verified that the transaction remains pending");
         }
 
         String currentStatus = text(transaction.getStatus()).toUpperCase(Locale.ROOT);
@@ -178,7 +241,8 @@ public class MtnMomoCorrelationService {
                             ? providerReference
                             : text(verified.financialTransactionId());
             String trace =
-                    "MTN_VERIFIED_CALLBACK providerReference="
+                    (callbackDriven ? "MTN_VERIFIED_CALLBACK" : "MTN_VERIFIED_POLL")
+                            + " providerReference="
                             + providerReference
                             + "; callbackStatus="
                             + normalizedProviderStatus(callbackStatus)
@@ -198,7 +262,11 @@ public class MtnMomoCorrelationService {
                                     .addValue("status", finalStatus)
                                     .addValue("gateway_ref", networkReference)
                                     .addValue("trace", trace)
-                                    .addValue("resolved_by", "MTN_STATUS_VERIFIED"));
+                                    .addValue(
+                                            "resolved_by",
+                                            callbackDriven
+                                                    ? "MTN_STATUS_VERIFIED_CALLBACK"
+                                                    : "MTN_STATUS_VERIFIED_POLL"));
             updated = changed > 0;
             if (updated) {
                 Transaction refreshed = findTransactionById(transaction.getId());
@@ -207,14 +275,16 @@ public class MtnMomoCorrelationService {
         }
 
         return result(
-                merchantReference,
+                correlation.merchantReference(),
                 finalStatus,
                 callbackStatus,
                 updated,
                 true,
                 treasuryReservation,
                 updated
-                        ? "MTN callback resolved from authenticated provider status"
+                        ? (callbackDriven
+                                ? "MTN callback resolved from authenticated provider status"
+                                : "MTN pending transaction resolved from authenticated provider poll")
                         : "MTN transaction was already resolved");
     }
 
@@ -239,16 +309,19 @@ public class MtnMomoCorrelationService {
                                 + " WHERE provider_reference=:provider_reference LIMIT 1",
                         new MapSqlParameterSource()
                                 .addValue("provider_reference", providerReference));
-        if (rows.isEmpty()) return null;
-        Map<String, Object> row = rows.get(0);
+        return rows.isEmpty() ? null : correlation(rows.get(0));
+    }
+
+    private Correlation correlation(Map<String, Object> row) {
         return new Correlation(
                 text(row.get("merchant_number")),
                 text(row.get("merchant_reference")),
                 normalizedOperation(text(row.get("operation"))),
                 normalizedEnvironment(text(row.get("environment"))),
-                text(row.get("country_code")).toUpperCase(Locale.ROOT),
-                text(row.get("currency_code")).toUpperCase(Locale.ROOT),
-                text(row.get("credential_source")).toUpperCase(Locale.ROOT));
+                required(text(row.get("country_code")), "country").toUpperCase(Locale.ROOT),
+                required(text(row.get("currency_code")), "currency").toUpperCase(Locale.ROOT),
+                required(text(row.get("credential_source")), "credentialSource")
+                        .toUpperCase(Locale.ROOT));
     }
 
     private Correlation findLegacyCorrelation(String providerReference, String externalId) {
@@ -292,9 +365,8 @@ public class MtnMomoCorrelationService {
                 jdbc.queryForList(
                         "SELECT environment FROM merchant_channel_credentials"
                                 + " WHERE merchant_id=:merchant_id AND channel_code=:channel_code"
-                                + " AND status IN ('ACTIVE','SANDBOX_TESTED','SUBMITTED_FOR_APPROVAL')"
-                                + " ORDER BY FIELD(status,'ACTIVE','SANDBOX_TESTED','SUBMITTED_FOR_APPROVAL')"
-                                + " LIMIT 2",
+                                + " AND status IN ('ACTIVE','SANDBOX_TESTED')"
+                                + " ORDER BY FIELD(status,'ACTIVE','SANDBOX_TESTED') LIMIT 2",
                         new MapSqlParameterSource()
                                 .addValue("merchant_id", merchant.getId())
                                 .addValue("channel_code", MtnMomoCredentialSchema.CHANNEL_CODE));
@@ -348,7 +420,7 @@ public class MtnMomoCorrelationService {
         try {
             new TxCallback(transaction, merchant).start(jdbc, transactionManager);
         } catch (Exception ignored) {
-            // MTN acknowledgement must not fail because merchant callback delivery is asynchronous.
+            // MTN acknowledgement/polling must not fail because merchant callback delivery is async.
         }
     }
 
