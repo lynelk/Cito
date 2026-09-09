@@ -109,7 +109,8 @@ class MtnMomoCredentialSchemaTest {
         assertThat(MtnMomoCredentialSchema.endpoint(values, "PAYOUT"))
                 .isEqualTo("https://sandbox.momodeveloper.mtn.com/disbursement/v1_0/transfer");
         assertThat(MtnMomoCredentialSchema.statusEndpoint(values, "COLLECT", "abc"))
-                .isEqualTo("https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay/abc");
+                .isEqualTo(
+                        "https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay/abc");
         assertThat(MtnMomoCredentialSchema.statusEndpoint(values, "PAYOUT", "abc"))
                 .isEqualTo("https://sandbox.momodeveloper.mtn.com/disbursement/v1_0/transfer/abc");
     }

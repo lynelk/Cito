@@ -16,10 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Applies the canonical double-entry payment lifecycle only when provider evidence is terminal.
  *
- * <p>Provider acceptance (for example MTN HTTP 202) is not settlement. Collections therefore do
- * not post until provider-confirmed success, while payouts remain reserved until success or
- * failure is confirmed. The service also repairs ledger entries written by the older eager-posting
- * path by reversing them if the provider later confirms failure.
+ * <p>Provider acceptance (for example MTN HTTP 202) is not settlement. Collections therefore do not
+ * post until provider-confirmed success, while payouts remain reserved until success or failure is
+ * confirmed. The service also repairs ledger entries written by the older eager-posting path by
+ * reversing them if the provider later confirms failure.
  */
 @Service
 public class PaymentLedgerSettlementService {
@@ -27,8 +27,7 @@ public class PaymentLedgerSettlementService {
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public PaymentLedgerSettlementService(
-            DoubleEntryLedgerService ledgerService,
-            NamedParameterJdbcTemplate jdbcTemplate) {
+            DoubleEntryLedgerService ledgerService, NamedParameterJdbcTemplate jdbcTemplate) {
         this.ledgerService = ledgerService;
         this.jdbcTemplate = jdbcTemplate;
     }

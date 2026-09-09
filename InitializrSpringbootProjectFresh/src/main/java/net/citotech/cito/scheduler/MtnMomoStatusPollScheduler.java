@@ -61,10 +61,7 @@ public class MtnMomoStatusPollScheduler {
     }
 
     @Scheduled(fixedDelayString = "${cpay.mtn.status-poll.delay-ms:60000}")
-    @SchedulerLock(
-            name = "mtnMomoStatusPoll",
-            lockAtMostFor = "PT55S",
-            lockAtLeastFor = "PT5S")
+    @SchedulerLock(name = "mtnMomoStatusPoll", lockAtMostFor = "PT55S", lockAtLeastFor = "PT5S")
     public void reconcilePendingMtnTransactions() {
         try {
             reconcileLegacyBatch();
@@ -219,10 +216,7 @@ public class MtnMomoStatusPollScheduler {
         try {
             Map<String, Object> credentials =
                     sharedProviderAccessService.loadActivePlatformCredential(
-                            MtnMomoCredentialSchema.CHANNEL_CODE,
-                            environment,
-                            country,
-                            currency);
+                            MtnMomoCredentialSchema.CHANNEL_CODE, environment, country, currency);
             MtnMomoCredentialSchema.validateForOperation(
                     credentials, environment, country, currency, operation);
 
@@ -245,10 +239,7 @@ public class MtnMomoStatusPollScheduler {
             }
             boolean success = "SUCCESSFUL".equals(normalizedStatus(provider));
             treasuryService.resolvePending(
-                    reservationId,
-                    success,
-                    providerReference,
-                    "MTN_STATUS_POLL");
+                    reservationId, success, providerReference, "MTN_STATUS_POLL");
         } catch (Exception e) {
             logger.log(
                     Level.WARNING,
@@ -258,7 +249,9 @@ public class MtnMomoStatusPollScheduler {
         }
     }
 
-    /** Only an HTTP 200 status resource with an explicit terminal provider status is authoritative. */
+    /**
+     * Only an HTTP 200 status resource with an explicit terminal provider status is authoritative.
+     */
     static boolean isAuthoritativeTerminal(GateWayResponse provider) {
         if (provider == null
                 || !"200".equals(safe(provider.getHttpStatus()))

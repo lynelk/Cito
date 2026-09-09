@@ -19,11 +19,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
- * Covers audit B7: the scheduler's javadoc claimed a per-gateway configurable timeout, but the
- * code used one hardcoded 30-minute constant for every gateway. It now looks up a
- * {@code transaction_timeout_minutes_<gateway_id>} setting per gateway, falling back to the
- * default when unset. MTN MoMo is intentionally excluded because its asynchronous transactions
- * are reconciled against MTN's status endpoint instead of being failed by elapsed time alone.
+ * Covers audit B7: the scheduler's javadoc claimed a per-gateway configurable timeout, but the code
+ * used one hardcoded 30-minute constant for every gateway. It now looks up a {@code
+ * transaction_timeout_minutes_<gateway_id>} setting per gateway, falling back to the default when
+ * unset. MTN MoMo is intentionally excluded because its asynchronous transactions are reconciled
+ * against MTN's status endpoint instead of being failed by elapsed time alone.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 class TransactionTimeoutSchedulerTest {
@@ -37,10 +37,7 @@ class TransactionTimeoutSchedulerTest {
                         contains("DISTINCT gateway_id"),
                         any(MapSqlParameterSource.class),
                         eq(String.class)))
-                .thenReturn(
-                        List.of(
-                                "AirtelMoneyOpenApiPaymentGateway",
-                                "SafariComPaymentGateway"));
+                .thenReturn(List.of("AirtelMoneyOpenApiPaymentGateway", "SafariComPaymentGateway"));
 
         ResultSet airtelSettingRow =
                 settingRow(

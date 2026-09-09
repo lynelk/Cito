@@ -53,8 +53,8 @@ public enum TransactionStatus {
     /**
      * Validates a transaction lifecycle transition. Re-applying the same state is allowed so
      * provider retries and status repairs remain idempotent. Once terminal, only the identical
-     * terminal status may be replayed; corrections still require explicit reversal/correction
-     * flows rather than mutation to a different terminal outcome.
+     * terminal status may be replayed; corrections still require explicit reversal/correction flows
+     * rather than mutation to a different terminal outcome.
      */
     public boolean canTransitionTo(TransactionStatus next) {
         if (next == null) {

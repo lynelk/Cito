@@ -100,11 +100,7 @@ class PaymentLedgerSettlementServiceTest {
 
         service.applyTerminalProviderOutcome(tx, "FAILED", merchant);
 
-        verify(ledger)
-                .reverse(
-                        eq("payment:TX-4"),
-                        eq("payment-reversal:TX-4"),
-                        anyString());
+        verify(ledger).reverse(eq("payment:TX-4"), eq("payment-reversal:TX-4"), anyString());
         verify(jdbc)
                 .update(
                         org.mockito.ArgumentMatchers.contains("reservation_status='RELEASED'"),
