@@ -38,10 +38,12 @@ public enum TransactionStatus {
         allow(SENT_TO_PROVIDER, SENT_TO_PROVIDER, PENDING, SUCCESSFUL, FAILED, UNDETERMINED);
         allow(PENDING, PENDING, SUCCESSFUL, FAILED, UNDETERMINED, CANCELLED);
         allow(UNDETERMINED, UNDETERMINED, PENDING, SUCCESSFUL, FAILED, REVERSED);
-        allow(SUCCESSFUL);
-        allow(FAILED);
-        allow(REVERSED);
-        allow(CANCELLED);
+        // Provider callbacks/status polls are at-least-once evidence. Replaying the same terminal
+        // state is idempotent; changing one terminal state into another remains prohibited.
+        allow(SUCCESSFUL, SUCCESSFUL);
+        allow(FAILED, FAILED);
+        allow(REVERSED, REVERSED);
+        allow(CANCELLED, CANCELLED);
     }
 
     public boolean isTerminal() {
@@ -49,9 +51,10 @@ public enum TransactionStatus {
     }
 
     /**
-     * Validates a forward transaction lifecycle transition. Re-applying the same non-terminal state
-     * is allowed so provider retries and status repairs remain idempotent; terminal states are
-     * immutable and can only be handled by explicit reversal/correction flows.
+     * Validates a transaction lifecycle transition. Re-applying the same state is allowed so
+     * provider retries and status repairs remain idempotent. Once terminal, only the identical
+     * terminal status may be replayed; corrections still require explicit reversal/correction
+     * flows rather than mutation to a different terminal outcome.
      */
     public boolean canTransitionTo(TransactionStatus next) {
         if (next == null) {
