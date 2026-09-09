@@ -159,7 +159,7 @@ function ModuleInsightsC(props) {
     { label: 'Payments', description: 'Review collections, payouts and transactions', onClick: () => history.push('/bo/admin/money-operations') },
     { label: 'Communications', description: 'Manage communication providers and routing', onClick: () => history.push('/bo/admin/communicationrouting') },
     { label: 'Vending & Utilities', description: 'Review vending estate and fulfilment', onClick: () => history.push('/bo/admin/vending') },
-    { label: 'KYC & Identity', description: 'Review identity and compliance operations', onClick: () => history.push('/bo/admin/risk-compliance') },
+    { label: 'KYC & Identity', description: 'Identity, Credit & Scoring, KYB and compliance operations', onClick: () => history.push('/bo/admin/risk-compliance') },
     { label: 'Billing & BaaS', description: 'Manage service access and monetisation', onClick: () => history.push('/bo/admin/platform') },
   ];
 
