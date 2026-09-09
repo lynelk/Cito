@@ -1,10 +1,14 @@
 package net.citotech.cito.gateway;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import net.citotech.cito.Common;
 import net.citotech.cito.Model.HttpRequestResponse;
 import org.json.JSONObject;
@@ -13,6 +17,11 @@ import org.springframework.stereotype.Service;
 /** Authenticated MTN status lookup used to verify callback signals before financial state changes. */
 @Service
 public class MtnMomoStatusClient {
+    private final ProviderTokenStoreService tokenStoreService;
+
+    public MtnMomoStatusClient(ProviderTokenStoreService tokenStoreService) {
+        this.tokenStoreService = tokenStoreService;
+    }
 
     public VerifiedStatus verify(
             String operation,
@@ -26,10 +35,77 @@ public class MtnMomoStatusClient {
 
         String prefix = MtnMomoCredentialSchema.productPrefix(operation);
         String apiUser = required(credentials.get(prefix + "ApiUser"), prefix + "ApiUser");
+        String subscriptionKey =
+                required(credentials.get(prefix + "SubscriptionKey"), prefix + "SubscriptionKey");
+        String segment = tokenSegment(prefix, apiUser, subscriptionKey);
+        String token = accessToken(operation, environment, credentials, segment, false);
+
+        HttpRequestResponse statusResponse =
+                statusRequest(operation, providerReference, credentials, subscriptionKey, token);
+        if (statusResponse != null && statusResponse.getStatusCode() == 401) {
+            token = accessToken(operation, environment, credentials, segment, true);
+            statusResponse =
+                    statusRequest(operation, providerReference, credentials, subscriptionKey, token);
+        }
+        if (statusResponse == null || statusResponse.getStatusCode() != 200) {
+            int status = statusResponse == null ? 0 : statusResponse.getStatusCode();
+            throw new PaymentGatewayException(
+                    "MTN status verification failed (HTTP " + status + ")");
+        }
+
+        JSONObject json = new JSONObject(statusResponse.getResponse());
+        String status = json.optString("status", "").trim().toUpperCase(Locale.ROOT);
+        if (status.isEmpty()) {
+            throw new PaymentGatewayException("MTN status response omitted status");
+        }
+        return new VerifiedStatus(
+                status,
+                json.optString("externalId", "").trim(),
+                json.optString("financialTransactionId", "").trim());
+    }
+
+    private HttpRequestResponse statusRequest(
+            String operation,
+            String providerReference,
+            Map<String, String> credentials,
+            String subscriptionKey,
+            String token) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("Authorization", "Bearer " + token);
+        headers.put("Ocp-Apim-Subscription-Key", subscriptionKey);
+        headers.put(
+                "X-Target-Environment",
+                required(credentials.get("targetEnvironment"), "targetEnvironment"));
+        headers.put("Accept", "application/json");
+
+        String base = required(credentials.get("baseUrl"), "baseUrl").replaceAll("/+$", "");
+        String endpoint =
+                "PAYOUT".equalsIgnoreCase(operation)
+                        ? base + "/disbursement/v1_0/transfer/" + providerReference
+                        : base + "/collection/v1_0/requesttopay/" + providerReference;
+        return Common.doHttpRequest("GET", endpoint, "", headers);
+    }
+
+    private String accessToken(
+            String operation,
+            String environment,
+            Map<String, String> credentials,
+            String segment,
+            boolean forceRefresh) {
+        if (!forceRefresh) {
+            Optional<ProviderToken> cached =
+                    tokenStoreService.findValid(
+                            MtnMomoCredentialSchema.CHANNEL_CODE, segment, environment);
+            if (cached != null && cached.isPresent()) {
+                return cached.get().getTokenValue();
+            }
+        }
+
+        String prefix = MtnMomoCredentialSchema.productPrefix(operation);
+        String apiUser = required(credentials.get(prefix + "ApiUser"), prefix + "ApiUser");
         String apiKey = required(credentials.get(prefix + "ApiKey"), prefix + "ApiKey");
         String subscriptionKey =
                 required(credentials.get(prefix + "SubscriptionKey"), prefix + "SubscriptionKey");
-
         String basic =
                 Base64.getEncoder()
                         .encodeToString((apiUser + ":" + apiKey).getBytes(StandardCharsets.UTF_8));
@@ -55,36 +131,31 @@ public class MtnMomoStatusClient {
             throw new PaymentGatewayException(
                     "MTN status verification token response omitted access_token");
         }
+        long expiresIn = Math.max(60L, tokenJson.optLong("expires_in", 3600L));
+        tokenStoreService.save(
+                MtnMomoCredentialSchema.CHANNEL_CODE,
+                segment,
+                environment,
+                token,
+                Instant.now().plusSeconds(Math.max(30L, expiresIn - 60L)));
+        return token;
+    }
 
-        Map<String, String> headers = new LinkedHashMap<>();
-        headers.put("Authorization", "Bearer " + token);
-        headers.put("Ocp-Apim-Subscription-Key", subscriptionKey);
-        headers.put(
-                "X-Target-Environment",
-                required(credentials.get("targetEnvironment"), "targetEnvironment"));
-        headers.put("Accept", "application/json");
+    private String tokenSegment(String prefix, String apiUser, String subscriptionKey) {
+        String fingerprint = sha256(apiUser + "|" + subscriptionKey);
+        return prefix.toUpperCase(Locale.ROOT)
+                + ":"
+                + fingerprint.substring(0, Math.min(16, fingerprint.length()));
+    }
 
-        String base = required(credentials.get("baseUrl"), "baseUrl").replaceAll("/+$", "");
-        String endpoint =
-                "PAYOUT".equalsIgnoreCase(operation)
-                        ? base + "/disbursement/v1_0/transfer/" + providerReference
-                        : base + "/collection/v1_0/requesttopay/" + providerReference;
-        HttpRequestResponse statusResponse = Common.doHttpRequest("GET", endpoint, "", headers);
-        if (statusResponse == null || statusResponse.getStatusCode() != 200) {
-            int status = statusResponse == null ? 0 : statusResponse.getStatusCode();
-            throw new PaymentGatewayException(
-                    "MTN status verification failed (HTTP " + status + ")");
+    private String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of()
+                    .formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new PaymentGatewayException("Unable to derive MTN token cache key");
         }
-
-        JSONObject json = new JSONObject(statusResponse.getResponse());
-        String status = json.optString("status", "").trim().toUpperCase(Locale.ROOT);
-        if (status.isEmpty()) {
-            throw new PaymentGatewayException("MTN status response omitted status");
-        }
-        return new VerifiedStatus(
-                status,
-                json.optString("externalId", "").trim(),
-                json.optString("financialTransactionId", "").trim());
     }
 
     private Map<String, String> strings(Map<String, Object> values) {
