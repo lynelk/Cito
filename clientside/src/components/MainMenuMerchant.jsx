@@ -2,18 +2,24 @@ import React from 'react';
 import { NavGroup, NavItem, Icons } from '../ui';
 
 const navGroups = [
-  { title: 'Run your business', items: [
-    { value: 'home', text: 'Home', Icon: Icons.DashboardIcon },
+  { title: 'Overview', items: [
+    { value: 'home', text: 'Dashboard', Icon: Icons.DashboardIcon },
+  ] },
+  { title: 'Services', items: [
     { value: 'payments', text: 'Payments', Icon: Icons.PaymentsIcon, service: 'CPAY' },
+    { value: 'services', text: 'Services & Products', Icon: Icons.LightningIcon },
+  ] },
+  { title: 'Business', items: [
     { value: 'balances-settlements', text: 'Balances & Settlements', Icon: Icons.ReconcileIcon, service: 'CPAY' },
     { value: 'customers', text: 'Customers', Icon: Icons.UsersIcon },
-    { value: 'services', text: 'Services & Products', Icon: Icons.LightningIcon },
     { value: 'reports', text: 'Reports', Icon: Icons.ReceiptIcon },
   ] },
-  { title: 'Build and manage', items: [
+  { title: 'Platform', items: [
     { value: 'developers', text: 'Developers', Icon: Icons.CardsIcon },
     { value: 'business', text: 'Business', Icon: Icons.StoreIcon },
-    { value: 'help', text: 'Help', Icon: Icons.SmsIcon },
+  ] },
+  { title: 'Account', items: [
+    { value: 'help', text: 'Help & Support', Icon: Icons.SmsIcon },
     { value: 'settings', text: 'Settings', Icon: Icons.SettingsIcon },
   ] },
 ];
