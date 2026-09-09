@@ -6,9 +6,10 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 class TransactionTimeoutSchedulerTest {
 
     @Test
-    void usesADifferentTimeoutWindowPerGatewayWhenConfigured() throws Exception {
+    void skipsMtnAndUsesDefaultTimeoutForOtherGateways() {
         NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
         PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
 

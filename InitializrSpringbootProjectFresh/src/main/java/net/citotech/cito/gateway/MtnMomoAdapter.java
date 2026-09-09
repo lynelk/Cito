@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 public class MtnMomoAdapter extends LegacyGatewayAdapter {
     public static final String CHANNEL_CODE = "mtn_momo";
     private final ProviderEndpointExecutionService executionService;
+    private final MtnMomoCorrelationService correlationService;
 
     public MtnMomoAdapter(ProviderEndpointExecutionService executionService) {
         super(
@@ -20,6 +21,7 @@ public class MtnMomoAdapter extends LegacyGatewayAdapter {
                 "25678",
                 "25676");
         this.executionService = executionService;
+        this.correlationService = correlationService;
     }
 
     @Override
