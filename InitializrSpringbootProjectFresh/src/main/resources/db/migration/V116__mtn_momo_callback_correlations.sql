@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS `mtn_momo_correlations` (
   `merchant_reference` VARCHAR(255) NOT NULL,
   `operation` ENUM('COLLECT','PAYOUT') NOT NULL,
   `environment` ENUM('SANDBOX','PRODUCTION') NOT NULL,
+  `country_code` VARCHAR(8) NOT NULL,
+  `currency_code` VARCHAR(8) NOT NULL,
   `credential_source` VARCHAR(32) NOT NULL DEFAULT 'MERCHANT',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
