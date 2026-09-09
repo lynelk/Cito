@@ -31,9 +31,34 @@ class MtnMomoCredentialSchemaTest {
     }
 
     @Test
+    void rejectsHttpsCallbackInMtnSandbox() {
+        Map<String, Object> credentials = credentials();
+        credentials.put("callbackUrl", "https://pay.example.com/api/v2/provider-callbacks/mtn");
+
+        assertThatThrownBy(
+                        () -> MtnMomoCredentialSchema.validate(credentials, "SANDBOX", "UG", "EUR"))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("sandbox callbackUrl must use HTTP");
+    }
+
+    @Test
+    void acceptsHttpsCallbackForUgandaProduction() {
+        Map<String, Object> credentials = credentials();
+        credentials.put("targetEnvironment", "mtnuganda");
+        credentials.put("baseCurrency", "UGX");
+        credentials.put("callbackUrl", "https://pay.example.com/api/v2/provider-callbacks/mtn");
+
+        assertThatCode(
+                        () ->
+                                MtnMomoCredentialSchema.validate(
+                                        credentials, "PRODUCTION", "UG", "UGX"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void rejectsCallbackUrlOnAHostDifferentFromRegisteredApiUserHost() {
         Map<String, Object> credentials = credentials();
-        credentials.put("callbackUrl", "https://wrong.example/callbacks/mtn");
+        credentials.put("callbackUrl", "http://wrong.example/callbacks/mtn");
 
         assertThatThrownBy(
                         () -> MtnMomoCredentialSchema.validate(credentials, "SANDBOX", "UG", "EUR"))
@@ -60,7 +85,7 @@ class MtnMomoCredentialSchemaTest {
         values.put("targetEnvironment", "sandbox");
         values.put("baseCurrency", "EUR");
         values.put("callbackHost", "pay.example.com");
-        values.put("callbackUrl", "https://pay.example.com/api/v2/provider-callbacks/mtn");
+        values.put("callbackUrl", "http://pay.example.com/api/v2/provider-callbacks/mtn");
         values.put("collectionApiUser", "collection-user");
         values.put("collectionApiKey", "collection-key");
         values.put("collectionSubscriptionKey", "collection-subscription");
