@@ -27,8 +27,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Default timeout: 30 minutes, overridable per gateway via a {@code
  * transaction_timeout_minutes_<gateway_id>} row in the settings table.
  *
- * <p>MTN MoMo is excluded from blind timeouts because MTN callbacks are single-attempt. Its
- * dedicated status poller verifies final provider state before resolving a transaction.
+ * <p>MTN MoMo is deliberately excluded from generic timeout-to-FAILED handling. RequestToPay and
+ * Transfer are asynchronous and MTN sends callbacks only once, so an absent callback is not
+ * evidence of failure. MTN transactions are reconciled by {@link MtnMomoStatusPollScheduler}
+ * against the provider's GET status endpoint instead.
  */
 @Component
 public class TransactionTimeoutScheduler {
@@ -63,8 +65,6 @@ public class TransactionTimeoutScheduler {
             Map<String, Integer> resolvedTimeouts = new HashMap<>();
             for (String gatewayId : gatewayIds) {
                 if (LegacyGatewayIds.MTN_MOMO.equals(gatewayId)) {
-                    // MTN has a dedicated authenticated status poller. Never manufacture a FAILED
-                    // result merely because the provider's one-shot callback was missed.
                     continue;
                 }
                 int timeoutMinutes = timeoutMinutesForGateway(gatewayId, resolvedTimeouts);
