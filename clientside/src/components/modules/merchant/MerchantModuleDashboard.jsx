@@ -4,6 +4,16 @@ import { withRouter } from '../../../shared/router/compat';
 import { CardsIcon, CheckIcon, CloseIcon } from "../../ShellIcons";
 import LinearChart from './LinearChart';
 import { dashboardErrorDetails, formatAmount, formatCount, numericValues } from '../ModuleDashboard';
+import {
+    Button,
+    WorkspaceMetricGrid,
+    WorkspaceMetric,
+    WorkspaceGrid,
+    WorkspacePanel,
+    WorkspaceQuickActions,
+    WorkspaceStatusList,
+    WorkspaceDisclosure,
+} from '../../../ui';
 
 import { apiFetch } from '../../../shared/api/httpClient';
 import { apiUrl } from '../../../shared/config';
@@ -33,6 +43,14 @@ const sanitizeSnapshotCards = (cards) => {
     return unique;
 };
 
+function channelTone(status) {
+    if (status === 'ACTIVE' || status === 'SANDBOX_TESTED') return 'success';
+    if (status === 'SUBMITTED_FOR_APPROVAL') return 'info';
+    if (status === 'DEGRADED') return 'warning';
+    if (status === 'FAILED' || status === 'DISABLED' || status === 'SUSPENDED') return 'danger';
+    return 'neutral';
+}
+
 class MerchantModuleDashboardC extends React.Component {
     constructor(props) {
         super(props);
@@ -42,7 +60,6 @@ class MerchantModuleDashboardC extends React.Component {
             chartDataTxVolumes: null,
             chartDataTxPerGateway: null,
             portalSummary: null,
-            activeInsight: null,
             visibleSnapshotCards: this.loadSnapshotCards(),
             showSnapshotPicker: false,
             fetchErrors: []
@@ -99,14 +116,6 @@ class MerchantModuleDashboardC extends React.Component {
         } catch {
             // Dashboard snapshots are optional; the dashboard still works without persistence.
         }
-    }
-
-    addSnapshotCard(cardId) {
-        this.setState(prevState => {
-            const nextCards = sanitizeSnapshotCards([...prevState.visibleSnapshotCards, cardId]);
-            this.saveSnapshotCards(nextCards);
-            return { visibleSnapshotCards: nextCards, showSnapshotPicker: false };
-        });
     }
 
     removeSnapshotCard(cardId) {
@@ -177,27 +186,16 @@ class MerchantModuleDashboardC extends React.Component {
 
     setChartData(chartType, chartData) {
         switch (chartType) {
-            case "chartData":
-                this.setState({ chartData });
-                break;
-            case "chartDataTxTypes":
-                this.setState({ chartDataTxTypes: chartData });
-                break;
-            case "chartDataTxVolumes":
-                this.setState({ chartDataTxVolumes: chartData });
-                break;
-            case "chartDataTxPerGateway":
-                this.setState({ chartDataTxPerGateway: chartData });
-                break;
-            default:
-                break;
+            case "chartData": this.setState({ chartData }); break;
+            case "chartDataTxTypes": this.setState({ chartDataTxTypes: chartData }); break;
+            case "chartDataTxVolumes": this.setState({ chartDataTxVolumes: chartData }); break;
+            case "chartDataTxPerGateway": this.setState({ chartDataTxPerGateway: chartData }); break;
+            default: break;
         }
     }
 
     addFetchError(message) {
-        if (!message) {
-            return;
-        }
+        if (!message) return;
         this.setState(prevState => ({
             fetchErrors: [message, ...prevState.fetchErrors.filter(existing => existing !== message)].slice(0, 3)
         }));
@@ -226,84 +224,9 @@ class MerchantModuleDashboardC extends React.Component {
         );
     }
 
-    renderNotifications() {
-        const messages = this.state.fetchErrors.length > 0
-            ? this.state.fetchErrors.map(message => ({ tone: 'danger', title: 'Data warning', text: message }))
-            : [
-                { tone: 'success', title: 'Merchant profile', text: 'Use your account number, API keys, and callback URL for integrations.' },
-                { tone: 'info', title: 'Pay In / Pay Out', text: 'Keep float available before approving payout traffic.' },
-                { tone: 'info', title: 'SMS', text: 'SMS notifications require SEND_SMS access and a funded SMS balance.' },
-            ];
-
-        return (
-            <ul className="cpay-dashboard-notifications">
-                {messages.map((item, index) => (
-                    <li key={`${item.title}-${index}`} className={`cpay-dashboard-notification cpay-dashboard-notification-${item.tone}`}>
-                        <strong>{item.title}</strong>
-                        <span>{item.text}</span>
-                    </li>
-                ))}
-            </ul>
-        );
-    }
-
-    renderActiveInsight() {
-        const insight = this.state.activeInsight;
-        if (!insight) return null;
-        return (
-            <section className="cpay-dashboard-insight" aria-live="polite">
-                <strong>{insight.title}</strong>
-                <span>{insight.value}</span>
-                <em>{insight.detail}</em>
-            </section>
-        );
-    }
-
-    renderChannelOverview() {
-        const channels = Array.isArray(this.state.portalSummary?.activeChannels)
-            ? this.state.portalSummary.activeChannels.slice(0, 6)
-            : [];
-        const items = channels;
-        const limit = this.state.portalSummary?.productionLimit || {};
-        return (
-            <article className="cpay-dashboard-card cpay-dashboard-card-channels">
-                <header className="cpay-dashboard-card-header">
-                    <div>
-                        <span>Channels</span>
-                        <h3>Payment Channel Readiness</h3>
-                    </div>
-                    <strong>{this.state.portalSummary?.environment || 'SANDBOX'}</strong>
-                </header>
-                <div className="cpay-dashboard-channel-tiles">
-                    {items.map(channel => (
-                        <button
-                            type="button"
-                            key={`${channel.channel_code}-${channel.environment}`}
-                            onClick={() => this.setState({ activeInsight: {
-                                title: channel.display_name || channel.channel_code,
-                                value: channel.status || 'Not configured',
-                                detail: `${channel.environment || 'SANDBOX'} channel`
-                            } })}
-                        >
-                            <strong>{channel.display_name || channel.channel_code}</strong>
-                            <span>{channel.environment || 'SANDBOX'}</span>
-                            <em>{channel.status || 'NOT_CONFIGURED'}</em>
-                        </button>
-                    ))}
-                </div>
-                {!items.length ? <p className="cpay-dashboard-card-copy">No payment channels are configured in this environment.</p> : null}
-                <p className="cpay-dashboard-card-copy">
-                    Production cap: {limit.enabled === false ? 'disabled' : (limit.limit != null ? `${limit.remainingToday ?? limit.limit} of ${limit.limit} remaining today` : 'not configured')}.
-                </p>
-            </article>
-        );
-    }
-
     renderSnapshotCard(cardId) {
         const card = merchantSnapshotCards.find(candidate => candidate.id === cardId);
-        if (!card) {
-            return null;
-        }
+        if (!card) return null;
 
         const chartData = card.chartKey ? this.state[card.chartKey] : null;
         const chartCount = numericValues(chartData).length;
@@ -317,23 +240,20 @@ class MerchantModuleDashboardC extends React.Component {
             metric = 'Ready';
             body = <p className="cpay-dashboard-card-copy">Use the Pay In, Pay Out, Balance, Status, and SMS endpoints from your system.</p>;
         } else if (card.kind === 'sms') {
-            metric = 'Enabled';
-            body = <p className="cpay-dashboard-card-copy">Send customer alerts after successful collections and payouts.</p>;
+            metric = 'Available';
+            body = <p className="cpay-dashboard-card-copy">SMS availability follows your communication entitlement and funded balance.</p>;
         } else if (card.kind === 'float') {
             metric = 'Monitor';
-            body = <p className="cpay-dashboard-card-copy">Review float before payout batches and reversals.</p>;
+            body = <p className="cpay-dashboard-card-copy">Review available liquidity before payout batches and reversals.</p>;
         } else {
             metric = 'Controlled';
-            body = <p className="cpay-dashboard-card-copy">Watch failed callbacks, duplicate references, and pending payouts.</p>;
+            body = <p className="cpay-dashboard-card-copy">Review failed callbacks, duplicate references, pending payouts and configured controls.</p>;
         }
 
         return (
             <article className="cpay-dashboard-card cpay-dashboard-snapshot-card" key={card.id}>
                 <header className="cpay-dashboard-card-header">
-                    <div>
-                        <span>{card.label}</span>
-                        <h3>{card.title}</h3>
-                    </div>
+                    <div><span>{card.label}</span><h3>{card.title}</h3></div>
                     <button type="button" title="Remove card" aria-label={`Remove ${card.title}`} onClick={() => this.removeSnapshotCard(card.id)}>
                         <CloseIcon />
                     </button>
@@ -345,9 +265,7 @@ class MerchantModuleDashboardC extends React.Component {
     }
 
     renderSnapshotPicker() {
-        if (!this.state.showSnapshotPicker) {
-            return null;
-        }
+        if (!this.state.showSnapshotPicker) return null;
 
         const active = new Set(this.state.visibleSnapshotCards);
         const canAdd = this.state.visibleSnapshotCards.length < MAX_SNAPSHOT_CARDS;
@@ -363,21 +281,18 @@ class MerchantModuleDashboardC extends React.Component {
                     const isActive = active.has(card.id);
                     const disabled = !isActive && !canAdd;
                     return (
-                    <button
-                        key={card.id}
-                        type="button"
-                        role="menuitemcheckbox"
-                        aria-pressed={isActive}
-                        disabled={disabled}
-                        className={`cpay-dashboard-picker-option${isActive ? ' cpay-dashboard-picker-option-active' : ''}`}
-                        onClick={() => this.toggleSnapshotCard(card.id)}>
-                        <span className="cpay-dashboard-picker-state">{isActive ? <CheckIcon /> : <CardsIcon />}</span>
-                        <span className="cpay-dashboard-picker-copy">
-                        <strong>{card.title}</strong>
-                        <span>{card.label}</span>
-                        </span>
-                        <em>{isActive ? 'Shown' : disabled ? 'Limit reached' : 'Add'}</em>
-                    </button>
+                        <button
+                            key={card.id}
+                            type="button"
+                            role="menuitemcheckbox"
+                            aria-pressed={isActive}
+                            disabled={disabled}
+                            className={`cpay-dashboard-picker-option${isActive ? ' cpay-dashboard-picker-option-active' : ''}`}
+                            onClick={() => this.toggleSnapshotCard(card.id)}>
+                            <span className="cpay-dashboard-picker-state">{isActive ? <CheckIcon /> : <CardsIcon />}</span>
+                            <span className="cpay-dashboard-picker-copy"><strong>{card.title}</strong><span>{card.label}</span></span>
+                            <em>{isActive ? 'Shown' : disabled ? 'Limit reached' : 'Add'}</em>
+                        </button>
                     );
                 })}
             </div>
@@ -385,82 +300,82 @@ class MerchantModuleDashboardC extends React.Component {
     }
 
     render() {
-        const payInPayOutTotal = numericValues(this.state.chartData).reduce((total, value) => total + value, 0);
-        const volumeTotal = numericValues(this.state.chartDataTxVolumes).reduce((total, value) => total + value, 0);
+        const summary = this.state.portalSummary || {};
+        const channels = Array.isArray(summary.activeChannels) ? summary.activeChannels : [];
+        const metrics = [
+            { label: 'Collections', value: formatAmount(Number(summary.payIns) || 0), meta: 'Incoming payments', tone: 'info' },
+            { label: 'Disbursements', value: formatAmount(Number(summary.payOuts) || 0), meta: 'Outgoing payments', tone: 'info' },
+            { label: 'Transactions', value: formatCount(Number(summary.transactions) || 0), meta: 'Recorded transactions', tone: 'neutral' },
+            { label: 'Active channels', value: formatCount(channels.filter(channel => ['ACTIVE', 'SANDBOX_TESTED'].includes(channel.status)).length), meta: 'Ready payment channels', tone: channels.length ? 'success' : 'neutral' },
+        ];
+
+        const channelItems = channels.slice(0, 5).map(channel => ({
+            label: channel.display_name || channel.channel_code || 'Payment channel',
+            value: channel.status || 'Not configured',
+            tone: channelTone(channel.status),
+        }));
+        if (!channelItems.length) {
+            channelItems.push({ label: 'Payment channels', value: 'None configured', tone: 'neutral' });
+        }
+        if (this.state.fetchErrors.length) {
+            channelItems.unshift({ label: 'Data sources', value: `${this.state.fetchErrors.length} need review`, tone: 'danger' });
+        }
+
+        const quickActions = [
+            { label: 'Payments', description: 'Collect, pay out and review transactions', onClick: () => this.props.history.push('/fo/payments') },
+            { label: 'Balances & settlements', description: 'Review balances and settlement evidence', onClick: () => this.props.history.push('/fo/balances-settlements') },
+            { label: 'Developers', description: 'Sandbox, credentials, webhooks and go-live', onClick: () => this.props.history.push('/fo/developers') },
+            { label: 'Services & products', description: 'Review available Cito services', onClick: () => this.props.history.push('/fo/services') },
+        ];
 
         return (
-            <div className="cpay-dashboard cpay-merchant-dashboard">
-                <section className="cpay-dashboard-toolbar">
-                    <div className="cpay-dashboard-toolbar-copy">
-                        <h2>Merchant snapshot</h2>
-                        <p>Pay In, Pay Out, SMS, API, and operational notices in a compact command view.</p>
+            <div className="cito-service-workspace cpay-dashboard cpay-merchant-dashboard">
+                <WorkspaceMetricGrid>
+                    {metrics.map(metric => <WorkspaceMetric key={metric.label} {...metric} />)}
+                </WorkspaceMetricGrid>
+
+                <WorkspaceGrid>
+                    <WorkspacePanel eyebrow="Trend" title="Money movement">
+                        <div className="cito-chart-shell">
+                            {this.renderChart(this.state.chartData, 'Pay In and Pay Out trends will appear when live data loads.')}
+                        </div>
+                    </WorkspacePanel>
+
+                    <WorkspacePanel eyebrow="Status" title="Account readiness">
+                        <WorkspaceStatusList items={channelItems} />
+                        <p className="cito-inline-note">
+                            Environment: {summary.environment || 'Not reported'}. Production limits and channel availability follow your live account configuration.
+                        </p>
+                        <WorkspaceQuickActions actions={quickActions} />
+                    </WorkspacePanel>
+                </WorkspaceGrid>
+
+                <WorkspaceDisclosure summary="Optional dashboard insights">
+                    <div className="cpay-dashboard-toolbar">
+                        <div className="cpay-dashboard-toolbar-copy">
+                            <h2>Additional insights</h2>
+                            <p>Add only the secondary cards you actually need. The default dashboard stays intentionally focused.</p>
+                        </div>
+                        <div className="cpay-dashboard-actions">
+                            <Button
+                                variant="ghost"
+                                className="cpay-card-manager-button"
+                                aria-expanded={this.state.showSnapshotPicker}
+                                aria-label="Customize dashboard cards"
+                                onClick={() => this.setState(prevState => ({ showSnapshotPicker: !prevState.showSnapshotPicker }))}>
+                                <CardsIcon />
+                                <span>Customize cards</span>
+                                <em>{this.state.visibleSnapshotCards.length}/{MAX_SNAPSHOT_CARDS}</em>
+                            </Button>
+                            {this.renderSnapshotPicker()}
+                        </div>
                     </div>
-                    <div className="cpay-dashboard-actions">
-                        <button
-                            className="cpay-card-manager-button"
-                            type="button"
-                            aria-expanded={this.state.showSnapshotPicker}
-                            aria-label="Customize dashboard cards"
-                            onClick={() => this.setState(prevState => ({ showSnapshotPicker: !prevState.showSnapshotPicker }))}>
-                            <CardsIcon />
-                            <span>Customize cards</span>
-                            <em>{this.state.visibleSnapshotCards.length}/{MAX_SNAPSHOT_CARDS}</em>
-                        </button>
-                        {this.renderSnapshotPicker()}
-                    </div>
-                </section>
+                    {this.state.visibleSnapshotCards.length > 0
+                        ? <section className="cpay-dashboard-snapshot-grid">{this.state.visibleSnapshotCards.map(cardId => this.renderSnapshotCard(cardId))}</section>
+                        : <div className="cito-empty-compact">No optional insight cards are shown.</div>}
+                </WorkspaceDisclosure>
 
-                <section className="cpay-dashboard-grid" aria-label="Merchant dashboard snapshot cards">
-                    <button
-                        type="button"
-                        className="cpay-dashboard-card cpay-dashboard-card-balance cpay-dashboard-click-card"
-                        onClick={() => this.setState({ activeInsight: { title: 'Pay In / Pay Out', value: formatAmount(payInPayOutTotal), detail: 'Transaction trend refreshed from merchant activity.' } })}
-                    >
-                        <header className="cpay-dashboard-card-header">
-                            <div>
-                                <span>Pay In / Pay Out</span>
-                                <h3>Transaction Trend</h3>
-                            </div>
-                            <strong>{formatAmount(payInPayOutTotal)}</strong>
-                        </header>
-                        {this.renderChart(this.state.chartData, 'Pay In and Pay Out trends will appear when data loads.')}
-                    </button>
-
-                    <button
-                        type="button"
-                        className="cpay-dashboard-card cpay-dashboard-card-collections cpay-dashboard-click-card"
-                        onClick={() => this.setState({ activeInsight: { title: 'Collections Trend', value: formatAmount(volumeTotal), detail: 'Collection volume across active channels.' } })}
-                    >
-                        <header className="cpay-dashboard-card-header">
-                            <div>
-                                <span>Volume</span>
-                                <h3>Collections Trend</h3>
-                            </div>
-                            <strong>{formatAmount(volumeTotal)}</strong>
-                        </header>
-                        {this.renderChart(this.state.chartDataTxVolumes, 'Collection volumes will appear when data loads.')}
-                    </button>
-
-                    <button
-                        type="button"
-                        className="cpay-dashboard-card cpay-dashboard-card-notifications cpay-dashboard-click-card"
-                        onClick={() => this.setState({ activeInsight: { title: 'Notifications', value: formatCount(this.state.fetchErrors.length), detail: 'Operational feed and integration warnings.' } })}
-                    >
-                        <header className="cpay-dashboard-card-header">
-                            <div>
-                                <span>Operational feed</span>
-                                <h3>Notifications</h3>
-                            </div>
-                            <strong>{formatCount(this.state.fetchErrors.length)}</strong>
-                        </header>
-                        {this.renderNotifications()}
-                    </button>
-
-                    {this.renderChannelOverview()}
-                    {this.renderActiveInsight()}
-                    {this.state.visibleSnapshotCards.map(cardId => this.renderSnapshotCard(cardId))}
-                    <Messager ref={ref => this.messager = ref}></Messager>
-                </section>
+                <Messager ref={ref => this.messager = ref}></Messager>
             </div>
         );
     }
