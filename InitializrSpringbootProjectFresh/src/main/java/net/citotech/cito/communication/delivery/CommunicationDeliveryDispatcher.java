@@ -125,8 +125,8 @@ public class CommunicationDeliveryDispatcher {
             String trace = routeExplanation == null || routeExplanation.isBlank()
                     ? "No eligible SMS provider is currently available"
                     : routeExplanation;
-            deliveryLogRepository.updateStatus(deliveryId, DeliveryStatus.REJECTED, trace, "");
-            return new DeliveryOutcome(deliveryId, DeliveryStatus.REJECTED, null);
+            deliveryLogRepository.updateStatus(deliveryId, DeliveryStatus.FAILED, trace, "");
+            return new DeliveryOutcome(deliveryId, DeliveryStatus.FAILED, null);
         }
 
         try {
