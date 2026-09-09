@@ -71,6 +71,7 @@ describe('shared chart cleanup', () => {
     expect(merchantChart).not.toContain("chart.js/auto");
   });
 });
+
 describe('merchant dashboard card layout', () => {
   test('merchant dashboard uses cards instead of fixed rc-easyui chart panels', () => {
     const dashboard = read('components/modules/merchant/MerchantModuleDashboard.jsx');
@@ -93,17 +94,20 @@ describe('merchant dashboard card layout', () => {
 });
 
 describe('application shell layout', () => {
-  test('admin and merchant layouts use compact topbar headings instead of duplicate page headers', () => {
+  test('admin and merchant layouts share the same clean product shell and page hierarchy', () => {
     const adminLayout = read('components/Layout.jsx');
     const merchantLayout = read('components/LayoutMerchant.jsx');
-    const shellCss = read('styles/ios-system.css');
+    const productCss = read('styles/cito-product-system.css');
 
-    expect(adminLayout).toContain('cpay-topbar-heading');
-    expect(merchantLayout).toContain('cpay-topbar-heading');
-    expect(adminLayout).not.toContain('<PageHeader');
-    expect(merchantLayout).not.toContain('<PageHeader');
-    expect(shellCss).toContain('.cpay-topbar-heading');
-    expect(shellCss).toMatch(/\.ios-sidebar\s*\{[^}]*width:\s*196px;/s);
-    expect(shellCss).toMatch(/\.ios-topbar\s*\{[^}]*min-height:\s*56px;/s);
+    [adminLayout, merchantLayout].forEach((layout) => {
+      expect(layout).toContain('cito-global-search-trigger');
+      expect(layout).toContain('cito-page-shell');
+      expect(layout).toContain('cito-page-heading');
+      expect(layout).not.toContain('<PageHeader');
+    });
+    expect(productCss).toMatch(/\.ios-sidebar\s*\{[^}]*width:\s*244px;/s);
+    expect(productCss).toMatch(/\.ios-topbar\s*\{[^}]*min-height:\s*64px;/s);
+    expect(productCss).toContain('--cito-control-height: 44px;');
+    expect(productCss).toContain('--cito-card-radius: 12px;');
   });
 });

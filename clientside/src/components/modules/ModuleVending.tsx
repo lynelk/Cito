@@ -1,5 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Card, Spinner, Table, TextField, Toolbar } from '../../ui';
+import {
+  Alert,
+  Button,
+  Spinner,
+  Table,
+  TextField,
+  WorkspaceMetricGrid,
+  WorkspaceMetric,
+  WorkspaceGrid,
+  WorkspacePanel,
+  WorkspaceStatusList,
+  WorkspaceDisclosure,
+} from '../../ui';
 import type { Column } from '../../ui';
 import { ApiError, request } from '../../shared/api/httpClient';
 
@@ -13,6 +25,10 @@ interface Props {
 }
 
 const text = (value: unknown): string => value == null ? '' : String(value);
+const count = (value: unknown): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 const errorMessage = (error: unknown): string => error instanceof Error ? error.message : 'Unable to load vending operations.';
 
 export default function ModuleVending({ loader, refreshSignal, sessionExpired }: Props): React.ReactElement {
@@ -25,85 +41,121 @@ export default function ModuleVending({ loader, refreshSignal, sessionExpired }:
   const [error, setError] = useState<unknown>(null);
 
   async function load() {
-    setBusy(true); loader?.('START'); setError(null);
+    setBusy(true);
+    loader?.('START');
+    setError(null);
     const query = merchantId.trim() && Number(merchantId) > 0 ? `?merchantId=${encodeURIComponent(merchantId.trim())}` : '';
     const suffix = query ? `${query}&limit=100` : '?limit=100';
     try {
-      const [o, c, cmd, ev] = await Promise.all([
+      const [overviewResponse, callbackResponse, commandResponse, eventResponse] = await Promise.all([
         request<Overview>(`/api/v2/admin/vending/overview${query}`),
         request<Row[]>(`/api/v2/admin/vending/callbacks${suffix}`),
         request<Row[]>(`/api/v2/admin/vending/commands${suffix}`),
         request<Row[]>(`/api/v2/admin/vending/events${suffix}`),
       ]);
-      setOverview(o); setCallbacks(c); setCommands(cmd); setEvents(ev);
-    } catch (e) {
-      setError(e);
-      if (e instanceof ApiError && e.status === 401) sessionExpired?.();
-    } finally { setBusy(false); loader?.('STOP'); }
+      setOverview(overviewResponse);
+      setCallbacks(callbackResponse);
+      setCommands(commandResponse);
+      setEvents(eventResponse);
+    } catch (requestError) {
+      setError(requestError);
+      if (requestError instanceof ApiError && requestError.status === 401) sessionExpired?.();
+    } finally {
+      setBusy(false);
+      loader?.('STOP');
+    }
   }
 
   useEffect(() => { void load(); }, [refreshSignal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rentalColumns: Column<Row>[] = [
-    { key: 'merchant', header: 'Merchant', accessor: r => text(r.merchant_id) },
-    { key: 'ref', header: 'Rental', accessor: r => text(r.rental_reference) },
-    { key: 'device', header: 'Device', accessor: r => text(r.device_code) },
-    { key: 'customer', header: 'Customer', accessor: r => text(r.customer_mask) },
-    { key: 'status', header: 'Status', accessor: r => text(r.status) },
-    { key: 'amount', header: 'Deposit', accessor: r => `${text(r.currency)} ${text(r.deposit_amount)}` },
-    { key: 'created', header: 'Created', accessor: r => text(r.created_at) },
+    { key: 'merchant', header: 'Merchant', accessor: (row) => text(row.merchant_id) },
+    { key: 'ref', header: 'Rental', accessor: (row) => text(row.rental_reference) },
+    { key: 'device', header: 'Device', accessor: (row) => text(row.device_code) },
+    { key: 'customer', header: 'Customer', accessor: (row) => text(row.customer_mask) },
+    { key: 'status', header: 'Status', accessor: (row) => text(row.status) },
+    { key: 'amount', header: 'Deposit', accessor: (row) => `${text(row.currency)} ${text(row.deposit_amount)}` },
+    { key: 'created', header: 'Created', accessor: (row) => text(row.created_at) },
   ];
   const callbackColumns: Column<Row>[] = [
-    { key: 'merchant', header: 'Merchant', accessor: r => text(r.merchant_id) },
-    { key: 'connector', header: 'Connector', accessor: r => text(r.connector_code) },
-    { key: 'event', header: 'Event', accessor: r => text(r.event_type) },
-    { key: 'external', header: 'External event', accessor: r => text(r.external_event_id) },
-    { key: 'sig', header: 'Signature', accessor: r => text(r.signature_status) },
-    { key: 'status', header: 'Processing', accessor: r => text(r.processing_status) },
-    { key: 'error', header: 'Error', accessor: r => text(r.error_message) },
+    { key: 'merchant', header: 'Merchant', accessor: (row) => text(row.merchant_id) },
+    { key: 'connector', header: 'Connector', accessor: (row) => text(row.connector_code) },
+    { key: 'event', header: 'Event', accessor: (row) => text(row.event_type) },
+    { key: 'external', header: 'External event', accessor: (row) => text(row.external_event_id) },
+    { key: 'sig', header: 'Signature', accessor: (row) => text(row.signature_status) },
+    { key: 'status', header: 'Processing', accessor: (row) => text(row.processing_status) },
+    { key: 'error', header: 'Error', accessor: (row) => text(row.error_message) },
   ];
   const commandColumns: Column<Row>[] = [
-    { key: 'merchant', header: 'Merchant', accessor: r => text(r.merchant_id) },
-    { key: 'ref', header: 'Command', accessor: r => text(r.command_reference) },
-    { key: 'type', header: 'Type', accessor: r => text(r.command_type) },
-    { key: 'connector', header: 'Connector', accessor: r => text(r.connector_code) },
-    { key: 'status', header: 'Status', accessor: r => text(r.status) },
-    { key: 'provider', header: 'Provider ref', accessor: r => text(r.provider_reference) },
+    { key: 'merchant', header: 'Merchant', accessor: (row) => text(row.merchant_id) },
+    { key: 'ref', header: 'Command', accessor: (row) => text(row.command_reference) },
+    { key: 'type', header: 'Type', accessor: (row) => text(row.command_type) },
+    { key: 'connector', header: 'Connector', accessor: (row) => text(row.connector_code) },
+    { key: 'status', header: 'Status', accessor: (row) => text(row.status) },
+    { key: 'provider', header: 'Provider ref', accessor: (row) => text(row.provider_reference) },
   ];
   const eventColumns: Column<Row>[] = [
-    { key: 'merchant', header: 'Merchant', accessor: r => text(r.merchant_id) },
-    { key: 'event', header: 'Event', accessor: r => text(r.event_type) },
-    { key: 'entity', header: 'Entity', accessor: r => `${text(r.entity_type)} · ${text(r.entity_reference)}` },
-    { key: 'actor', header: 'Actor', accessor: r => text(r.actor) },
-    { key: 'created', header: 'Created', accessor: r => text(r.created_at) },
+    { key: 'merchant', header: 'Merchant', accessor: (row) => text(row.merchant_id) },
+    { key: 'event', header: 'Event', accessor: (row) => text(row.event_type) },
+    { key: 'entity', header: 'Entity', accessor: (row) => `${text(row.entity_type)} · ${text(row.entity_reference)}` },
+    { key: 'actor', header: 'Actor', accessor: (row) => text(row.actor) },
+    { key: 'created', header: 'Created', accessor: (row) => text(row.created_at) },
   ];
 
-  const metrics: Array<[string, unknown]> = [
-    ['Locations', overview.locations], ['Devices', overview.devices], ['Assets', overview.assets],
-    ['Rentals', overview.rentals], ['Active', overview.activeRentals], ['Payment pending', overview.pendingPayments],
-    ['Refund attention', overview.refundPending], ['Offline devices', overview.offlineDevices], ['Failed callbacks', overview.failedCallbacks],
-  ];
+  const offlineDevices = count(overview.offlineDevices);
+  const pendingPayments = count(overview.pendingPayments);
+  const failedCallbacks = count(overview.failedCallbacks);
+  const refundPending = count(overview.refundPending);
 
-  return <div className="cpay-vending-admin">
-    {error ? <Alert variant="error">{errorMessage(error)}</Alert> : null}
-    {busy && !Object.keys(overview).length ? <Spinner label="Loading vending estate" /> : null}
-    <Card flush><div style={{ padding: 'var(--ios-space-4)' }}>
-      <Toolbar><strong>Vending operations</strong><Button variant="ghost" className="ios-btn--sm" onClick={() => void load()}>Refresh</Button></Toolbar>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,360px) auto', gap: 'var(--ios-space-3)', alignItems: 'end', marginTop: 'var(--ios-space-3)' }}>
-        <TextField id="vending-admin-merchant" label="Merchant id filter" value={merchantId} onValueChange={setMerchantId} placeholder="blank = all tenants" />
-        <Button variant="primary" onClick={() => void load()}>Apply filter</Button>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 'var(--ios-space-3)', marginTop: 'var(--ios-space-4)' }}>
-        {metrics.map(([label, value]) => <div key={String(label)} style={{ border: '1px solid var(--ios-separator)', borderRadius: 14, padding: 'var(--ios-space-3)' }}><div style={{ fontSize: 12, opacity: .7 }}>{label}</div><strong style={{ fontSize: 24 }}>{text(value || 0)}</strong></div>)}
-      </div>
-    </div></Card>
-    <Section title="Recent rentals"><Table columns={rentalColumns} rows={overview.recentRentals ?? []} rowKey={r => text(r.id)} pageSize={20} emptyText="No vending rentals." /></Section>
-    <Section title="Manufacturer callbacks"><Table columns={callbackColumns} rows={callbacks} rowKey={r => text(r.id)} pageSize={20} emptyText="No device callbacks." /></Section>
-    <Section title="Device commands"><Table columns={commandColumns} rows={commands} rowKey={r => text(r.id)} pageSize={20} emptyText="No device commands." /></Section>
-    <Section title="Operational events"><Table columns={eventColumns} rows={events} rowKey={r => text(r.id)} pageSize={20} emptyText="No vending events." /></Section>
-  </div>;
-}
+  return (
+    <div className="cito-service-workspace cpay-vending-admin">
+      {error ? <Alert variant="error">{errorMessage(error)}</Alert> : null}
+      {busy && !Object.keys(overview).length ? <Spinner label="Loading vending estate" /> : null}
 
-function Section({ title, children }: { title: string; children: React.ReactNode }): React.ReactElement {
-  return <Card flush><div style={{ padding: 'var(--ios-space-4)' }}><Toolbar><strong>{title}</strong></Toolbar></div>{children}</Card>;
+      <WorkspaceMetricGrid>
+        <WorkspaceMetric label="Devices" value={text(overview.devices || 0)} meta="Devices in scope" tone="info" />
+        <WorkspaceMetric label="Active rentals" value={text(overview.activeRentals || 0)} meta="Currently active" tone="success" />
+        <WorkspaceMetric label="Payment pending" value={text(overview.pendingPayments || 0)} meta="Awaiting payment completion" tone={pendingPayments ? 'warning' : 'success'} />
+        <WorkspaceMetric label="Offline devices" value={text(overview.offlineDevices || 0)} meta="Require connectivity review" tone={offlineDevices ? 'danger' : 'success'} />
+      </WorkspaceMetricGrid>
+
+      <WorkspaceGrid>
+        <WorkspacePanel eyebrow="Latest" title="Recent rentals" className="cito-workspace-panel--table">
+          <Table
+            columns={rentalColumns}
+            rows={overview.recentRentals ?? []}
+            rowKey={(row) => text(row.id)}
+            pageSize={10}
+            emptyText="No vending rentals are available in this scope."
+          />
+        </WorkspacePanel>
+
+        <WorkspacePanel eyebrow="Status" title="Operational health">
+          <WorkspaceStatusList items={[
+            { label: 'Failed callbacks', value: String(failedCallbacks), tone: failedCallbacks ? 'danger' : 'success' },
+            { label: 'Refund attention', value: String(refundPending), tone: refundPending ? 'warning' : 'success' },
+            { label: 'Commands in view', value: String(commands.length), tone: 'info' },
+            { label: 'Events in view', value: String(events.length), tone: 'neutral' },
+          ]} />
+          <div className="cito-form-stack" style={{ marginTop: 18 }}>
+            <TextField id="vending-admin-merchant" label="Merchant id filter" value={merchantId} onValueChange={setMerchantId} placeholder="Blank = all tenants" />
+            <Button variant="primary" onClick={() => void load()} loading={busy} loadingLabel="Refreshing…">Apply filter</Button>
+          </div>
+          <p className="cito-inline-note">The dashboard shows live operational data only. Provider or device capability is not treated as certified merely because an adapter exists.</p>
+        </WorkspacePanel>
+      </WorkspaceGrid>
+
+      <WorkspaceDisclosure summary={`Manufacturer callbacks · ${callbacks.length} in view`}>
+        <Table columns={callbackColumns} rows={callbacks} rowKey={(row) => text(row.id)} pageSize={20} emptyText="No device callbacks." />
+      </WorkspaceDisclosure>
+
+      <WorkspaceDisclosure summary={`Device commands · ${commands.length} in view`}>
+        <Table columns={commandColumns} rows={commands} rowKey={(row) => text(row.id)} pageSize={20} emptyText="No device commands." />
+      </WorkspaceDisclosure>
+
+      <WorkspaceDisclosure summary={`Operational events · ${events.length} in view`}>
+        <Table columns={eventColumns} rows={events} rowKey={(row) => text(row.id)} pageSize={20} emptyText="No vending events." />
+      </WorkspaceDisclosure>
+    </div>
+  );
 }

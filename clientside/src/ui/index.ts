@@ -12,6 +12,16 @@ export { Shell, Sidebar, Brand, NavGroup, NavItem, TopBar, IconButton, UserChip,
 export { PageHeader } from './PageHeader';
 export { Card, Section, StatGrid, StatTile } from './Card';
 export { Toolbar } from './Toolbar';
+export {
+  WorkspaceMetricGrid,
+  WorkspaceMetric,
+  WorkspaceGrid,
+  WorkspacePanel,
+  WorkspaceQuickActions,
+  WorkspaceStatusList,
+  WorkspaceDisclosure,
+} from './Workspace';
+export type { WorkspaceMetricTone, WorkspaceQuickAction } from './Workspace';
 
 // Data
 export { Table } from './Table';

@@ -238,7 +238,7 @@ test('admin services workspace exposes all Cito service families', async ({ page
 
 test('merchant service portfolio is responsive and entitlement-aware', async ({ page }, testInfo) => {
   await primeMerchant(page);
-  await page.goto('/bo/partner/services', { waitUntil: 'domcontentloaded' });
+  await page.goto('/fo/services', { waitUntil: 'domcontentloaded' });
 
   await expect(page.getByRole('heading', { name: /use the services your business needs/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Communications', exact: true }).first()).toBeVisible();

@@ -2,20 +2,30 @@ import React from 'react';
 import { NavGroup, NavItem, Icons } from '../ui';
 
 const navGroups = [
-  { title: 'Operate', items: [
-    { value: 'insights', text: 'Insights', Icon: Icons.DashboardIcon },
-    { value: 'merchants-accounts', text: 'Merchants & Accounts', Icon: Icons.StoreIcon },
-    { value: 'money-operations', text: 'Money Operations', Icon: Icons.PaymentsIcon },
-    { value: 'treasury', text: 'Treasury', Icon: Icons.BarChartIcon },
-    { value: 'platform', text: 'Services & Products', Icon: Icons.CardsIcon },
+  { title: 'Overview', items: [
+    { value: 'insights', text: 'Dashboard', Icon: Icons.DashboardIcon },
   ] },
-  { title: 'Control', items: [
-    { value: 'risk-compliance', text: 'Risk & Compliance', Icon: Icons.ShieldIcon },
-    { value: 'providers-integrations', text: 'Providers & Integrations', Icon: Icons.LightningIcon },
+  { title: 'Services', items: [
+    { value: 'money-operations', text: 'Payments', Icon: Icons.PaymentsIcon },
+    { value: 'communicationrouting', text: 'Communications', Icon: Icons.SmsIcon },
+    { value: 'vending', text: 'Vending & Utilities', Icon: Icons.LightningIcon },
+    { value: 'risk-compliance', text: 'KYC & Identity', Icon: Icons.ShieldIcon },
+    { value: 'platform', text: 'Billing & BaaS', Icon: Icons.ReceiptIcon },
   ] },
-  { title: 'Manage', items: [
+  { title: 'Business', items: [
+    { value: 'merchants-accounts', text: 'Merchants / Businesses', Icon: Icons.StoreIcon },
+    { value: 'treasury', text: 'Treasury / Float', Icon: Icons.CardsIcon },
+  ] },
+  { title: 'Operations', items: [
+    { value: 'reconciliation', text: 'Reconciliation', Icon: Icons.ReconcileIcon },
+  ] },
+  { title: 'Platform', items: [
+    { value: 'providers-integrations', text: 'Integrations / API', Icon: Icons.LightningIcon },
     { value: 'administration', text: 'Administration', Icon: Icons.UsersIcon },
     { value: 'engineering', text: 'Engineering / Internal', Icon: Icons.SettingsIcon },
+  ] },
+  { title: 'Account', items: [
+    { value: 'settings', text: 'Settings', Icon: Icons.SettingsIcon },
   ] },
 ];
 

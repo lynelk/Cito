@@ -4,14 +4,29 @@ import { withRouter } from '../../shared/router/compat';
 import common from "../Common";
 import strings from '../locale';
 import {
-  Card, Toolbar, Table, Select, SearchField, Checkbox, Badge, Sheet, Button, TextField,
+  Card,
+  Table,
+  Select,
+  SearchField,
+  Checkbox,
+  Badge,
+  Sheet,
+  Button,
+  TextField,
+  WorkspaceMetricGrid,
+  WorkspaceMetric,
+  WorkspaceGrid,
+  WorkspacePanel,
+  WorkspaceQuickActions,
 } from '../../ui';
 
 import { useAuth } from '../../shared/useAuth';
 import {
   useAdminTransactions,
+  usePortalDashboardSummary,
   useResolveTransactionMutation,
   useLoaderSync,
+  useRefreshSignal,
   SessionExpiredError,
   AccessDeniedError,
   LegacyRequestError,
@@ -39,6 +54,21 @@ function statusTone(s) {
   return 'neutral';
 }
 
+function numberValue(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatAmount(value) {
+  const amount = numberValue(value);
+  if (amount <= 0) return 'No activity';
+  return `UGX ${new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(amount)}`;
+}
+
+function formatCount(value) {
+  return new Intl.NumberFormat('en-US').format(numberValue(value));
+}
+
 const traceHtml = (value, pre) => ({
   __html: pre
     ? "<pre>" + common.encodeHTML(value || "") + "</pre>"
@@ -51,21 +81,16 @@ function rowKeyFor(row, index) {
 }
 
 function ModuleTransactionsC(props) {
-    const { loader, history } = props;
+    const { loader, history, refreshSignal } = props;
     const messagerRef = useRef(null);
 
     const { hasPrivilege } = useAuth('admin');
-    // Mirrors the old componentDidMount access check: evaluated once, like the
-    // class component's constructor-time `hasAccess: false` + one-time mount check.
     const [accessGranted] = useState(() => hasPrivilege('ACCESS_TRANSACTION_LOG'));
     const [serverDeniedAccess, setServerDeniedAccess] = useState(false);
     const hasAccess = accessGranted && !serverDeniedAccess;
 
     const [searchingValue, setSearchingValue] = useState({ value: "", category: "all" });
-    // Only updated when a search is actually submitted (matches the original,
-    // where picking a category alone didn't re-fetch until Enter/submit).
     const [committedSearch, setCommittedSearch] = useState({ value: "", category: "all" });
-
     const [selectedKeys, setSelectedKeys] = useState(() => new Set());
     const [txDetailsRow, setTxDetailsRow] = useState({});
     const [detailsOpen, setDetailsOpen] = useState(false);
@@ -73,9 +98,11 @@ function ModuleTransactionsC(props) {
     const [rowResolveForm, setRowResolveForm] = useState({ tx_gateway_ref: "", resolve_status: "", id: "" });
 
     const transactionsQuery = useAdminTransactions(committedSearch, PAGE_SIZE, hasAccess);
+    const summaryQuery = usePortalDashboardSummary();
     const resolveMutation = useResolveTransactionMutation();
 
-    useLoaderSync(loader, transactionsQuery.isFetching || resolveMutation.isPending);
+    useLoaderSync(loader, transactionsQuery.isFetching || summaryQuery.isFetching || resolveMutation.isPending);
+    useRefreshSignal(refreshSignal, [transactionsQuery.refetch, summaryQuery.refetch]);
 
     useEffect(() => {
         if (!accessGranted) {
@@ -88,9 +115,6 @@ function ModuleTransactionsC(props) {
         messagerRef.current?.alert({ title: "Session Expired!", icon: "info", msg: "Your session expired", result: () => history.push("/") });
     }
 
-    // Resets whenever a fresh successful fetch lands, the same way the old
-    // `getData()` success handler always replaced `data` (and its `selected`
-    // flags) wholesale via `setState({ data: res.data, ..., allChecked: false })`.
     useEffect(() => {
         setSelectedKeys(new Set());
     }, [transactionsQuery.dataUpdatedAt]);
@@ -104,9 +128,14 @@ function ModuleTransactionsC(props) {
             return;
         }
         const code = error instanceof LegacyRequestError ? error.code : undefined;
-        messagerRef.current?.alert({ title: "Error " + code, icon: "error", msg: error.message });
+        messagerRef.current?.alert({ title: "Error " + (code || ''), icon: "error", msg: error.message });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [transactionsQuery.error]);
+
+    useEffect(() => {
+        if (summaryQuery.error instanceof SessionExpiredError) sessionExpired();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [summaryQuery.error]);
 
     function resolveTransaction(row) {
         messagerRef.current?.confirm({
@@ -244,7 +273,8 @@ function ModuleTransactionsC(props) {
     }
 
     const rows = transactionsQuery.data?.rows ?? [];
-    const allChecked = rows.every((row, i) => selectedKeys.has(rowKeyFor(row, i)));
+    const allChecked = rows.length > 0 && rows.every((row, i) => selectedKeys.has(rowKeyFor(row, i)));
+    const summary = summaryQuery.data || {};
 
     const columns = [
         {
@@ -260,39 +290,71 @@ function ModuleTransactionsC(props) {
         { key: 'tx_type', header: 'Type', accessor: (r) => r.tx_type },
         { key: 'original_amount_formatted', header: 'Amount', numeric: true, render: (r) => "UGX " + (r.original_amount_formatted || ''), sortable: true, sortValue: (r) => Number(r.original_amount) || 0 },
         {
-            key: 'actions', header: 'Actions', align: 'center',
+            key: 'actions', header: '', align: 'center',
             render: (row) => <Button variant="ghost" className="ios-btn--sm" onClick={() => openDetails(row)}>Details</Button>,
         },
     ];
 
+    const metrics = [
+        { label: 'Collections', value: formatAmount(summary.payIns), meta: 'Incoming payments', tone: 'info' },
+        { label: 'Disbursements', value: formatAmount(summary.payOuts), meta: 'Outgoing payments', tone: 'info' },
+        { label: 'Transactions', value: formatCount(summary.transactions), meta: 'Recorded transactions', tone: 'neutral' },
+        { label: 'Failed', value: formatCount(summary.failedTransactions), meta: 'Require review', tone: numberValue(summary.failedTransactions) > 0 ? 'danger' : 'success' },
+    ];
+
+    const quickActions = [
+        { label: 'Reconciliation', description: 'Review matching and exceptions', onClick: () => history.push('/bo/admin/reconciliation') },
+        { label: 'Treasury / Float', description: 'Review provider and currency positions', onClick: () => history.push('/bo/admin/treasury') },
+        { label: 'Payout approvals', description: 'Review maker-checker payout queue', onClick: () => history.push('/bo/admin/payoutapprovals') },
+        { label: 'Provider health', description: 'Review credentials and certification', onClick: () => history.push('/bo/admin/providers-integrations') },
+    ];
+
     return (
-        <Card flush>
-            <div style={{ padding: 'var(--ios-space-4)' }}>
-                <Toolbar>
-                    <div style={{ minWidth: 160 }}>
-                        <Select id="tx-category" value={searchingValue.category} options={SEARCH_CATEGORIES} onValueChange={(v) => setSearchingValue((prev) => ({ ...prev, category: v }))} />
+        <div className="cito-service-workspace">
+            <WorkspaceMetricGrid>
+                {metrics.map((metric) => <WorkspaceMetric key={metric.label} {...metric} />)}
+            </WorkspaceMetricGrid>
+
+            <WorkspaceGrid>
+                <WorkspacePanel
+                    eyebrow="Payments"
+                    title="Transactions"
+                    className="cito-workspace-panel--table"
+                    actions={<span>{rows.length ? `${rows.length} loaded` : 'No rows loaded'}</span>}
+                >
+                    <div className="cito-panel-toolbar">
+                        <div>
+                            <Select id="tx-category" value={searchingValue.category} options={SEARCH_CATEGORIES} onValueChange={(v) => setSearchingValue((prev) => ({ ...prev, category: v }))} />
+                        </div>
+                        <div className="cito-panel-toolbar__grow">
+                            <SearchField
+                                value={searchingValue.value}
+                                onValueChange={(v) => setSearchingValue((prev) => ({ ...prev, value: v }))}
+                                onSubmit={(v) => handleSearch(v)}
+                                placeholder="Search reference, merchant, status or amount"
+                            />
+                        </div>
                     </div>
-                    <Toolbar.Spacer />
-                    <SearchField
-                        value={searchingValue.value}
-                        onValueChange={(v) => setSearchingValue((prev) => ({ ...prev, value: v }))}
-                        onSubmit={(v) => handleSearch(v)}
-                        placeholder={strings.search_merchant}
+                    <Table
+                        columns={columns}
+                        rows={rows}
+                        rowKey={(row, i) => rowKeyFor(row, i)}
+                        pageSize={PAGE_SIZE}
+                        isRowSelected={(row) => (row.id != null ? selectedKeys.has(row.id) : false)}
+                        emptyText="No transactions to display."
                     />
-                </Toolbar>
-            </div>
-            <Table
-                columns={columns}
-                rows={rows}
-                rowKey={(row, i) => rowKeyFor(row, i)}
-                pageSize={PAGE_SIZE}
-                isRowSelected={(row) => (row.id != null ? selectedKeys.has(row.id) : false)}
-                emptyText="No transactions to display."
-            />
+                </WorkspacePanel>
+
+                <WorkspacePanel eyebrow="Navigate" title="Quick actions">
+                    <WorkspaceQuickActions actions={quickActions} />
+                    {summaryQuery.error ? <p className="cito-inline-note">Payment summary is currently unavailable. Transaction records remain authoritative for this view.</p> : null}
+                </WorkspacePanel>
+            </WorkspaceGrid>
+
             {recordTxDetailsDialog()}
             {renderResolveDialog()}
             <Messager ref={messagerRef}></Messager>
-        </Card>
+        </div>
     );
 }
 

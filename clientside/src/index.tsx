@@ -8,6 +8,7 @@ import './styles/experience-reconstruction.css';
 import './styles/experience-reconstruction-overrides.css';
 import './styles/admin-insights.css';
 import './styles/cito-brand.css';
+import './styles/cito-product-system.css';
 import App from './App';
 import { installCsrfFetch } from './shared/csrfFetch';
 import { queryClient } from './shared/queryClient';

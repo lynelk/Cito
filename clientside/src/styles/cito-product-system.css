@@ -1,0 +1,784 @@
+/*
+ * Cito clean product UI system
+ * Brand baseline: Cito 1.2
+ *
+ * This layer sits after cito-brand.css and standardises authenticated product
+ * surfaces without changing financial, security, provider, or tenancy logic.
+ */
+:root {
+  --cito-surface: #FFFFFF;
+  --cito-surface-soft: #F8FAFC;
+  --cito-border: #E2E8F0;
+  --cito-border-strong: #CBD5E1;
+  --cito-text: #0B2545;
+  --cito-text-muted: #64748B;
+  --cito-success: #147D57;
+  --cito-warning: #8A5700;
+  --cito-danger: #B42318;
+  --cito-info: #0047B3;
+  --cito-control-height: 44px;
+  --cito-control-radius: 8px;
+  --cito-card-radius: 12px;
+  --cito-card-shadow: 0 1px 2px rgba(15, 37, 69, 0.04);
+  --cito-page-max: 1600px;
+  --cito-page-gap: 24px;
+}
+
+:root[data-theme='dark'] {
+  --cito-surface: #1C1C1E;
+  --cito-surface-soft: #24262B;
+  --cito-border: #343841;
+  --cito-border-strong: #59616D;
+  --cito-text: #F8FAFC;
+  --cito-text-muted: #B7C0CC;
+  --cito-card-shadow: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --cito-surface: #1C1C1E;
+    --cito-surface-soft: #24262B;
+    --cito-border: #343841;
+    --cito-border-strong: #59616D;
+    --cito-text: #F8FAFC;
+    --cito-text-muted: #B7C0CC;
+    --cito-card-shadow: none;
+  }
+}
+
+/* Product shell */
+.ios-shell {
+  background: var(--cpay-fuse-bg);
+}
+
+.ios-sidebar {
+  width: 244px;
+  min-width: 244px;
+  border-right: 1px solid var(--cito-border);
+  box-shadow: none;
+}
+
+.ios-brand {
+  min-height: 72px;
+  padding: 16px 16px 12px;
+  gap: 10px;
+}
+
+.ios-brand__logo {
+  width: 42px;
+  height: 36px;
+}
+
+.ios-brand__name {
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.ios-brand__product {
+  margin-top: 3px;
+  color: var(--cito-text-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.ios-nav {
+  padding: 8px 12px 18px;
+}
+
+.ios-nav-group {
+  margin: 0 0 14px;
+}
+
+.ios-nav-group__title {
+  padding: 0 10px 6px;
+  color: var(--cito-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.ios-nav-item {
+  min-height: var(--cito-control-height);
+  width: 100%;
+  padding: 0 11px;
+  gap: 10px;
+  border-radius: var(--cito-control-radius);
+  color: var(--cito-text-muted);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.ios-nav-item:hover:not(.ios-nav-item--active) {
+  background: var(--cito-surface-soft);
+  color: var(--cito-text);
+}
+
+.ios-nav-item--active,
+.cpay-nav-item-active {
+  background: var(--cito-ice) !important;
+  color: var(--cito-primary) !important;
+  box-shadow: none !important;
+}
+
+html[data-brand-mode='mono'] .ios-nav-item--active,
+html[data-brand-mode='mono'] .cpay-nav-item-active {
+  background: #F3F4F6 !important;
+  color: #111827 !important;
+}
+
+.ios-nav-item__icon {
+  display: inline-flex;
+  color: currentColor;
+}
+
+.ios-topbar {
+  min-height: 64px;
+  padding: 0 28px;
+  gap: 16px;
+  border-bottom: 1px solid var(--cito-border);
+  box-shadow: none;
+}
+
+.ios-topbar__left,
+.ios-topbar__right {
+  gap: 10px;
+}
+
+.cito-global-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  width: min(420px, 38vw);
+  min-height: 40px;
+  padding: 0 12px;
+  gap: 10px;
+  border: 1px solid var(--cito-border);
+  border-radius: var(--cito-control-radius);
+  background: var(--cito-surface-soft);
+  color: var(--cito-text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cito-global-search-trigger:hover,
+.cito-global-search-trigger:focus-visible {
+  border-color: var(--cito-primary);
+  color: var(--cito-text);
+  outline: none;
+}
+
+.cito-global-search-trigger span {
+  flex: 1;
+}
+
+.cito-global-search-trigger kbd {
+  min-width: 24px;
+  padding: 2px 6px;
+  border: 1px solid var(--cito-border);
+  border-radius: 6px;
+  background: var(--cito-surface);
+  color: var(--cito-text-muted);
+  font: inherit;
+  font-size: 11px;
+  text-align: center;
+}
+
+.ios-icon-btn {
+  min-width: var(--cito-control-height);
+  min-height: var(--cito-control-height);
+  border-radius: var(--cito-control-radius);
+}
+
+.ios-user-chip {
+  min-height: var(--cito-control-height);
+}
+
+.ios-page {
+  padding: 24px 28px 48px;
+}
+
+.cito-page-shell {
+  width: 100%;
+  max-width: var(--cito-page-max);
+  margin: 0 auto;
+}
+
+.cito-page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 20px;
+}
+
+.cito-page-heading__eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--cito-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.cito-page-heading h1 {
+  margin: 0;
+  color: var(--cito-text);
+  font-family: var(--cpay-heading-font);
+  font-size: clamp(26px, 2.2vw, 32px);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -.02em;
+}
+
+.cito-page-heading p {
+  max-width: 760px;
+  margin: 6px 0 0;
+  color: var(--cito-text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* Shared surfaces */
+.ios-card,
+.cpay-dashboard-card,
+.cito-service-card,
+.cito-compliance-panel,
+.cito-product-card,
+.cito-feature-card {
+  border: 1px solid var(--cito-border);
+  border-radius: var(--cito-card-radius);
+  background: var(--cito-surface);
+  box-shadow: var(--cito-card-shadow);
+}
+
+.ios-card:not(.ios-card--flush) {
+  padding: 20px;
+}
+
+.ios-card--flush {
+  overflow: hidden;
+}
+
+.ios-section-title,
+.cpay-dashboard-card-header h3,
+.cito-workspace-panel__header h2 {
+  color: var(--cito-text);
+  font-family: var(--cpay-heading-font);
+  font-weight: 650;
+}
+
+.ios-btn,
+.ios-text-field,
+.ios-select,
+.ios-search,
+input,
+select,
+textarea {
+  border-radius: var(--cito-control-radius);
+}
+
+.ios-btn,
+.ios-text-field,
+.ios-select,
+.ios-search {
+  min-height: var(--cito-control-height);
+}
+
+.ios-btn--primary,
+.cpay-primary-button,
+.cito-button-primary {
+  box-shadow: none !important;
+}
+
+.ios-btn:focus-visible,
+.ios-nav-item:focus-visible,
+.cito-quick-action:focus-visible,
+.cito-disclosure summary:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--cito-primary) 32%, transparent);
+  outline-offset: 2px;
+}
+
+/* Workspace composition */
+.cito-service-workspace {
+  display: grid;
+  gap: var(--cito-page-gap);
+}
+
+.cito-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cito-metric-card {
+  position: relative;
+  display: flex;
+  min-height: 112px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 20px !important;
+  overflow: hidden;
+}
+
+.cito-metric-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--cito-border-strong);
+}
+
+.cito-metric-card--info::before { background: var(--cito-primary); }
+.cito-metric-card--success::before { background: var(--cito-success); }
+.cito-metric-card--warning::before { background: var(--cito-warning); }
+.cito-metric-card--danger::before { background: var(--cito-danger); }
+
+.cito-metric-card__label {
+  color: var(--cito-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cito-metric-card__value {
+  color: var(--cito-text);
+  font-family: var(--cpay-heading-font);
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.cito-metric-card__meta {
+  color: var(--cito-text-muted);
+  font-size: 12px;
+}
+
+.cito-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.cito-workspace-panel {
+  min-width: 0;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.cito-workspace-panel__header {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--cito-border);
+}
+
+.cito-workspace-panel__header h2 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.cito-workspace-panel__eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--cito-primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.cito-workspace-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cito-workspace-panel__body {
+  min-width: 0;
+  padding: 18px 20px;
+}
+
+.cito-workspace-panel--table .cito-workspace-panel__body {
+  padding: 0;
+}
+
+.cito-panel-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--cito-border);
+}
+
+.cito-panel-toolbar > * {
+  min-width: 160px;
+}
+
+.cito-panel-toolbar .cito-panel-toolbar__grow {
+  flex: 1 1 260px;
+}
+
+.cito-form-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.cito-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cito-quick-actions {
+  display: grid;
+  gap: 2px;
+}
+
+.cito-quick-action {
+  display: flex;
+  width: 100%;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--cito-border);
+  background: transparent;
+  color: var(--cito-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cito-quick-action:last-child {
+  border-bottom: 0;
+}
+
+.cito-quick-action:hover {
+  background: var(--cito-surface-soft);
+}
+
+.cito-quick-action span {
+  display: grid;
+  gap: 2px;
+}
+
+.cito-quick-action strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cito-quick-action small {
+  color: var(--cito-text-muted);
+  font-size: 11px;
+}
+
+.cito-status-list {
+  display: grid;
+}
+
+.cito-status-list__row {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--cito-border);
+  font-size: 13px;
+}
+
+.cito-status-list__row:last-child {
+  border-bottom: 0;
+}
+
+.cito-status-list__row > span {
+  color: var(--cito-text-muted);
+}
+
+.cito-status-list__value {
+  color: var(--cito-text);
+  font-weight: 650;
+  text-align: right;
+}
+
+.cito-status-list__value--success { color: var(--cito-success); }
+.cito-status-list__value--warning { color: var(--cito-warning); }
+.cito-status-list__value--danger { color: var(--cito-danger); }
+.cito-status-list__value--info { color: var(--cito-info); }
+
+.cito-inline-note {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--cito-control-radius);
+  background: var(--cito-surface-soft);
+  color: var(--cito-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cito-empty-compact {
+  padding: 22px 4px;
+  color: var(--cito-text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.cito-disclosure {
+  border: 1px solid var(--cito-border);
+  border-radius: var(--cito-card-radius);
+  background: var(--cito-surface);
+  box-shadow: var(--cito-card-shadow);
+  overflow: hidden;
+}
+
+.cito-disclosure > summary {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  padding: 0 18px;
+  color: var(--cito-text);
+  font-family: var(--cpay-heading-font);
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+
+.cito-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cito-disclosure > summary::after {
+  content: '+';
+  margin-left: auto;
+  color: var(--cito-primary);
+  font-family: var(--cpay-body-font);
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.cito-disclosure[open] > summary::after {
+  content: '−';
+}
+
+.cito-disclosure[open] > summary {
+  border-bottom: 1px solid var(--cito-border);
+}
+
+.cito-disclosure__body {
+  padding: 0;
+}
+
+/* Charts */
+.cito-chart-shell,
+.cpay-dashboard-chart-shell {
+  min-height: 260px;
+}
+
+.cito-chart-shell canvas,
+.cpay-dashboard-chart-shell canvas {
+  max-height: 300px;
+}
+
+/* Tables */
+.ios-table-wrap {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.ios-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ios-table thead {
+  background: var(--cito-surface-soft);
+}
+
+.ios-table th {
+  height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--cito-border);
+  color: var(--cito-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+
+.ios-table td {
+  min-height: 48px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--cito-border);
+  color: var(--cito-text);
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.ios-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ios-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--cito-primary) 3%, var(--cito-surface));
+}
+
+.ios-table__empty {
+  padding: 24px 16px;
+  color: var(--cito-text-muted);
+  font-size: 13px;
+}
+
+.ios-pagination {
+  border-top: 1px solid var(--cito-border);
+}
+
+.ios-table-card {
+  border: 1px solid var(--cito-border);
+  border-radius: var(--cito-card-radius);
+  box-shadow: none;
+}
+
+/* Existing module convergence */
+.cpay-communication-routing,
+.cpay-vending-admin,
+.cpay-dashboard,
+.cito-workspace-stack {
+  display: grid;
+  gap: var(--cito-page-gap);
+}
+
+.cpay-detail-row {
+  border-bottom-color: var(--cito-border);
+}
+
+.cpay-detail-label {
+  color: var(--cito-text-muted);
+}
+
+/* Reduce visual noise from legacy dashboard cards after the shared system loads. */
+.cpay-dashboard-snapshot-grid {
+  gap: 16px;
+}
+
+.cpay-dashboard-pinned {
+  margin: 0;
+}
+
+.cpay-dashboard-section-header {
+  margin-bottom: 12px;
+}
+
+/* Responsive behaviour */
+@media (max-width: 1280px) {
+  .ios-sidebar {
+    width: 224px;
+    min-width: 224px;
+  }
+
+  .cito-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .ios-topbar {
+    padding-inline: 20px;
+  }
+
+  .ios-page {
+    padding: 22px 20px 40px;
+  }
+
+  .cito-global-search-trigger {
+    width: min(340px, 42vw);
+  }
+
+  .cito-workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .ios-topbar {
+    min-height: 60px;
+    padding-inline: 14px;
+  }
+
+  .ios-page {
+    padding: 18px 14px 32px;
+  }
+
+  .cito-page-heading {
+    margin-bottom: 16px;
+  }
+
+  .cito-page-heading p {
+    font-size: 13px;
+  }
+
+  .cito-global-search-trigger {
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .cito-global-search-trigger span,
+  .cito-global-search-trigger kbd {
+    display: none;
+  }
+
+  .cito-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .cito-metric-card {
+    min-height: 100px;
+    padding: 16px !important;
+  }
+
+  .cito-workspace-panel__header,
+  .cito-workspace-panel__body {
+    padding-inline: 16px;
+  }
+
+  .cito-form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .cito-metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cito-page-heading h1 {
+    font-size: 26px;
+  }
+
+  .ios-user-meta {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .001ms !important;
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

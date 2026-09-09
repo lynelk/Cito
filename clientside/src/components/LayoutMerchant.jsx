@@ -7,7 +7,7 @@ import Progress from "./Progress";
 import Logo from "../media/images/gwlogo.png";
 import {
   Shell, Sidebar, Brand, TopBar, IconButton, UserChip, Page,
-  Button, EnvironmentSwitcher, ThemeToggle, Icons,
+  EnvironmentSwitcher, ThemeToggle, Icons,
 } from '../ui';
 import ExperienceWorkspace from '../features/ExperienceWorkspace';
 import MerchantServicePortfolio from '../features/MerchantServicePortfolio';
@@ -31,25 +31,25 @@ import { apiUrl } from '../shared/config';
 import { readStoredUser } from '../shared/useAuth';
 
 const menuTitles = {
-  home: { title: 'Home', subtitle: 'Activation status, balances, live activity, and next actions' },
-  'balances-settlements': { title: 'Balances & Settlements', subtitle: 'Available funds, statements, reconciliation, and settlement evidence' },
-  customers: { title: 'Customers', subtitle: 'Customers created by real payment and billing journeys' },
-  developers: { title: 'Developers', subtitle: 'Sandbox, applications, credentials, webhooks, logs, and go-live' },
-  services: { title: 'Services & Products', subtitle: 'Payments, communications, identity and scoring, vending, billing, and integrations' },
-  reports: { title: 'Reports', subtitle: 'Transactions, statements, exports, and operational reports' },
-  business: { title: 'Business', subtitle: 'Team, roles, billing, and commercial context' },
-  help: { title: 'Help', subtitle: 'Support cases with transaction and account context' },
-  notifications: { title: 'Notifications', subtitle: 'Account, payment, and operational updates' },
-  'transaction-detail': { title: 'Transaction Detail', subtitle: 'Finality, provider, reconciliation, and settlement evidence' },
-  dashboard: { title: strings.menu_dashboard, subtitle: strings.menu_dashboard_subtitle_merchant },
-  sandbox: { title: 'Sandbox & Go-Live', subtitle: 'Test safely, certify the integration, and graduate to production' },
-  'cito-services': { title: 'Cito Services', subtitle: 'Entitlements, orchestration, marketplace, intelligence and platform tools' },
+  home: { title: 'Dashboard', subtitle: 'Activation status, balances, live activity and next actions.' },
+  'balances-settlements': { title: 'Balances & Settlements', subtitle: 'Available funds, statements, reconciliation and settlement evidence.' },
+  customers: { title: 'Customers', subtitle: 'Customers created by real payment and billing journeys.' },
+  developers: { title: 'Developers', subtitle: 'Sandbox, applications, credentials, webhooks, logs and go-live.' },
+  services: { title: 'Services & Products', subtitle: 'Payments, communications, identity and scoring, vending, billing and integrations.' },
+  reports: { title: 'Reports', subtitle: 'Transactions, statements, exports and operational reports.' },
+  business: { title: 'Business', subtitle: 'Team, roles, billing and commercial context.' },
+  help: { title: 'Help & Support', subtitle: 'Support cases with transaction and account context.' },
+  notifications: { title: 'Notifications', subtitle: 'Account, payment and operational updates.' },
+  'transaction-detail': { title: 'Transaction Detail', subtitle: 'Finality, provider, reconciliation and settlement evidence.' },
+  dashboard: { title: 'Dashboard', subtitle: strings.menu_dashboard_subtitle_merchant },
+  sandbox: { title: 'Sandbox & Go-Live', subtitle: 'Test safely, certify the integration and graduate to production.' },
+  'cito-services': { title: 'Cito Services', subtitle: 'Entitlements, orchestration, marketplace, intelligence and platform tools.' },
   channels: { title: strings.menu_channels, subtitle: strings.menu_channels_subtitle },
   statement: { title: strings.menu_statement, subtitle: strings.menu_statement_subtitle },
   webhooks: { title: strings.menu_webhooks, subtitle: strings.menu_webhooks_subtitle },
-  payments: { title: strings.menu_payments, subtitle: strings.menu_payments_subtitle },
-  vending: { title: 'Vending', subtitle: 'Devices, pricing, rentals, QR journeys and manufacturer integration' },
-  sms: { title: 'Communications', subtitle: 'SMS and configured communication channels, routing, delivery, and usage' },
+  payments: { title: 'Payments', subtitle: strings.menu_payments_subtitle },
+  vending: { title: 'Vending & Utilities', subtitle: 'Devices, pricing, rentals, QR journeys and manufacturer integration.' },
+  sms: { title: 'Communications', subtitle: 'SMS and configured communication channels, routing, delivery and usage.' },
   transactions: { title: strings.menu_transactions, subtitle: strings.menu_transactions_subtitle_merchant },
   admins: { title: strings.menu_admins, subtitle: strings.menu_admins_subtitle_merchant },
   audittrail: { title: strings.menu_audittrail, subtitle: strings.menu_audittrail_subtitle_merchant },
@@ -57,22 +57,22 @@ const menuTitles = {
 };
 
 const merchantRoutes = {
-  home: '/bo/partner/home',
-  payments: '/bo/partner/payments',
-  'balances-settlements': '/bo/partner/balances-settlements',
-  customers: '/bo/partner/customers',
-  developers: '/bo/partner/developers',
-  services: '/bo/partner/services',
-  reports: '/bo/partner/reports',
-  business: '/bo/partner/business',
-  help: '/bo/partner/help',
-  settings: '/bo/partner/settings',
-  notifications: '/bo/partner/notifications',
+  home: '/fo/dashboard',
+  payments: '/fo/payments',
+  'balances-settlements': '/fo/balances-settlements',
+  customers: '/fo/customers',
+  developers: '/fo/developers',
+  services: '/fo/services',
+  reports: '/fo/reports',
+  business: '/fo/business',
+  help: '/fo/help',
+  settings: '/fo/settings',
+  notifications: '/fo/notifications',
 };
 
 function merchantMenuFromPath(pathname) {
-  if (/\/bo\/partner\/transactions\/[^/]+/.test(pathname)) return 'transaction-detail';
-  const segment = pathname.replace(/^\/bo\/partner\/?/, '').split('/')[0];
+  if (/\/(?:fo|bo\/partner)\/transactions\/[^/]+/.test(pathname)) return 'transaction-detail';
+  const segment = pathname.replace(/^\/(?:fo|bo\/partner)\/?/, '').split('/')[0];
   const aliases = { dashboard: 'home', statement: 'balances-settlements', sandbox: 'developers', 'cito-services': 'services', transactions: 'reports' };
   return aliases[segment] || (menuTitles[segment] ? segment : 'home');
 }
@@ -295,18 +295,23 @@ class LayoutMerchantWithOutRouter extends React.Component {
                 <IconButton label="Navigation" onClick={() => this.setState(s => ({ navOpen: !s.navOpen }))}>
                   <Icons.MenuIcon size={20} />
                 </IconButton>
-                <div className="cpay-topbar-heading">
-                  <h1>{current.title}</h1>
-                  <p>{current.subtitle}</p>
-                </div>
+                <button type="button" className="cito-global-search-trigger" onClick={() => this.goToScreen('reports')}>
+                  <Icons.SearchIcon size={18} />
+                  <span>Search transactions</span>
+                  <kbd>/</kbd>
+                </button>
               </>
             }
             right={
               <>
                 <EnvironmentSwitcher portal="merchant" />
                 <ThemeToggle />
-                <Button variant="ghost" className="ios-btn--sm" onClick={() => this.goToScreen('notifications')}>Notifications</Button>
-                <Button variant="primary" className="ios-btn--sm" onClick={this.refreshCurrentPage}>{strings.refresh}</Button>
+                <IconButton label="Notifications" onClick={() => this.goToScreen('notifications')}>
+                  <Icons.MailIcon size={19} />
+                </IconButton>
+                <IconButton label={strings.refresh} onClick={this.refreshCurrentPage}>
+                  <Icons.RefreshIcon size={19} />
+                </IconButton>
                 <UserChip
                   name={user.name || user.username || 'Merchant User'}
                   meta={user.email || user.account_number || 'Signed in'}
@@ -317,7 +322,16 @@ class LayoutMerchantWithOutRouter extends React.Component {
         }
       >
         <Page>
-          {this.renderModule(this.state.currentMenuKey, this.state.refreshTick)}
+          <div className="cito-page-shell">
+            <header className="cito-page-heading">
+              <div>
+                <span className="cito-page-heading__eyebrow">Cito workspace</span>
+                <h1>{current.title}</h1>
+                <p>{current.subtitle}</p>
+              </div>
+            </header>
+            {this.renderModule(this.state.currentMenuKey, this.state.refreshTick)}
+          </div>
         </Page>
 
         <Messager ref={ref => this.messager = ref}></Messager>
