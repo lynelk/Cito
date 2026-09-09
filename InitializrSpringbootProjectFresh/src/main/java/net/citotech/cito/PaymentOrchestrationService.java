@@ -1,6 +1,5 @@
 package net.citotech.cito;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import net.citotech.cito.Model.Balance;
@@ -18,8 +17,7 @@ import net.citotech.cito.gateway.LegacyGatewayAdapter;
 import net.citotech.cito.gateway.PaymentChannelAdapter;
 import net.citotech.cito.gateway.PaymentChannelRegistry;
 import net.citotech.cito.gateway.PaymentGatewayException;
-import net.citotech.cito.ledger.DoubleEntryLedgerService;
-import net.citotech.cito.ledger.LedgerEntryCommand;
+import net.citotech.cito.ledger.PaymentLedgerSettlementService;
 import net.citotech.cito.metrics.GatewayMetrics;
 import net.citotech.cito.money.MoneyAmount;
 import net.citotech.cito.webhook.MerchantWebhookService;
@@ -33,7 +31,7 @@ public class PaymentOrchestrationService {
     private final PlatformTransactionManager transactionManager;
     private final PaymentChannelRegistry paymentChannelRegistry;
     private final RiskDecisionService riskDecisionService;
-    private final DoubleEntryLedgerService ledgerService;
+    private final PaymentLedgerSettlementService ledgerSettlementService;
     private final MerchantWebhookService webhookService;
     private final GatewayMetrics gatewayMetrics;
     private final PaymentUsageOutboxHook paymentUsageOutboxHook;
@@ -43,7 +41,7 @@ public class PaymentOrchestrationService {
             PlatformTransactionManager transactionManager,
             PaymentChannelRegistry paymentChannelRegistry,
             RiskDecisionService riskDecisionService,
-            DoubleEntryLedgerService ledgerService,
+            PaymentLedgerSettlementService ledgerSettlementService,
             MerchantWebhookService webhookService,
             GatewayMetrics gatewayMetrics,
             PaymentUsageOutboxHook paymentUsageOutboxHook) {
@@ -51,7 +49,7 @@ public class PaymentOrchestrationService {
         this.transactionManager = transactionManager;
         this.paymentChannelRegistry = paymentChannelRegistry;
         this.riskDecisionService = riskDecisionService;
-        this.ledgerService = ledgerService;
+        this.ledgerSettlementService = ledgerSettlementService;
         this.webhookService = webhookService;
         this.gatewayMetrics = gatewayMetrics;
         this.paymentUsageOutboxHook = paymentUsageOutboxHook;
@@ -70,10 +68,6 @@ public class PaymentOrchestrationService {
         String gatewayId = resolveLegacyGatewayId(request, accountIdentifier);
         PaymentChannelAdapter adapter = resolveAdapter(request, accountIdentifier, gatewayId);
         GatewayChargeDetails chargeDetails = getChargeDetails(gatewayId, merchant);
-        // Audit H3: business metrics at the orchestration seam - GatewayMetrics already existed
-        // (used by callback delivery and rate limiting) but was never wired into the actual
-        // payment orchestration flow, so cpay.transaction.initiated/completed never recorded a
-        // single collection or payout.
         gatewayMetrics.incrementTransactionInitiated(gatewayId, Transaction.TX_TYPE_PAYIN);
 
         Double amount = parseAmount(request.getAmount());
@@ -86,18 +80,22 @@ public class PaymentOrchestrationService {
 
         String legacyResult;
         try {
-            // skipRiskCheck=true: riskDecisionService.authorizePayment(...) already ran above for
-            // this exact request - Common.doPayIn must not evaluate and re-record it a second time.
+            // Risk has already been evaluated against this exact request at the orchestration seam.
             legacyResult = Common.doPayIn(tx, merchant, jdbcTemplate, transactionManager, true);
+            // HTTP/provider acceptance is not financial settlement. This method is deliberately a
+            // no-op for PENDING/UNDETERMINED and posts only on provider-confirmed SUCCESSFUL.
+            ledgerSettlementService.applyTerminalProviderOutcome(tx, tx.getStatus());
         } catch (RuntimeException ex) {
             gatewayMetrics.incrementGatewayError(gatewayId);
             throw ex;
         }
-        postLedgerEntries("COLLECT", request, merchant, gatewayId, tx, amount, tx.getCharges());
+
         PaymentResult result = resultFromLegacy(request, tx, adapter, legacyResult);
         gatewayMetrics.incrementTransactionCompleted(
                 gatewayId, Transaction.TX_TYPE_PAYIN, tx.getStatus());
-        queueWebhook(merchant, "payment.pending", request, result);
+        if (!isTerminal(tx.getStatus())) {
+            queueWebhook(merchant, "payment.pending", request, result);
+        }
         paymentUsageOutboxHook.recordPaymentCollected(merchant, request, tx);
         return result;
     }
@@ -115,7 +113,6 @@ public class PaymentOrchestrationService {
         String gatewayId = resolveLegacyGatewayId(request, accountIdentifier);
         PaymentChannelAdapter adapter = resolveAdapter(request, accountIdentifier, gatewayId);
         GatewayChargeDetails chargeDetails = getChargeDetails(gatewayId, merchant);
-        // Audit H3: see the matching comment in collect() above.
         gatewayMetrics.incrementTransactionInitiated(gatewayId, Transaction.TX_TYPE_PAYOUT);
 
         Double amount = parseAmount(request.getAmount());
@@ -129,29 +126,31 @@ public class PaymentOrchestrationService {
         tx.setCharges(charges);
         tx.setTx_cost(DoPayGateway.getCostOfOutboundCharges(amount, chargeDetails));
 
-        BigDecimal reservedAmount = MoneyAmount.of(String.valueOf(amount + charges)).asBigDecimal();
-        String reservationReference =
-                "payout-reserve:" + merchant.getAccount_number() + ":" + request.getReference();
-        ledgerService.reserve(
-                reservationReference,
-                merchant.getId(),
-                request.getReference(),
-                reservedAmount,
-                request.getCurrency());
+        ledgerSettlementService.reservePayout(tx, merchant);
         try {
-            // skipRiskCheck=true: see the matching comment in collect() above.
             String legacyResult =
                     Common.doPayOut(tx, merchant, jdbcTemplate, transactionManager, true);
-            postLedgerEntries("PAYOUT", request, merchant, gatewayId, tx, amount, charges);
-            ledgerService.captureReservation(reservationReference);
+
+            // 202/PENDING keeps the reservation in RESERVED. SUCCESSFUL posts and captures;
+            // provider-confirmed FAILED releases it. No inference is made from elapsed time.
+            ledgerSettlementService.applyTerminalProviderOutcome(tx, tx.getStatus());
+
             PaymentResult result = resultFromLegacy(request, tx, adapter, legacyResult);
             gatewayMetrics.incrementTransactionCompleted(
                     gatewayId, Transaction.TX_TYPE_PAYOUT, tx.getStatus());
-            queueWebhook(merchant, "payout.pending", request, result);
+            if (!isTerminal(tx.getStatus())) {
+                queueWebhook(merchant, "payout.pending", request, result);
+            }
             paymentUsageOutboxHook.recordPaymentPayoutSubmitted(merchant, request, tx);
             return result;
         } catch (RuntimeException ex) {
-            ledgerService.releaseReservation(reservationReference);
+            // If no transaction row was created, there is no evidence the provider accepted the
+            // payout, so the reservation can be released. Once a transaction is persisted, a
+            // transport failure may be ambiguous; retaining the reservation is safer than making
+            // the funds spendable while MTN may still complete the transfer.
+            if (tx.getId() <= 0) {
+                ledgerSettlementService.releaseUnsubmittedPayout(tx, merchant);
+            }
             gatewayMetrics.incrementGatewayError(gatewayId);
             throw ex;
         }
@@ -200,6 +199,7 @@ public class PaymentOrchestrationService {
         tx.setTx_merchant_ref(request.getReference());
         tx.setCallback_url(request.getCallbackUrl());
         tx.setOriginate_ip(originateIp);
+        tx.setCurrency(request.getCurrency());
         tx.setTx_request_trace("");
         tx.setTx_update_trace("");
         tx.setTx_gateway_ref("");
@@ -214,10 +214,17 @@ public class PaymentOrchestrationService {
         PaymentResult result = new PaymentResult();
         result.setReference(request.getReference());
         result.setTransactionId(tx.getTx_unique_id());
-        result.setStatus("SUBMITTED");
+        String status = tx.getStatus();
+        result.setStatus(
+                status == null || status.isBlank() || "PENDING".equalsIgnoreCase(status)
+                        ? "SUBMITTED"
+                        : status);
         result.setChannel(adapter.channelCode());
         result.setCurrency(request.getCurrency());
-        result.setMessage("Transaction submitted through compatibility payment engine");
+        result.setMessage(
+                isTerminal(status)
+                        ? "Transaction resolved through compatibility payment engine"
+                        : "Transaction submitted through compatibility payment engine");
         result.setProviderResponse(legacyResult);
         return result;
     }
@@ -253,134 +260,6 @@ public class PaymentOrchestrationService {
         } catch (Exception ignored) {
             // Payment submission remains authoritative; webhook delivery is retried separately.
         }
-    }
-
-    private void postLedgerEntries(
-            String direction,
-            PaymentRequest request,
-            Merchant merchant,
-            String gatewayId,
-            Transaction tx,
-            Double amount,
-            Double charges) {
-        BigDecimal txAmount = MoneyAmount.of(String.valueOf(amount)).asBigDecimal();
-        BigDecimal feeAmount =
-                charges == null || charges <= 0
-                        ? BigDecimal.ZERO
-                        : MoneyAmount.of(String.valueOf(charges)).asBigDecimal();
-        String currency = request.getCurrency().trim().toUpperCase();
-        String providerAccount = "provider:" + gatewayId + ":" + currency + ":float";
-        String merchantAccount =
-                "merchant:"
-                        + merchant.getId()
-                        + ":"
-                        + currency
-                        + ":"
-                        + ("PAYOUT".equals(direction) ? "payouts_payable" : "collections_payable");
-        String feeExpenseAccount = "merchant:" + merchant.getId() + ":" + currency + ":fees";
-        String feeRevenueAccount = "cpay:" + currency + ":fee_revenue";
-
-        List<LedgerEntryCommand> entries = new ArrayList<>();
-        if ("PAYOUT".equals(direction)) {
-            entries.add(
-                    ledgerEntry(
-                            merchantAccount,
-                            "Merchant payout payable",
-                            "MERCHANT_LIABILITY",
-                            "MERCHANT",
-                            merchant.getId(),
-                            "DR",
-                            txAmount,
-                            currency,
-                            tx.getTx_merchant_ref()));
-            entries.add(
-                    ledgerEntry(
-                            providerAccount,
-                            "Provider float",
-                            "PROVIDER_FLOAT",
-                            "PROVIDER",
-                            null,
-                            "CR",
-                            txAmount,
-                            currency,
-                            tx.getTx_merchant_ref()));
-            if (feeAmount.compareTo(BigDecimal.ZERO) > 0) {
-                entries.add(
-                        ledgerEntry(
-                                feeExpenseAccount,
-                                "Merchant transaction fees",
-                                "MERCHANT_EXPENSE",
-                                "MERCHANT",
-                                merchant.getId(),
-                                "DR",
-                                feeAmount,
-                                currency,
-                                tx.getTx_merchant_ref()));
-                entries.add(
-                        ledgerEntry(
-                                feeRevenueAccount,
-                                "CPay fee revenue",
-                                "REVENUE",
-                                "SYSTEM",
-                                null,
-                                "CR",
-                                feeAmount,
-                                currency,
-                                tx.getTx_merchant_ref()));
-            }
-        } else {
-            entries.add(
-                    ledgerEntry(
-                            providerAccount,
-                            "Provider float",
-                            "PROVIDER_FLOAT",
-                            "PROVIDER",
-                            null,
-                            "DR",
-                            txAmount,
-                            currency,
-                            tx.getTx_merchant_ref()));
-            entries.add(
-                    ledgerEntry(
-                            merchantAccount,
-                            "Merchant collection payable",
-                            "MERCHANT_LIABILITY",
-                            "MERCHANT",
-                            merchant.getId(),
-                            "CR",
-                            txAmount,
-                            currency,
-                            tx.getTx_merchant_ref()));
-        }
-
-        ledgerService.post(
-                "payment:" + tx.getTx_unique_id(),
-                "PAYMENT",
-                tx.getTx_unique_id(),
-                direction + " " + request.getReference(),
-                entries);
-    }
-
-    private LedgerEntryCommand ledgerEntry(
-            String accountCode,
-            String accountName,
-            String accountType,
-            String ownerType,
-            Long ownerId,
-            String direction,
-            BigDecimal amount,
-            String currency,
-            String memo) {
-        return new LedgerEntryCommand(
-                accountCode,
-                accountName,
-                accountType,
-                ownerType,
-                ownerId,
-                direction,
-                amount,
-                currency,
-                memo);
     }
 
     private Merchant validateMerchant(
@@ -519,6 +398,10 @@ public class PaymentOrchestrationService {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private boolean isTerminal(String value) {
+        return "SUCCESSFUL".equalsIgnoreCase(value) || "FAILED".equalsIgnoreCase(value);
     }
 
     private String json(String value) {

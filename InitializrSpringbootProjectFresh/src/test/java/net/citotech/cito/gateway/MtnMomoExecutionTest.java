@@ -54,6 +54,8 @@ class MtnMomoExecutionTest {
                             .isEqualTo("Bearer token-123");
                     assertThat(exchange.getRequestHeaders().getFirst("X-Target-Environment"))
                             .isEqualTo("sandbox");
+                    assertThat(exchange.getRequestHeaders().getFirst("Ocp-Apim-Subscription-Key"))
+                            .isEqualTo("collection-subscription");
                     respond(exchange, 202, "");
                 });
         server.start();
@@ -61,18 +63,14 @@ class MtnMomoExecutionTest {
             ProviderTokenStoreService tokenStore = mock(ProviderTokenStoreService.class);
             when(tokenStore.findValid(anyString(), anyString(), anyString()))
                     .thenReturn(Optional.empty());
-            ProviderEndpointExecutionService service =
-                    new ProviderEndpointExecutionService(
-                            mock(NamedParameterJdbcTemplate.class),
-                            tokenStore,
-                            new ChannelCircuitBreaker());
+            ProviderEndpointExecutionService service = service(tokenStore);
 
             GateWayResponse result =
                     service.execute(
                             "mtn_momo",
                             "MTN MoMo",
                             "COLLECT",
-                            request(server.getAddress().getPort()));
+                            request(server.getAddress().getPort(), "Sandbox collection"));
 
             assertThat(result.getTransactionStatus()).isEqualTo("PENDING");
             assertThat(result.getNetworkId()).isEqualTo(referenceId.get());
@@ -101,22 +99,109 @@ class MtnMomoExecutionTest {
         }
     }
 
-    private PaymentGatewayRequest request(int port) {
+    @Test
+    void payoutObtainsDisbursementTokenAndSubmitsOfficialTransferShape() throws Exception {
+        AtomicReference<String> tokenAuthorization = new AtomicReference<>();
+        AtomicReference<String> subscriptionAtToken = new AtomicReference<>();
+        AtomicReference<String> transferBody = new AtomicReference<>();
+        AtomicReference<String> callbackUrl = new AtomicReference<>();
+        AtomicReference<String> referenceId = new AtomicReference<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext(
+                "/disbursement/token/",
+                exchange -> {
+                    tokenAuthorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+                    subscriptionAtToken.set(
+                            exchange.getRequestHeaders().getFirst("Ocp-Apim-Subscription-Key"));
+                    respond(
+                            exchange,
+                            200,
+                            "{\"access_token\":\"payout-token-123\",\"expires_in\":3600}");
+                });
+        server.createContext(
+                "/disbursement/v1_0/transfer",
+                exchange -> {
+                    transferBody.set(
+                            new String(
+                                    exchange.getRequestBody().readAllBytes(),
+                                    StandardCharsets.UTF_8));
+                    callbackUrl.set(exchange.getRequestHeaders().getFirst("X-Callback-Url"));
+                    referenceId.set(exchange.getRequestHeaders().getFirst("X-Reference-Id"));
+                    assertThat(exchange.getRequestHeaders().getFirst("Authorization"))
+                            .isEqualTo("Bearer payout-token-123");
+                    assertThat(exchange.getRequestHeaders().getFirst("X-Target-Environment"))
+                            .isEqualTo("sandbox");
+                    assertThat(exchange.getRequestHeaders().getFirst("Ocp-Apim-Subscription-Key"))
+                            .isEqualTo("disbursement-subscription");
+                    respond(exchange, 202, "");
+                });
+        server.start();
+        try {
+            ProviderTokenStoreService tokenStore = mock(ProviderTokenStoreService.class);
+            when(tokenStore.findValid(anyString(), anyString(), anyString()))
+                    .thenReturn(Optional.empty());
+            ProviderEndpointExecutionService service = service(tokenStore);
+
+            GateWayResponse result =
+                    service.execute(
+                            "mtn_momo",
+                            "MTN MoMo",
+                            "PAYOUT",
+                            request(server.getAddress().getPort(), "Sandbox payout"));
+
+            assertThat(result.getTransactionStatus()).isEqualTo("PENDING");
+            assertThat(result.getNetworkId()).isEqualTo(referenceId.get());
+            assertThat(callbackUrl.get())
+                    .isEqualTo(
+                            "https://pay.example.com/api/v2/provider-callbacks/mtn/"
+                                    + referenceId.get());
+            assertThat(tokenAuthorization.get())
+                    .isEqualTo(
+                            "Basic "
+                                    + Base64.getEncoder()
+                                            .encodeToString(
+                                                    "disbursement-user:disbursement-key"
+                                                            .getBytes(StandardCharsets.UTF_8)));
+            assertThat(subscriptionAtToken.get()).isEqualTo("disbursement-subscription");
+            JSONObject body = new JSONObject(transferBody.get());
+            assertThat(body.getString("amount")).isEqualTo("1000.0");
+            assertThat(body.getString("currency")).isEqualTo("EUR");
+            assertThat(body.getString("externalId")).isEqualTo("ORDER-100");
+            assertThat(body.getJSONObject("payee").getString("partyIdType")).isEqualTo("MSISDN");
+            assertThat(body.getJSONObject("payee").getString("partyId")).isEqualTo("46733123499");
+            verify(tokenStore)
+                    .save(anyString(), anyString(), anyString(), anyString(), any(Instant.class));
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    private ProviderEndpointExecutionService service(ProviderTokenStoreService tokenStore) {
+        return new ProviderEndpointExecutionService(
+                mock(NamedParameterJdbcTemplate.class), tokenStore, new ChannelCircuitBreaker());
+    }
+
+    private PaymentGatewayRequest request(int port, String description) {
         Map<String, String> credentials = new HashMap<>();
         credentials.put("baseUrl", "http://localhost:" + port);
         credentials.put("targetEnvironment", "sandbox");
         credentials.put("currency", "EUR");
+        credentials.put("baseCurrency", "EUR");
         credentials.put("gatewayState", "SANDBOX");
+        credentials.put("callbackHost", "pay.example.com");
         credentials.put("callbackUrl", "https://pay.example.com/api/v2/provider-callbacks/mtn");
         credentials.put("collectionApiUser", "collection-user");
         credentials.put("collectionApiKey", "collection-key");
         credentials.put("collectionSubscriptionKey", "collection-subscription");
+        credentials.put("disbursementApiUser", "disbursement-user");
+        credentials.put("disbursementApiKey", "disbursement-key");
+        credentials.put("disbursementSubscriptionKey", "disbursement-subscription");
         return new PaymentGatewayRequest(
                 "M-1",
                 "46733123499",
                 1000.0,
                 "ORDER-100",
-                "Sandbox collection",
+                description,
                 "https://merchant.example/callback",
                 credentials);
     }
