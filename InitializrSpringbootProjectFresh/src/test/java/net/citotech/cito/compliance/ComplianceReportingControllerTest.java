@@ -11,12 +11,57 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 class ComplianceReportingControllerTest {
+
+    @Test
+    void casesReturnsSuccessfulEmptyCollection() {
+        ComplianceReportingService service = mock(ComplianceReportingService.class);
+        ComplianceCaseService caseService = mock(ComplianceCaseService.class);
+        when(caseService.listOpenCases()).thenReturn(List.of());
+
+        List<Map<String, Object>> result =
+                new ComplianceReportingController(service, caseService).cases();
+
+        assertThat(result).isEmpty();
+        verify(caseService).listOpenCases();
+    }
+
+    @Test
+    void decideCaseRejectsMissingDecision() {
+        ComplianceReportingService service = mock(ComplianceReportingService.class);
+        ComplianceCaseService caseService = mock(ComplianceCaseService.class);
+
+        ResponseEntity<?> response =
+                new ComplianceReportingController(service, caseService)
+                        .decideCase(3L, Map.of("reason", "reviewed"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(caseService, never()).decideCase(anyLong(), anyString(), any(), any());
+    }
+
+    @Test
+    void decideCaseReturnsNotFoundForUnknownCase() {
+        ComplianceReportingService service = mock(ComplianceReportingService.class);
+        ComplianceCaseService caseService = mock(ComplianceCaseService.class);
+        when(caseService.decideCase(99L, "ALLOW", "reviewed", "admin")).thenReturn(0);
+
+        ResponseEntity<?> response =
+                new ComplianceReportingController(service, caseService)
+                        .decideCase(
+                                99L,
+                                Map.of(
+                                        "decision", "ALLOW",
+                                        "reason", "reviewed",
+                                        "actor", "admin"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
 
     @Test
     void upsertProfileRejectsMissingEntityIdWithoutThrowing() {
