@@ -71,7 +71,7 @@ public final class MtnMomoCredentialSchema {
         if (baseUrl.getQuery() != null || baseUrl.getFragment() != null) {
             throw new PaymentGatewayException("MTN baseUrl cannot contain a query or fragment");
         }
-        URI callbackUrl = callbackUri(value(credentials, "callbackUrl"), env);
+        URI callbackUrl = httpsUri(value(credentials, "callbackUrl"), "callbackUrl");
         String callbackHost = value(credentials, "callbackHost").toLowerCase(Locale.ROOT);
         if (callbackHost.contains(":")
                 || callbackHost.contains("/")
@@ -113,27 +113,6 @@ public final class MtnMomoCredentialSchema {
             return uri;
         } catch (Exception ignored) {
             throw new PaymentGatewayException("MTN " + field + " must be a valid HTTPS URL");
-        }
-    }
-
-    private static URI callbackUri(String raw, String environment) {
-        try {
-            URI uri = URI.create(raw);
-            if (blank(uri.getHost())) throw new IllegalArgumentException();
-            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-            if ("SANDBOX".equals(environment)) {
-                if (!"http".equals(scheme)) {
-                    throw new PaymentGatewayException(
-                            "MTN sandbox callbackUrl must use HTTP as required by the sandbox callback service");
-                }
-            } else if (!"https".equals(scheme)) {
-                throw new PaymentGatewayException("MTN production callbackUrl must use HTTPS");
-            }
-            return uri;
-        } catch (PaymentGatewayException e) {
-            throw e;
-        } catch (Exception ignored) {
-            throw new PaymentGatewayException("MTN callbackUrl must be a valid URL");
         }
     }
 
