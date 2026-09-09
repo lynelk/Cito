@@ -11,12 +11,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
-/**
- * Read/write access to {@code communication_message_deliveries} (V53, track B5a). Every channel's
- * send outcome lands here first, and the usage relay (B5b) reads SENT rows off this log to emit
- * billing usage events — so this repository is the single place that owns the per-message status
- * mutation, including the {@code billed_flag} flip that makes the relay idempotent across retries.
- */
+/** Read/write access to the canonical communication delivery ledger. */
 @Repository
 public class DeliveryLogRepository {
 
@@ -26,7 +21,6 @@ public class DeliveryLogRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    /** Inserts a delivery row and returns its generated id. */
     public long insert(
             long merchantId,
             String channel,
@@ -45,20 +39,16 @@ public class DeliveryLogRepository {
         jdbcTemplate.update(
                 "INSERT INTO communication_message_deliveries"
                         + " (merchant_id, channel, provider_code, reference_type, reference_id, recipient,"
-                        + " status)"
-                        + " VALUES (:merchant_id, :channel, :provider_code, :reference_type,"
+                        + " status) VALUES (:merchant_id, :channel, :provider_code, :reference_type,"
                         + " :reference_id, :recipient, 'PENDING')",
                 p,
                 keyHolder,
                 new String[] {"id"});
         Number key = keyHolder.getKey();
-        if (key == null) {
-            throw new IllegalStateException("Inserted delivery row without a generated id");
-        }
+        if (key == null) throw new IllegalStateException("Inserted delivery row without a generated id");
         return key.longValue();
     }
 
-    /** Records a terminal/current status plus the diagnostic trace/response columns. */
     public int updateStatus(long id, DeliveryStatus status, String trace, String gwResponse) {
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("id", id);
@@ -71,10 +61,39 @@ public class DeliveryLogRepository {
                 p);
     }
 
-    /**
-     * Marks a delivery row as billed after the usage relay has emitted its usage event. Returns the
-     * number of rows flipped (0 = already billed — the relay's idempotency guard).
-     */
+    /** Saves the provider callback correlation ID returned by a provider send. */
+    public int updateProviderMessageId(long id, String providerMessageId) {
+        if (providerMessageId == null || providerMessageId.isBlank()) return 0;
+        return jdbcTemplate.update(
+                "UPDATE communication_message_deliveries SET provider_message_id=:provider_message_id"
+                        + " WHERE id=:id",
+                new MapSqlParameterSource()
+                        .addValue("provider_message_id", providerMessageId.trim())
+                        .addValue("id", id));
+    }
+
+    /** Applies a normalized provider delivery receipt idempotently. */
+    public int updateByProviderMessageId(
+            String providerCode,
+            String providerMessageId,
+            DeliveryStatus status,
+            String trace,
+            String safeResponse) {
+        if (providerCode == null || providerCode.isBlank()
+                || providerMessageId == null || providerMessageId.isBlank()) return 0;
+        return jdbcTemplate.update(
+                "UPDATE communication_message_deliveries SET status=:status, trace=:trace,"
+                        + " gw_response=:response, delivered_at=IF(:delivered, NOW(), delivered_at)"
+                        + " WHERE provider_code=:provider AND provider_message_id=:provider_message_id",
+                new MapSqlParameterSource()
+                        .addValue("status", status.name())
+                        .addValue("trace", trace)
+                        .addValue("response", safeResponse)
+                        .addValue("delivered", status == DeliveryStatus.DELIVERED)
+                        .addValue("provider", providerCode.trim().toUpperCase())
+                        .addValue("provider_message_id", providerMessageId.trim()));
+    }
+
     public int markBilled(long id) {
         return jdbcTemplate.update(
                 "UPDATE communication_message_deliveries SET billed_flag='Y'"
@@ -82,7 +101,6 @@ public class DeliveryLogRepository {
                 new MapSqlParameterSource("id", id));
     }
 
-    /** The delivery row, if it exists. */
     public Optional<MessageDelivery> findById(long id) {
         List<MessageDelivery> rows =
                 jdbcTemplate.query(
@@ -94,12 +112,6 @@ public class DeliveryLogRepository {
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
-    /**
-     * SENT rows of one channel with id strictly greater than {@code afterId}, ordered by id — the
-     * bounded window the usage relay sweeps against its per-channel watermark (B5b). Billed rows
-     * are excluded defensively so a relay restart never re-emits an already-billed row even if the
-     * watermark was lost.
-     */
     public List<MessageDelivery> sentSince(String channel, long afterId, int limit) {
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("channel", channel);
@@ -115,7 +127,6 @@ public class DeliveryLogRepository {
                 this::mapRow);
     }
 
-    /** Recent deliveries for one merchant (admin/merchant delivery log view). */
     public List<MessageDelivery> listForMerchant(long merchantId, int limit) {
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("merchant_id", merchantId);
