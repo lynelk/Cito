@@ -18,17 +18,17 @@ function mockResponse(overrides: Partial<Response> = {}): Response {
 }
 
 describe('downloadStatementExport', () => {
-  let createObjectURLSpy: ReturnType<typeof vi.fn>;
-  let revokeObjectURLSpy: ReturnType<typeof vi.fn>;
-  let clickSpy: ReturnType<typeof vi.fn>;
+  let createObjectURLSpy = vi.fn<(obj: Blob | MediaSource) => string>();
+  let revokeObjectURLSpy = vi.fn<(url: string) => void>();
+  let clickSpy = vi.fn<() => void>();
 
   beforeEach(() => {
     mockedApiFetch.mockReset();
-    createObjectURLSpy = vi.fn(() => 'blob:mock-url');
-    revokeObjectURLSpy = vi.fn();
+    createObjectURLSpy = vi.fn<(obj: Blob | MediaSource) => string>(() => 'blob:mock-url');
+    revokeObjectURLSpy = vi.fn<(url: string) => void>();
     URL.createObjectURL = createObjectURLSpy;
     URL.revokeObjectURL = revokeObjectURLSpy;
-    clickSpy = vi.fn();
+    clickSpy = vi.fn<() => void>();
     const originalCreateElement = document.createElement.bind(document);
     vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
       const el = originalCreateElement(tag);
