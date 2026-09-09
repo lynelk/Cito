@@ -36,9 +36,7 @@ public class PaymentLedgerSettlementService {
     @Transactional
     public String reservePayout(Transaction tx, Merchant merchant) {
         requireTransaction(tx);
-        if (merchant == null || merchant.getId() == null) {
-            throw new PaymentGatewayException("Payout ledger reservation requires a merchant");
-        }
+        requireMerchant(merchant);
         String reference = reservationReference(tx, merchant);
         ledgerService.reserve(
                 reference,
@@ -50,20 +48,30 @@ public class PaymentLedgerSettlementService {
     }
 
     /**
-     * Finalize the double-entry side of a provider transaction. PENDING/UNDETERMINED is a no-op.
+     * Finalize after an asynchronous reconciler has only the stored transaction and must resolve
+     * its merchant from persistence.
      */
     @Transactional
     public void applyTerminalProviderOutcome(Transaction tx, String providerStatus) {
         requireTransaction(tx);
         String status = normalize(providerStatus);
-        if (!"SUCCESSFUL".equals(status) && !"FAILED".equals(status)) {
+        if (!isTerminal(status)) {
             return;
         }
-
         Merchant merchant = Common.getMerchantById(tx.getMerchant_id(), jdbcTemplate);
-        if (merchant == null) {
-            throw new PaymentGatewayException(
-                    "Cannot finalize payment ledger because merchant was not found");
+        requireMerchant(merchant);
+        applyTerminalProviderOutcome(tx, providerStatus, merchant);
+    }
+
+    /** Finalize with an already-authenticated/loaded merchant, avoiding a redundant DB lookup. */
+    @Transactional
+    public void applyTerminalProviderOutcome(
+            Transaction tx, String providerStatus, Merchant merchant) {
+        requireTransaction(tx);
+        requireMerchant(merchant);
+        String status = normalize(providerStatus);
+        if (!isTerminal(status)) {
+            return;
         }
 
         if ("SUCCESSFUL".equals(status)) {
@@ -275,6 +283,17 @@ public class PaymentLedgerSettlementService {
         }
         required(tx.getTx_unique_id(), "transaction id");
         required(tx.getMerchant_id(), "merchant id");
+    }
+
+    private void requireMerchant(Merchant merchant) {
+        if (merchant == null || merchant.getId() == null) {
+            throw new PaymentGatewayException(
+                    "Cannot finalize payment ledger because merchant was not found");
+        }
+    }
+
+    private boolean isTerminal(String status) {
+        return "SUCCESSFUL".equals(status) || "FAILED".equals(status);
     }
 
     private String required(String value, String field) {
