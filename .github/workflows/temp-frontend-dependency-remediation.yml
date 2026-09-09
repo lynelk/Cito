@@ -33,7 +33,13 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Apply non-breaking audit fixes
-        run: npm audit fix --legacy-peer-deps
+        shell: bash
+        run: |
+          set +e
+          npm audit fix --legacy-peer-deps
+          rc=$?
+          set -e
+          echo "npm audit fix exit code: ${rc}; continuing because remaining findings require the targeted Vitest upgrade below."
 
       - name: Upgrade Vitest family past GHSA-82fw-gwwq-j7x9
         run: npm install --save-dev vitest@4.1.11 @vitest/coverage-v8@4.1.11 --legacy-peer-deps
