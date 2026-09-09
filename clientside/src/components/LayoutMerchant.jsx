@@ -57,22 +57,22 @@ const menuTitles = {
 };
 
 const merchantRoutes = {
-  home: '/bo/partner/home',
-  payments: '/bo/partner/payments',
-  'balances-settlements': '/bo/partner/balances-settlements',
-  customers: '/bo/partner/customers',
-  developers: '/bo/partner/developers',
-  services: '/bo/partner/services',
-  reports: '/bo/partner/reports',
-  business: '/bo/partner/business',
-  help: '/bo/partner/help',
-  settings: '/bo/partner/settings',
-  notifications: '/bo/partner/notifications',
+  home: '/fo/dashboard',
+  payments: '/fo/payments',
+  'balances-settlements': '/fo/balances-settlements',
+  customers: '/fo/customers',
+  developers: '/fo/developers',
+  services: '/fo/services',
+  reports: '/fo/reports',
+  business: '/fo/business',
+  help: '/fo/help',
+  settings: '/fo/settings',
+  notifications: '/fo/notifications',
 };
 
 function merchantMenuFromPath(pathname) {
-  if (/\/bo\/partner\/transactions\/[^/]+/.test(pathname)) return 'transaction-detail';
-  const segment = pathname.replace(/^\/bo\/partner\/?/, '').split('/')[0];
+  if (/\/(?:fo|bo\/partner)\/transactions\/[^/]+/.test(pathname)) return 'transaction-detail';
+  const segment = pathname.replace(/^\/(?:fo|bo\/partner)\/?/, '').split('/')[0];
   const aliases = { dashboard: 'home', statement: 'balances-settlements', sandbox: 'developers', 'cito-services': 'services', transactions: 'reports' };
   return aliases[segment] || (menuTitles[segment] ? segment : 'home');
 }
