@@ -1,0 +1,5 @@
+Cito production release marker
+Source merge: e8cdd54be99d1130065ec997f55c66d884dc06d1
+Release: PR #155 clean shared product UI system
+Approved for production: 2026-09-09
+Purpose: trigger Railway backend rebuild from the current production branch head without changing runtime behavior.
