@@ -20,6 +20,62 @@ class MtnMomoCredentialSchemaTest {
     }
 
     @Test
+    void validatesCollectionWithoutRequiringDisbursementCredentialsAtExecutionTime() {
+        Map<String, Object> credentials = credentials();
+        credentials.remove("disbursementApiUser");
+        credentials.remove("disbursementApiKey");
+        credentials.remove("disbursementSubscriptionKey");
+
+        assertThatCode(
+                        () ->
+                                MtnMomoCredentialSchema.validateForOperation(
+                                        credentials, "SANDBOX", "UG", "EUR", "COLLECT"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void payoutRequiresDisbursementProductCredentials() {
+        Map<String, Object> credentials = credentials();
+        credentials.remove("disbursementSubscriptionKey");
+
+        assertThatThrownBy(
+                        () ->
+                                MtnMomoCredentialSchema.validateForOperation(
+                                        credentials, "SANDBOX", "UG", "EUR", "PAYOUT"))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("disbursementSubscriptionKey");
+    }
+
+    @Test
+    void acceptsUgandaProductionTargetAndCurrency() {
+        Map<String, Object> credentials = credentials();
+        credentials.put("baseUrl", MtnMomoCredentialSchema.PRODUCTION_BASE_URL);
+        credentials.put("targetEnvironment", "mtnuganda");
+        credentials.put("baseCurrency", "UGX");
+
+        assertThatCode(
+                        () ->
+                                MtnMomoCredentialSchema.validateForOperation(
+                                        credentials, "PRODUCTION", "UG", "UGX", "COLLECT"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsNonUgxCurrencyForUgandaProduction() {
+        Map<String, Object> credentials = credentials();
+        credentials.put("baseUrl", MtnMomoCredentialSchema.PRODUCTION_BASE_URL);
+        credentials.put("targetEnvironment", "mtnuganda");
+        credentials.put("baseCurrency", "EUR");
+
+        assertThatThrownBy(
+                        () ->
+                                MtnMomoCredentialSchema.validateForOperation(
+                                        credentials, "PRODUCTION", "UG", "EUR", "COLLECT"))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("must use UGX");
+    }
+
+    @Test
     void rejectsUgxForMtnSandbox() {
         Map<String, Object> credentials = credentials();
         credentials.put("baseCurrency", "UGX");
@@ -52,6 +108,10 @@ class MtnMomoCredentialSchemaTest {
                 .isEqualTo("https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay");
         assertThat(MtnMomoCredentialSchema.endpoint(values, "PAYOUT"))
                 .isEqualTo("https://sandbox.momodeveloper.mtn.com/disbursement/v1_0/transfer");
+        assertThat(MtnMomoCredentialSchema.statusEndpoint(values, "COLLECT", "abc"))
+                .isEqualTo("https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay/abc");
+        assertThat(MtnMomoCredentialSchema.statusEndpoint(values, "PAYOUT", "abc"))
+                .isEqualTo("https://sandbox.momodeveloper.mtn.com/disbursement/v1_0/transfer/abc");
     }
 
     private Map<String, Object> credentials() {
