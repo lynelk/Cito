@@ -67,11 +67,13 @@ CREATE TABLE IF NOT EXISTS communication_sender_identities (
   country_code VARCHAR(3) NULL,
   approval_status VARCHAR(24) NOT NULL DEFAULT 'PENDING',
   two_way_capable CHAR(1) NOT NULL DEFAULT 'N',
+  inbound_token VARCHAR(64) NULL COMMENT 'unguessable callback token for inbound/DLR endpoints',
   default_flag CHAR(1) NOT NULL DEFAULT 'N',
   notes VARCHAR(500) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_comm_sender_identity (merchant_id, sender_id, provider_code),
+  UNIQUE KEY uk_comm_sender_inbound_token (inbound_token),
   KEY idx_comm_sender_merchant (merchant_id, approval_status, default_flag)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -106,6 +108,39 @@ CREATE TABLE IF NOT EXISTS communication_contact_group_members (
   PRIMARY KEY (group_id, contact_id),
   CONSTRAINT fk_comm_group_member_group FOREIGN KEY (group_id) REFERENCES communication_contact_groups(id) ON DELETE CASCADE,
   CONSTRAINT fk_comm_group_member_contact FOREIGN KEY (contact_id) REFERENCES communication_contacts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS communication_sms_suppressions (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  merchant_id BIGINT NOT NULL,
+  phone_e164 VARCHAR(32) NOT NULL,
+  scope VARCHAR(24) NOT NULL DEFAULT 'MARKETING',
+  reason VARCHAR(80) NOT NULL DEFAULT 'OPT_OUT',
+  source VARCHAR(40) NOT NULL DEFAULT 'INBOUND_SMS',
+  active_flag CHAR(1) NOT NULL DEFAULT 'Y',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_comm_sms_suppression (merchant_id, phone_e164, scope),
+  KEY idx_comm_sms_suppression_active (merchant_id, scope, active_flag)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS communication_sms_drafts (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  public_id VARCHAR(64) NOT NULL,
+  merchant_id BIGINT NOT NULL,
+  title VARCHAR(160) NULL,
+  recipient_mode VARCHAR(24) NOT NULL DEFAULT 'DIRECT',
+  recipient_payload_json JSON NULL,
+  sender_id VARCHAR(32) NULL,
+  purpose VARCHAR(40) NOT NULL DEFAULT 'NOTIFICATION',
+  message_body TEXT NOT NULL,
+  routing_strategy VARCHAR(32) NOT NULL DEFAULT 'BALANCED',
+  scheduled_at DATETIME NULL,
+  created_by VARCHAR(120) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_comm_sms_draft_public (public_id),
+  KEY idx_comm_sms_draft_merchant (merchant_id, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS communication_conversations (
@@ -146,6 +181,21 @@ CREATE TABLE IF NOT EXISTS communication_conversation_messages (
   UNIQUE KEY uk_comm_conversation_provider_message (provider_code, provider_message_id),
   KEY idx_comm_conversation_messages (conversation_id, occurred_at),
   CONSTRAINT fk_comm_conversation_message FOREIGN KEY (conversation_id) REFERENCES communication_conversations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS communication_sms_webhook_events (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  event_key VARCHAR(190) NOT NULL,
+  merchant_id BIGINT NOT NULL,
+  sender_identity_id BIGINT NULL,
+  provider_code VARCHAR(50) NULL,
+  event_type VARCHAR(24) NOT NULL,
+  provider_message_id VARCHAR(160) NULL,
+  payload_json JSON NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'PROCESSED',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_comm_sms_webhook_event (event_key),
+  KEY idx_comm_sms_webhook_merchant (merchant_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- A default policy is intentionally cost-aware but does not invent provider rates.
