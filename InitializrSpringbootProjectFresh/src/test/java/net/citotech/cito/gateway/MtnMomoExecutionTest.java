@@ -78,7 +78,7 @@ class MtnMomoExecutionTest {
             assertThat(result.getNetworkId()).isEqualTo(referenceId.get());
             assertThat(callbackUrl.get())
                     .isEqualTo(
-                            "http://pay.example.com/api/v2/provider-callbacks/mtn/"
+                            "https://pay.example.com/api/v2/provider-callbacks/mtn/"
                                     + referenceId.get());
             assertThat(tokenAuthorization.get())
                     .isEqualTo(
@@ -107,7 +107,7 @@ class MtnMomoExecutionTest {
         credentials.put("targetEnvironment", "sandbox");
         credentials.put("currency", "EUR");
         credentials.put("gatewayState", "SANDBOX");
-        credentials.put("callbackUrl", "http://pay.example.com/api/v2/provider-callbacks/mtn");
+        credentials.put("callbackUrl", "https://pay.example.com/api/v2/provider-callbacks/mtn");
         credentials.put("collectionApiUser", "collection-user");
         credentials.put("collectionApiKey", "collection-key");
         credentials.put("collectionSubscriptionKey", "collection-subscription");
