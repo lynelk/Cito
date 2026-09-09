@@ -1,11 +1,18 @@
 package net.citotech.cito.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import net.citotech.cito.Common;
@@ -20,6 +27,9 @@ class MtnMomoStatusClientTest {
         AtomicReference<String> statusUrl = new AtomicReference<>();
         AtomicReference<Map<String, String>> statusHeaders = new AtomicReference<>();
         AtomicReference<Map<String, String>> tokenHeaders = new AtomicReference<>();
+        ProviderTokenStoreService tokenStore = mock(ProviderTokenStoreService.class);
+        when(tokenStore.findValid(anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
 
         Common.setOutboundHttpExecutor(
                 (method, url, data, headers) -> {
@@ -47,7 +57,7 @@ class MtnMomoStatusClientTest {
 
         try {
             MtnMomoStatusClient.VerifiedStatus verified =
-                    new MtnMomoStatusClient()
+                    new MtnMomoStatusClient(tokenStore)
                             .verify(
                                     "COLLECT",
                                     "8e7f67ca-0e25-4c95-9d2e-6d88b09d02e0",
@@ -77,6 +87,48 @@ class MtnMomoStatusClientTest {
                     .containsEntry("Authorization", "Bearer verified-token")
                     .containsEntry("Ocp-Apim-Subscription-Key", "collection-subscription")
                     .containsEntry("X-Target-Environment", "sandbox");
+            verify(tokenStore)
+                    .save(anyString(), anyString(), anyString(), anyString(), any(Instant.class));
+        } finally {
+            Common.setOutboundHttpExecutor(null);
+        }
+    }
+
+    @Test
+    void reusesCachedProductTokenWithoutCallingOauth() {
+        ProviderTokenStoreService tokenStore = mock(ProviderTokenStoreService.class);
+        ProviderToken cached = new ProviderToken();
+        cached.setTokenValue("cached-token");
+        when(tokenStore.findValid(anyString(), anyString(), anyString()))
+                .thenReturn(Optional.of(cached));
+        AtomicInteger calls = new AtomicInteger();
+        AtomicReference<Map<String, String>> headersSeen = new AtomicReference<>();
+
+        Common.setOutboundHttpExecutor(
+                (method, url, data, headers) -> {
+                    calls.incrementAndGet();
+                    headersSeen.set(new LinkedHashMap<>(headers));
+                    HttpRequestResponse response = new HttpRequestResponse();
+                    response.setStatusCode(200);
+                    response.setResponse(
+                            "{\"status\":\"PENDING\",\"externalId\":\"ORDER-42\"}");
+                    return response;
+                });
+        try {
+            MtnMomoStatusClient.VerifiedStatus verified =
+                    new MtnMomoStatusClient(tokenStore)
+                            .verify(
+                                    "COLLECT",
+                                    "8e7f67ca-0e25-4c95-9d2e-6d88b09d02e0",
+                                    "SANDBOX",
+                                    "UG",
+                                    "EUR",
+                                    credentials());
+
+            assertThat(verified.status()).isEqualTo("PENDING");
+            assertThat(calls.get()).isEqualTo(1);
+            assertThat(headersSeen.get())
+                    .containsEntry("Authorization", "Bearer cached-token");
         } finally {
             Common.setOutboundHttpExecutor(null);
         }
