@@ -1,4 +1,4 @@
--- Preserve exact MTN callback ownership across merchants and operations.
+-- Preserve exact MTN callback ownership and the credential context needed to verify provider state.
 -- The generic provider_conversation_references table predates merchant-scoped MTN execution and
 -- stores only a transaction reference, which is not globally unique across merchants.
 CREATE TABLE IF NOT EXISTS `mtn_momo_correlations` (
@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS `mtn_momo_correlations` (
   `merchant_number` VARCHAR(255) NOT NULL,
   `merchant_reference` VARCHAR(255) NOT NULL,
   `operation` ENUM('COLLECT','PAYOUT') NOT NULL,
+  `environment` ENUM('SANDBOX','PRODUCTION') NOT NULL,
+  `credential_source` VARCHAR(32) NOT NULL DEFAULT 'MERCHANT',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
