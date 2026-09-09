@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Card,
-  Toolbar,
   Table,
   Alert,
   Spinner,
   TextField,
   Select,
   Button,
+  WorkspaceMetricGrid,
+  WorkspaceMetric,
+  WorkspaceGrid,
+  WorkspacePanel,
+  WorkspaceDisclosure,
 } from '../../ui';
 import type { Column } from '../../ui';
 import {
@@ -23,11 +26,9 @@ import type { CommunicationProviderRow, CommunicationRuleRow } from '../../share
 import { ApiError } from '../../shared/api/httpClient';
 
 /**
- * B1a admin surface for SMS provider routing. Backed by
- * `CommunicationRoutingController` (`/api/v2/admin/communication/routing/**`):
- * browse the provider catalog, manage routing rules, and preview which adapter a
- * merchant+channel resolves to. Writes are immediate — the backend
- * `ProviderRouter` reads these tables on every send.
+ * Admin communications routing surface. Business behavior and API contracts are
+ * unchanged; the screen is organised around status, routing rules, one focused
+ * configuration panel, and progressive disclosure for the provider catalog.
  */
 
 const CHANNELS = [{ value: 'SMS', label: 'SMS' }];
@@ -59,9 +60,7 @@ function ModuleCommunicationRouting({
   const [providerCode, setProviderCode] = useState('LEGACY_SETTINGS');
   const [priority, setPriority] = useState('100');
   const [enabledFlag, setEnabledFlag] = useState('YES');
-  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(
-    null,
-  );
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const [saveError, setSaveError] = useState<unknown>(null);
 
   const providersQuery = useCommunicationProviders();
@@ -78,11 +77,7 @@ function ModuleCommunicationRouting({
       upsertMutation.isPending ||
       deleteMutation.isPending,
   );
-  useRefreshSignal(refreshSignal, [
-    providersQuery.refetch,
-    rulesQuery.refetch,
-    effectiveQuery.refetch,
-  ]);
+  useRefreshSignal(refreshSignal, [providersQuery.refetch, rulesQuery.refetch, effectiveQuery.refetch]);
 
   useEffect(() => {
     if (providersQuery.error instanceof ApiError && providersQuery.error.status === 401) {
@@ -94,16 +89,15 @@ function ModuleCommunicationRouting({
   const providers = providersQuery.data ?? [];
   const rules = rulesQuery.data ?? [];
   const effective = effectiveQuery.data;
-  const providerOptions = providers.map((p) => ({
-    value: p.providerCode ?? '',
-    label: `${p.providerName ?? p.providerCode} (${p.providerCode ?? ''}${
-      p.enabledFlag === 'YES' ? '' : ' — disabled'
-    })`,
+  const enabledProviders = providers.filter((provider) => provider.enabledFlag === 'YES');
+  const enabledRules = rules.filter((rule) => rule.enabledFlag === 'YES');
+  const providerOptions = providers.map((provider) => ({
+    value: provider.providerCode ?? '',
+    label: `${provider.providerName ?? provider.providerCode} (${provider.providerCode ?? ''}${provider.enabledFlag === 'YES' ? '' : ' — disabled'})`,
   }));
 
   function handleSave() {
-    const merchantNumeric =
-      merchantId.trim() === '' ? null : Number(merchantId.trim());
+    const merchantNumeric = merchantId.trim() === '' ? null : Number(merchantId.trim());
     if (merchantId.trim() !== '' && (!Number.isFinite(merchantNumeric) || (merchantNumeric ?? 0) <= 0)) {
       setSaveError(new Error('merchantId must be a positive number or blank for the platform default'));
       return;
@@ -143,33 +137,26 @@ function ModuleCommunicationRouting({
     setSaveError(null);
     setFeedback(null);
     deleteMutation.mutate(ruleId, {
-      onSuccess: () => {
-        setFeedback({ tone: 'success', message: `Routing rule #${ruleId} deleted.` });
-      },
+      onSuccess: () => setFeedback({ tone: 'success', message: `Routing rule #${ruleId} deleted.` }),
       onError: (error) => setFeedback({ tone: 'error', message: errorMessage(error) }),
     });
   }
 
   const ruleColumns: Column<CommunicationRuleRow>[] = [
-    { key: 'id', header: 'ID', accessor: (r) => String(r.id ?? '') },
-    { key: 'channel', header: 'Channel', accessor: (r) => r.channel ?? '' },
+    { key: 'channel', header: 'Channel', accessor: (row) => row.channel ?? '' },
     {
       key: 'merchant_id',
       header: 'Merchant',
-      accessor: (r) => (r.merchantId == null ? '(platform default)' : String(r.merchantId)),
+      accessor: (row) => (row.merchantId == null ? 'Platform default' : String(row.merchantId)),
     },
-    { key: 'priority', header: 'Priority', accessor: (r) => String(r.priority ?? '') },
-    { key: 'provider_code', header: 'Provider', accessor: (r) => r.providerCode ?? '' },
-    { key: 'enabled_flag', header: 'Enabled', accessor: (r) => r.enabledFlag ?? '' },
+    { key: 'priority', header: 'Priority', accessor: (row) => String(row.priority ?? '') },
+    { key: 'provider_code', header: 'Provider', accessor: (row) => row.providerCode ?? '' },
+    { key: 'enabled_flag', header: 'Enabled', accessor: (row) => row.enabledFlag ?? '' },
     {
       key: 'actions',
       header: '',
-      render: (r) => (
-        <Button
-          variant="ghost"
-          className="ios-btn--sm"
-          onClick={() => handleDelete(r.id)}
-        >
+      render: (row) => (
+        <Button variant="ghost" className="ios-btn--sm" onClick={() => handleDelete(row.id)}>
           Delete
         </Button>
       ),
@@ -177,98 +164,84 @@ function ModuleCommunicationRouting({
   ];
 
   const providerColumns: Column<CommunicationProviderRow>[] = [
-    { key: 'provider_code', header: 'Code', accessor: (r) => r.providerCode ?? '' },
-    { key: 'provider_name', header: 'Provider', accessor: (r) => r.providerName ?? '' },
-    { key: 'channel', header: 'Channel', accessor: (r) => r.channel ?? '' },
-    { key: 'adapter_class', header: 'Adapter', accessor: (r) => r.adapterClass ?? '' },
-    { key: 'enabled_flag', header: 'Enabled', accessor: (r) => r.enabledFlag ?? '' },
+    { key: 'provider_name', header: 'Provider', accessor: (row) => row.providerName ?? '' },
+    { key: 'provider_code', header: 'Code', accessor: (row) => row.providerCode ?? '' },
+    { key: 'channel', header: 'Channel', accessor: (row) => row.channel ?? '' },
+    { key: 'enabled_flag', header: 'Enabled', accessor: (row) => row.enabledFlag ?? '' },
+    { key: 'adapter_class', header: 'Adapter', accessor: (row) => row.adapterClass ?? '' },
   ];
 
   return (
-    <div className="cpay-communication-routing">
+    <div className="cito-service-workspace cpay-communication-routing">
       {feedback ? <Alert variant={feedback.tone === 'success' ? 'success' : 'error'}>{feedback.message}</Alert> : null}
       {saveError ? <Alert variant="error">{errorMessage(saveError)}</Alert> : null}
-
-      <Card flush>
-        <div style={{ padding: 'var(--ios-space-4)' }}>
-          <Toolbar>
-            <strong>
-              SMS provider routing. A saved rule takes effect on the next pending-send sweep
-              (unconfigured deployments keep the legacy settings gateway).
-            </strong>
-          </Toolbar>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--ios-space-3)', marginTop: 'var(--ios-space-3)', alignItems: 'flex-end' }}>
-            <div>
-              <label htmlFor="cr-channel">Channel</label>
-              <Select id="cr-channel" value={channel} options={CHANNELS} onValueChange={setChannel} />
-            </div>
-            <div>
-              <label htmlFor="cr-provider">Provider</label>
-              <Select id="cr-provider" value={providerCode} options={providerOptions} onValueChange={setProviderCode} />
-            </div>
-            <TextField id="cr-merchant" label="Merchant id (blank = platform default)" value={merchantId} onValueChange={setMerchantId} placeholder="e.g. 7" />
-            <TextField id="cr-priority" label="Priority (lower wins)" value={priority} onValueChange={setPriority} placeholder="e.g. 100" />
-            <div>
-              <label htmlFor="cr-enabled">Enabled</label>
-              <Select id="cr-enabled" value={enabledFlag} options={YES_NO} onValueChange={setEnabledFlag} />
-            </div>
-            <Button variant="primary" onClick={handleSave} loading={upsertMutation.isPending} loadingLabel="Saving…">
-              Save rule
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      {rulesQuery.isLoading ? <Spinner label="Loading routing rules" /> : null}
       {rulesQuery.error ? <Alert variant="error">{errorMessage(rulesQuery.error)}</Alert> : null}
+      {rulesQuery.isLoading ? <Spinner label="Loading routing rules" /> : null}
 
-      <Card flush>
-        <div style={{ padding: 'var(--ios-space-4)' }}>
-          <Toolbar>
-            <strong>Routing rules</strong>
-          </Toolbar>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--ios-space-3)', marginTop: 'var(--ios-space-3)', alignItems: 'flex-end' }}>
-            <TextField id="cr-effective-merchant" label="Preview: merchant id" value={merchantId} onValueChange={setMerchantId} placeholder="e.g. 7" />
+      <WorkspaceMetricGrid>
+        <WorkspaceMetric label="Providers" value={String(providers.length)} meta="Registered communication providers" tone="info" />
+        <WorkspaceMetric label="Active providers" value={String(enabledProviders.length)} meta="Enabled for routing" tone={enabledProviders.length ? 'success' : 'warning'} />
+        <WorkspaceMetric label="Routing rules" value={String(rules.length)} meta="Configured rules" tone="neutral" />
+        <WorkspaceMetric label="Active rules" value={String(enabledRules.length)} meta="Enabled rules" tone={enabledRules.length ? 'success' : 'warning'} />
+      </WorkspaceMetricGrid>
+
+      <WorkspaceGrid>
+        <WorkspacePanel eyebrow="Communications" title="Routing rules" className="cito-workspace-panel--table">
+          <div className="cito-panel-toolbar">
+            <div className="cito-panel-toolbar__grow">
+              <TextField id="cr-effective-merchant" label="Preview merchant id" value={merchantId} onValueChange={setMerchantId} placeholder="Blank = platform default" />
+            </div>
             <Button variant="ghost" className="ios-btn--sm" onClick={() => effectiveQuery.refetch()}>
-              Refresh
+              Resolve route
             </Button>
           </div>
           {effectiveQuery.isLoading ? <Spinner label="Resolving rule" /> : null}
           {effective && effective.resolved && effective.rule ? (
-            <Alert variant="success">
-              {merchantId.trim() ? `Merchant ${merchantId.trim()}` : 'Platform default'} uses{' '}
-              <strong>{effective.provider?.providerName ?? effective.rule.providerCode}</strong> (
-              {effective.rule.providerCode}) via rule #{effective.rule.id}.
-            </Alert>
+            <div style={{ padding: '12px 20px 0' }}>
+              <Alert variant="success">
+                {merchantId.trim() ? `Merchant ${merchantId.trim()}` : 'Platform default'} uses{' '}
+                <strong>{effective.provider?.providerName ?? effective.rule.providerCode}</strong> via rule #{effective.rule.id}.
+              </Alert>
+            </div>
           ) : null}
           {effective && !effective.resolved ? (
-            <Alert variant="error">No enabled rule resolves for this merchant + channel — the legacy gateway is the fallback.</Alert>
+            <div style={{ padding: '12px 20px 0' }}>
+              <Alert variant="error">No enabled rule resolves for this merchant and channel. The legacy gateway remains the fallback.</Alert>
+            </div>
           ) : null}
-        </div>
-      </Card>
+          <Table
+            columns={ruleColumns}
+            rows={rules}
+            rowKey={(row) => row.id ?? 0}
+            pageSize={20}
+            emptyText="No routing rules configured."
+          />
+        </WorkspacePanel>
 
-      <Table
-        columns={ruleColumns}
-        rows={rules}
-        rowKey={(r) => r.id ?? 0}
-        pageSize={20}
-        emptyText="No routing rules configured. The seeded platform default routes SMS to the legacy gateway."
-      />
+        <WorkspacePanel eyebrow="Configuration" title="Routing control">
+          <div className="cito-form-stack">
+            <Select id="cr-channel" label="Channel" value={channel} options={CHANNELS} onValueChange={setChannel} />
+            <Select id="cr-provider" label="Provider" value={providerCode} options={providerOptions} onValueChange={setProviderCode} />
+            <TextField id="cr-merchant" label="Merchant id" value={merchantId} onValueChange={setMerchantId} placeholder="Blank = platform default" />
+            <TextField id="cr-priority" label="Priority" value={priority} onValueChange={setPriority} placeholder="Lower wins" />
+            <Select id="cr-enabled" label="Enabled" value={enabledFlag} options={YES_NO} onValueChange={setEnabledFlag} />
+            <Button variant="primary" onClick={handleSave} loading={upsertMutation.isPending} loadingLabel="Saving…">
+              Save rule
+            </Button>
+          </div>
+          <p className="cito-inline-note">Saved rules take effect on the next pending-send sweep. Provider activation and production certification remain separate controls.</p>
+        </WorkspacePanel>
+      </WorkspaceGrid>
 
-      <Card flush>
-        <div style={{ padding: 'var(--ios-space-4)' }}>
-          <Toolbar>
-            <strong>Provider catalog (read-only)</strong>
-          </Toolbar>
-        </div>
-      </Card>
-      <Table
-        columns={providerColumns}
-        rows={providers}
-        rowKey={(p) => p.id ?? 0}
-        pageSize={20}
-        emptyText="No providers registered."
-      />
+      <WorkspaceDisclosure summary={`Provider catalog · ${providers.length} registered`}>
+        <Table
+          columns={providerColumns}
+          rows={providers}
+          rowKey={(provider) => provider.id ?? 0}
+          pageSize={20}
+          emptyText="No providers registered."
+        />
+      </WorkspaceDisclosure>
     </div>
   );
 }
