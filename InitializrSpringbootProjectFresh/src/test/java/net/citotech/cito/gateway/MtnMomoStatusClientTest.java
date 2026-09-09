@@ -140,7 +140,7 @@ class MtnMomoStatusClientTest {
         values.put("targetEnvironment", "sandbox");
         values.put("baseCurrency", "EUR");
         values.put("callbackHost", "pay.example.com");
-        values.put("callbackUrl", "http://pay.example.com/api/v2/provider-callbacks/mtn");
+        values.put("callbackUrl", "https://pay.example.com/api/v2/provider-callbacks/mtn");
         values.put("collectionApiUser", "collection-user");
         values.put("collectionApiKey", "collection-key");
         values.put("collectionSubscriptionKey", "collection-subscription");
