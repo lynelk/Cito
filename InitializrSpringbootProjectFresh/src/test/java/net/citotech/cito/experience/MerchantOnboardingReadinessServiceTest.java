@@ -1,0 +1,71 @@
+package net.citotech.cito.experience;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+
+class MerchantOnboardingReadinessServiceTest {
+
+    @Test
+    void derivesProgressAndBlockersFromTheCanonicalLifecycle() {
+        NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
+        MerchantActivationLifecycleService lifecycleService =
+                mock(MerchantActivationLifecycleService.class);
+
+        Map<String, Object> lifecycle = new LinkedHashMap<>();
+        lifecycle.put("status", "RISK_REVIEW");
+        lifecycle.put("nextAction", "Resolve the risk review blocker.");
+
+        Map<String, Object> completed = step("KYB_REVIEW", "COMPLETED", null);
+        Map<String, Object> blocked = step("RISK_REVIEW", "BLOCKED", "Missing review evidence");
+
+        when(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class)))
+                .thenAnswer(
+                        invocation -> {
+                            String sql = invocation.getArgument(0);
+                            if (sql.contains("FROM merchant_activation_lifecycles WHERE")) {
+                                return List.of(lifecycle);
+                            }
+                            if (sql.contains("FROM merchant_activation_steps s")) {
+                                return List.of(completed, blocked);
+                            }
+                            if (sql.contains("FROM cito_service_catalog")) {
+                                return List.of();
+                            }
+                            return List.of();
+                        });
+
+        Map<String, Object> result =
+                new MerchantOnboardingReadinessService(jdbc, lifecycleService).readiness(42L);
+
+        verify(lifecycleService).ensure(42L);
+        assertThat((Map<?, ?>) result.get("progress"))
+                .containsEntry("requiredSteps", 2L)
+                .containsEntry("completedRequiredSteps", 1L);
+        assertThat((List<?>) result.get("blockers")).hasSize(1);
+        assertThat(result.get("readyForProduction")).isEqualTo(false);
+        assertThat(result.get("nextAction")).isEqualTo("Resolve the risk review blocker.");
+    }
+
+    private Map<String, Object> step(String code, String status, String blocker) {
+        Map<String, Object> step = new LinkedHashMap<>();
+        step.put("stepCode", code);
+        step.put("stepName", code);
+        step.put("status", status);
+        step.put("responsibleParty", "COMPLIANCE");
+        step.put("requiredForActivation", true);
+        step.put("guidance", "Complete the required review.");
+        step.put("blocker", blocker);
+        return step;
+    }
+}
