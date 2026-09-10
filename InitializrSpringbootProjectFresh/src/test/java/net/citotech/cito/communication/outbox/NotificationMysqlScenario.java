@@ -101,13 +101,13 @@ public final class NotificationMysqlScenario {
         worker.processDue(100);
         assertEquals(1, second.calls.get(), "Duplicate event must not send again");
         jdbc.update(
-                "INSERT INTO communication_sender_identities(merchant_id,sender_id,provider_code,approval_status,inbound_token) VALUES (:merchant,'CitoCI','FAKE_SECOND','APPROVED','ci-only-callback-token')",
+                "INSERT INTO communication_sender_identities(merchant_id,sender_id,provider_code,approval_status,inbound_token) VALUES (:merchant,'CitoCI','FAKE_SECOND','APPROVED','ci-only-callback-token-for-fake-provider')",
                 Map.of("merchant", merchant));
         var conversations = new SmsConversationService(jdbc, logs, mapper);
         tx.executeWithoutResult(
                 status ->
                         conversations.receiveDeliveryReceipt(
-                                "ci-only-callback-token",
+                                "ci-only-callback-token-for-fake-provider",
                                 "FAKE_SECOND",
                                 "fake-1",
                                 "delivered",
@@ -121,7 +121,7 @@ public final class NotificationMysqlScenario {
         tx.executeWithoutResult(
                 status ->
                         conversations.receiveDeliveryReceipt(
-                                "ci-only-callback-token",
+                                "ci-only-callback-token-for-fake-provider",
                                 "FAKE_SECOND",
                                 "fake-1",
                                 "failed",
