@@ -60,10 +60,7 @@ public class GrowthMilestoneProjectionService {
         projected.put(
                 "GO_LIVE_APPROVED",
                 projectLifecycleStep(
-                        "GO_LIVE_APPROVED",
-                        "GO_LIVE_APPROVED",
-                        "PRODUCTION",
-                        "GROWTH-GOLIVE-"));
+                        "GO_LIVE_APPROVED", "GO_LIVE_APPROVED", "PRODUCTION", "GROWTH-GOLIVE-"));
         projected.put(
                 "PRODUCTION_ACTIVATED",
                 project(

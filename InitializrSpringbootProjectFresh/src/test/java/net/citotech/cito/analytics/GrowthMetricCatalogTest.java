@@ -11,8 +11,7 @@ class GrowthMetricCatalogTest {
         assertThat(GrowthMetricCatalog.familyForService("CPAY")).isEqualTo("PAYMENTS");
         assertThat(GrowthMetricCatalog.familyForService("COMMUNICATIONS"))
                 .isEqualTo("COMMUNICATIONS");
-        assertThat(GrowthMetricCatalog.familyForService("VENDING"))
-                .isEqualTo("VENDING_UTILITIES");
+        assertThat(GrowthMetricCatalog.familyForService("VENDING")).isEqualTo("VENDING_UTILITIES");
         assertThat(GrowthMetricCatalog.familyForService("BILLING")).isEqualTo("BILLING_BAAS");
         assertThat(GrowthMetricCatalog.familyForService("IDENTITY_VALIDATION"))
                 .isEqualTo("KYC_IDENTITY");

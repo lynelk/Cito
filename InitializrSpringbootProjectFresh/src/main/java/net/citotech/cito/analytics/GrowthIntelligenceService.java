@@ -132,7 +132,9 @@ public class GrowthIntelligenceService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put(
                 "signedMerchants",
-                count("SELECT COUNT(*) FROM merchants WHERE created_on>=:from", params("from", from)));
+                count(
+                        "SELECT COUNT(*) FROM merchants WHERE created_on>=:from",
+                        params("from", from)));
         result.put(
                 "liveMerchants",
                 count(
@@ -293,8 +295,7 @@ public class GrowthIntelligenceService {
         result.put("multiProductMerchants", multiProduct);
         result.put("attachRatePercent", percent(multiProduct, activeMerchants));
         Map<String, Integer> familyCounts = new LinkedHashMap<>();
-        familyMerchants.forEach(
-                (family, merchants) -> familyCounts.put(family, merchants.size()));
+        familyMerchants.forEach((family, merchants) -> familyCounts.put(family, merchants.size()));
         result.put("merchantCountByFamily", familyCounts);
         return result;
     }
@@ -416,7 +417,8 @@ public class GrowthIntelligenceService {
 
     private void requireMerchant(long merchantId) {
         if (merchantId <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "merchantId must be positive");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "merchantId must be positive");
         }
         if (count(
                         "SELECT COUNT(*) FROM merchants WHERE id=:merchantId",

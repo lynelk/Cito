@@ -6,9 +6,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Canonical business definitions for Cito growth reporting. These definitions deliberately point
- * at existing durable operational sources rather than creating a second activation, usage, or
- * revenue truth.
+ * Canonical business definitions for Cito growth reporting. These definitions deliberately point at
+ * existing durable operational sources rather than creating a second activation, usage, or revenue
+ * truth.
  */
 public final class GrowthMetricCatalog {
     private static final Map<String, String> SERVICE_FAMILIES = serviceFamilies();
