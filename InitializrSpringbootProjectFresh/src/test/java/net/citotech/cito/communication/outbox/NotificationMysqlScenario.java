@@ -145,9 +145,38 @@ public final class NotificationMysqlScenario {
         jdbc.update(
                 "INSERT INTO admins(name,email,phone,status) VALUES ('Finance CI','finance-ci@example.invalid','+256700000002','ACTIVE')",
                 Map.of());
-        jdbc.update(
-                "INSERT INTO notification_admin_recipients(group_code,admin_id) SELECT 'FINANCE',id FROM admins WHERE email='finance-ci@example.invalid'",
-                Map.of());
+        var recipientsApi = new NotificationAdminController(jdbc, mock(AdminAuditService.class));
+        long adminCount = jdbc.queryForObject("SELECT COUNT(*) FROM admins", Map.of(), Long.class);
+        var phoneRecipient =
+                new NotificationAdminController.RecipientRequest(null, "256700000002", 0, true);
+        recipientsApi.recipient("FINANCE", phoneRecipient);
+        recipientsApi.recipient("FINANCE", phoneRecipient);
+        assertEquals(
+                1,
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM notification_admin_recipients WHERE group_code='FINANCE' AND phone_e164='+256700000002'",
+                        Map.of(),
+                        Integer.class));
+        assertEquals(
+                adminCount,
+                jdbc.queryForObject("SELECT COUNT(*) FROM admins", Map.of(), Long.class));
+        recipientsApi.recipient(
+                "FINANCE",
+                new NotificationAdminController.RecipientRequest(null, "+256700000003", 0, false));
+        assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () ->
+                        recipientsApi.recipient(
+                                "FINANCE",
+                                new NotificationAdminController.RecipientRequest(
+                                        null, "invalid", 0, true)));
+        assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () ->
+                        recipientsApi.recipient(
+                                "FINANCE",
+                                new NotificationAdminController.RecipientRequest(
+                                        1L, "+256700000002", 0, true)));
         tx.executeWithoutResult(
                 status -> orchestrator.record(0, "ci-ledger", "ledger.imbalance", "ci-ledger"));
         long alert =

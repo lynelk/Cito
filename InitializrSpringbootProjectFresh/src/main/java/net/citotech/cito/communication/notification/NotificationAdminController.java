@@ -44,7 +44,7 @@ public class NotificationAdminController {
                         "SELECT * FROM notification_admin_groups ORDER BY group_code", Map.of()),
                 "recipients",
                 jdbc.queryForList(
-                        "SELECT r.*,a.name,a.phone FROM notification_admin_recipients r JOIN admins a ON a.id=r.admin_id ORDER BY group_code,escalation_level,admin_id",
+                        "SELECT r.*,COALESCE(a.name,'Phone recipient') name,COALESCE(r.phone_e164,a.phone) phone FROM notification_admin_recipients r LEFT JOIN admins a ON a.id=r.admin_id ORDER BY group_code,escalation_level,r.id",
                         Map.of()));
     }
 
@@ -129,36 +129,44 @@ public class NotificationAdminController {
     public Map<String, Object> recipient(
             @PathVariable String group, @RequestBody RecipientRequest request) {
         requireGroup(group);
-        if (request.adminId() <= 0
+        String phone = request.phone() == null ? null : request.phone().trim();
+        if (phone != null && !phone.startsWith("+")) phone = "+" + phone;
+        if ((request.adminId() == null) == (phone == null)
+                || (request.adminId() != null && request.adminId() <= 0)
+                || (phone != null && !phone.matches("[+][1-9][0-9]{7,14}"))
                 || request.escalationLevel() < 0
                 || request.escalationLevel() > 5)
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Invalid admin or escalation level");
-        Integer valid =
-                jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM admins WHERE id=:id AND status='ACTIVE' AND phone<>''",
-                        Map.of("id", request.adminId()),
-                        Integer.class);
-        if (valid == null || valid != 1)
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "An active administrator with a phone is required");
+                    HttpStatus.BAD_REQUEST,
+                    "Provide exactly one active administrator ID or international phone number, and level 0–5");
+        if (request.adminId() != null && request.active()) {
+            Integer valid =
+                    jdbc.queryForObject(
+                            "SELECT COUNT(*) FROM admins WHERE id=:id AND status='ACTIVE' AND phone<>''",
+                            Map.of("id", request.adminId()),
+                            Integer.class);
+            if (valid == null || valid != 1)
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "An active administrator with a phone is required");
+        }
         jdbc.update(
-                "INSERT INTO notification_admin_recipients(group_code,admin_id,escalation_level,active_flag) VALUES (:group,:admin,:level,:active)"
+                "INSERT INTO notification_admin_recipients(group_code,admin_id,phone_e164,escalation_level,active_flag) VALUES (:group,:admin,:phone,:level,:active)"
                         + " ON DUPLICATE KEY UPDATE escalation_level=:level,active_flag=:active",
-                Map.of(
-                        "group",
-                        group,
-                        "admin",
-                        request.adminId(),
-                        "level",
-                        request.escalationLevel(),
-                        "active",
-                        request.active() ? "Y" : "N"));
+                new MapSqlParameterSource()
+                        .addValue("group", group)
+                        .addValue("admin", request.adminId())
+                        .addValue("phone", phone)
+                        .addValue("level", request.escalationLevel())
+                        .addValue("active", request.active() ? "Y" : "N"));
         audit.record(
                 "COMMUNICATION_MANAGE",
                 "NOTIFICATION_RECIPIENT_CHANGED",
                 group,
-                "Admin " + request.adminId() + "; active=" + request.active());
+                (phone == null ? "Admin " + request.adminId() : "Phone " + phone)
+                        + "; level="
+                        + request.escalationLevel()
+                        + "; active="
+                        + request.active());
         return Map.of("saved", true);
     }
 
@@ -207,7 +215,8 @@ public class NotificationAdminController {
             int maxPerHour,
             int escalationSeconds) {}
 
-    public record RecipientRequest(long adminId, int escalationLevel, boolean active) {}
+    public record RecipientRequest(
+            Long adminId, String phone, int escalationLevel, boolean active) {}
 
     public record QuietRequest(String start, String end, String timezone) {}
 }

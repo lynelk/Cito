@@ -165,10 +165,16 @@ paths:
             schema:
               type: object
               required:
-              - adminId
               - escalationLevel
               - active
+              oneOf:
+              - required: [adminId]
+              - required: [phone]
               properties:
+                phone:
+                  type: string
+                  pattern: '^[+]?[1-9][0-9]{7,14}$'
+                  description: International phone recipient without platform access; normalized to E.164. Provide phone or adminId, never both.
                 adminId:
                   type: integer
                   format: int64
