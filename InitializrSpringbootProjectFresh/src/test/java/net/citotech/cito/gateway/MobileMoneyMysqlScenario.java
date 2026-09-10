@@ -44,6 +44,9 @@ public final class MobileMoneyMysqlScenario {
                 .thenReturn(PayoutControlService.PayoutEvaluation.execute());
         long id = jdbc.queryForObject("SELECT MIN(id) FROM merchants", Map.of(), Long.class);
         Merchant merchant = Common.getMerchantById(Long.toString(id), jdbc);
+        jdbc.update(
+                "UPDATE settings SET setting_value='1000' WHERE name='production_transaction_limit_count'",
+                Map.of());
         // Fixture configurations are synthetic and never reach an operator endpoint.
         when(access.resolve(
                         any(),
@@ -358,6 +361,31 @@ public final class MobileMoneyMysqlScenario {
                                             "PAYOUT",
                                             mtn));
             new MobileMoneyCompatibilityBridge(nativePayments, "SANDBOX", jdbc, tm);
+            // Retry must reopen a completed batch, retain its beneficiary identity, and use
+            // one canonical hold even when the server's default environment is sandbox.
+            jdbc.update(
+                    "UPDATE beneficiaries SET status='FAILED' WHERE id=:id",
+                    Map.of("id", beneficiary));
+            jdbc.update(
+                    "UPDATE merchant_batch_transactions_log SET status='DONE' WHERE id=:id",
+                    Map.of("id", batch));
+            statics.when(() -> DoPayGateway.getGatewayIdByMsisdn(anyString(), eq(jdbc)))
+                    .thenReturn(LegacyGatewayIds.MTN_MOMO);
+            var retries = new net.citotech.cito.batch.BatchPayoutStatusService(jdbc, tm, ledger);
+            assertThat(retries.retryFailed(batch, id)).isEqualTo(1);
+            Transaction retried = Common.getTxByBatchIdBeneficiaryId(batch, beneficiary, jdbc);
+            assertThat(retried.getTx_merchant_ref()).startsWith(sourceRef + ":retry:");
+            assertThat(retried.getTx_unique_id()).isNotEqualTo(batchPayment);
+            assertThat(ledger.availableMerchantBalance(id, "UGX")).isEqualByComparingTo("74.3750");
+            assertThat(retries.retryFailed(batch, id)).isZero();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT status FROM merchant_batch_transactions_log WHERE id=:id",
+                                    Map.of("id", batch),
+                                    String.class))
+                    .isEqualTo("PROCESSING");
+            service.apply(retried.getTx_unique_id(), outcome("FAILED", ""));
+            assertThat(ledger.availableMerchantBalance(id, "UGX")).isEqualByComparingTo("86.6250");
             var refundTarget =
                     new net.citotech.cito.refund.RefundService(
                             jdbc,
@@ -532,7 +560,8 @@ public final class MobileMoneyMysqlScenario {
                     count(
                             jdbc,
                             "SELECT COALESCE(SUM(success_count+failure_count),0) FROM provider_health_metrics WHERE channel_code='mtn_momo'");
-            assertThat(providerOutcomes).isEqualTo(5);
+            assertThat(providerOutcomes)
+                    .isEqualTo(6); // Includes the confirmed batch retry failure.
             long postings = count(jdbc, "SELECT COUNT(*) FROM ledger_transactions");
             String sandbox =
                     service.submit(
@@ -580,6 +609,41 @@ public final class MobileMoneyMysqlScenario {
                     .isEmpty();
             assertThat(ledger.runTrialBalance(java.time.LocalDate.now(), "UGX").isBalanced())
                     .isTrue();
+            var idempotency =
+                    new net.citotech.cito.api.v2.IdempotencyService(jdbc, new ObjectMapper());
+            idempotency.findExisting(merchant.getAccount_number(), "crashed-request", "body");
+            jdbc.update(
+                    "UPDATE cpay_idempotency_keys SET created_at=DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 16 MINUTE) WHERE idempotency_key='crashed-request'",
+                    Map.of());
+            idempotency.recoverAbandonedClaims();
+            assertThat(
+                            idempotency
+                                    .findExisting(
+                                            merchant.getAccount_number(), "crashed-request", "body")
+                                    .orElseThrow()
+                                    .getStatus())
+                    .isEqualTo("REQUEST_FAILED");
+            long used =
+                    count(
+                            jdbc,
+                            "SELECT COUNT(*) FROM mobile_money_executions WHERE environment='PRODUCTION'");
+            jdbc.update(
+                    "UPDATE settings SET setting_value=:used WHERE name='production_transaction_limit_count'",
+                    Map.of("used", Long.toString(used)));
+            assertThatThrownBy(
+                            () ->
+                                    service.submit(
+                                            request(
+                                                    merchant,
+                                                    "mysql-cap-rejected",
+                                                    "1",
+                                                    "UGX",
+                                                    "mtn_momo"),
+                                            merchant,
+                                            "PRODUCTION",
+                                            "COLLECT",
+                                            mtn))
+                    .hasMessageContaining("limit");
         } finally {
             gatewayExecution.shutdown();
         }

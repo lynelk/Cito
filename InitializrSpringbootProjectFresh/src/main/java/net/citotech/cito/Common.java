@@ -799,6 +799,7 @@ public class Common {
                         + " "
                         + " WHERE beneficiary_id=:beneficiary_id "
                         + " AND merchant_batch_transactions_log_id=:batch_id "
+                        + " AND NOT EXISTS (SELECT 1 FROM beneficiaries b WHERE b.id=:beneficiary_id AND b.batch_id=:batch_id AND b.active_payment_reference IS NOT NULL AND b.active_payment_reference<>tx_merchant_ref) "
                         + " ORDER BY id DESC LIMIT 1";
 
         RowMapper<Transaction> rm = Common.getTransactionRowMapper();

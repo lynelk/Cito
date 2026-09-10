@@ -142,10 +142,7 @@ public class PaymentsV2Controller {
 
             productionGuard.reserveProductionExecution(
                     merchant, environment, "PAYOUT", request.getReference());
-            if (request.getChannel() == null
-                    || request.getChannel().isBlank()
-                    || net.citotech.cito.gateway.MobileMoneyExecutionService.managed(
-                            request.getChannel())) {
+            if (paymentOrchestrationService.usesManagedMobileMoney(request, false)) {
                 PaymentResult managed =
                         paymentOrchestrationService.payout(
                                 request, merchant, servletRequest.getRemoteAddr());

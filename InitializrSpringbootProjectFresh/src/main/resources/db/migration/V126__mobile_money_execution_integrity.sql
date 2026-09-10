@@ -66,3 +66,6 @@ ON DUPLICATE KEY UPDATE display_name=VALUES(display_name);
 ALTER TABLE refunds
   ADD COLUMN callback_url VARCHAR(2048) NULL,
   ADD COLUMN originating_ip VARCHAR(128) NULL;
+
+-- Keep a retry awaiting approval distinct from an older failed beneficiary attempt.
+ALTER TABLE beneficiaries ADD COLUMN active_payment_reference VARCHAR(190) NULL;

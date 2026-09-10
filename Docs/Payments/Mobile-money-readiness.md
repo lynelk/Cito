@@ -18,6 +18,12 @@ Merchant batches commit their complete slice reservations before provider execut
 
 ## Credentials and approval
 
+Managed v1 wrappers do not add ledger postings or a second payout hold. An accepted or pending response is not settlement; a confirmed failure uses the legacy error envelope. Blank-channel payouts resolve the payee's rail, not an optional payer's rail. Non-managed rails retain their payout approval gate. The production daily cap includes durable managed executions and is checked under the merchant claim lock; identical commercial replays remain available at the cap. Sandbox dashboard totals, metrics and credential lists use sandbox-scoped data, without presenting production balances or callback counts.
+
+Batch retries retain a new attempt reference under their original batch and beneficiary, reopen completed batches, and atomically claim only failed beneficiaries. The active attempt reference prevents an older failure from completing a beneficiary awaiting approval. Pending retries retain exactly one canonical hold. If a process stops between claiming a retry and creating its execution/approval evidence, reconcile that active reference before resetting the beneficiary through the approved operational workflow; do not blindly retry it.
+
+API idempotency cleanup stores a replayable request-level failure while retaining the key/body binding. Crash-abandoned API claims recover after 15 minutes. `REQUEST_FAILED` (legacy `ERROR`/`102`) is not proof of a failed money movement: query the commercial reference before retrying with a new key. Completed responses are preserved.
+
 1. Configure the correct environment and product credentials in the merchant Payment channels screen or CPay provider console. MTN sandbox uses EUR and its sandbox origin; Uganda production uses UGX and `mtnuganda`. Airtel Uganda uses UGX and its environment-specific official origin.
 2. Saving creates a new revision and invalidates prior verification and approval. Editing preserves stored secrets when secret fields are blank or masked. Public configuration fields remain readable. API callers can explicitly remove optional fields with `clearFields`; a stale `revision` is rejected.
 3. Verify the connection. This performs OAuth authentication only. It never sends money. Failure invalidates previous authentication evidence for the tested revision; a local structure check cannot claim connectivity.
@@ -62,11 +68,11 @@ Additional corrections include decimal percentage/flat fee calculation, collecti
 
 ## Local validation record — 10 September 2026
 
-- JDK 21 / Maven `clean verify`: successful; 1,087 tests passed, zero failures/errors. The external MySQL gate is the one skipped test in that command and was run separately below. Spotless verification and executable JAR packaging passed.
-- Disposable MySQL 8.4.11: all 117 migrations applied through V126; the migration/payment/notification scenario passed with synthetic providers. It verifies durable submission before outbound I/O, concurrent finalization, forced-outbox rollback, fee conservation, merchant and shared float reservations, batch reuse and cancellation, pending and cancelled refunds, production routing health, sandbox exclusion, zero pending treasury control balances after settlement, and a balanced ledger trial balance.
-- Frontend: 41 test files / 259 tests passed; TypeScript checking and production build passed. ESLint passed with four existing warnings and no errors. API/CI YAML, browser-test JavaScript syntax, brand checks and Git whitespace checks passed.
-- Responsive/keyboard/zoom browser cases are committed for CI, but were not executed locally because the authenticated browser could not reach this runtime's preview. Provider authentication, real provider acceptance, release CI and production deployment are not claimed by this local evidence.
-- No live operator credential values were changed, and no real-money request or deployment was performed. Publishing the feature branch was blocked by automatic approval review pending explicit permission to push it and open the PR.
+- JDK 21 / Maven verification from fresh build output: successful; 1,118 tests passed, zero failures/errors. The external MySQL gate is the one skipped test in that command and is run separately. Spotless verification and executable JAR packaging passed.
+- Disposable MySQL 8.4.11: all 117 migrations applied through V126; the migration/payment/notification scenario passed with synthetic providers. It verifies durable submission before outbound I/O, concurrent finalization, forced-outbox rollback, fee conservation, merchant and shared float reservations, batch reuse/cancellation and linked single-hold retries, pending and cancelled refunds, production routing health and daily caps, abandoned API-claim recovery, sandbox exclusion, zero pending treasury control balances after settlement, and a balanced ledger trial balance.
+- Frontend: 43 test files / 264 tests passed; TypeScript checking and production build passed. ESLint, OpenAPI validation, brand checks and Git whitespace checks passed.
+- Responsive/keyboard/zoom browser checks passed in GitHub CI for published revision `5b4cbe28`. Local browser access remains blocked; the new PR head must complete its own CI before merge. Provider authentication, real provider acceptance and production deployment are not claimed by this evidence.
+- No live operator credential values were changed, and no real-money request, merge or manual deployment was performed. The feature branch and PR #190 were published after explicit permission.
 
 ## PR follow-up validation
 

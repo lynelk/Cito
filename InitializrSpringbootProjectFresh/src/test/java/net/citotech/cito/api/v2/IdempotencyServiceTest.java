@@ -89,4 +89,43 @@ class IdempotencyServiceTest {
         assertThatThrownBy(() -> service.recordBody("merchant", "unclaimed", "body", "{}"))
                 .isInstanceOf(PaymentGatewayException.class);
     }
+
+    @Test
+    void failedRequestBecomesReplayableWithoutReleasingItsIdentity() {
+        try (var scope = service.openRequestScope()) {
+            assertThat(service.findExisting("merchant", "key", "body")).isEmpty();
+        }
+        assertThat(service.findExisting("merchant", "key", "body").orElseThrow().getStatus())
+                .isEqualTo("REQUEST_FAILED");
+        assertThatThrownBy(() -> service.findExisting("merchant", "key", "changed"))
+                .isInstanceOf(PaymentGatewayException.class);
+    }
+
+    @Test
+    void failedLegacyRequestReplaysAnErrorEnvelope() {
+        try (var scope = service.openRequestScope()) {
+            service.findExistingBody("merchant", "key", "body");
+        }
+        var result =
+                new org.json.JSONObject(
+                        service.findExistingBody("merchant", "key", "body").orElseThrow());
+        assertThat(result.getString("state")).isEqualTo("ERROR");
+        assertThat(result.getString("code")).isEqualTo("102");
+    }
+
+    @Test
+    void cleanupDoesNotOverwriteRecordedSuccessOrAnotherRequestsClaim() {
+        try (var owner = service.openRequestScope()) {
+            service.findExistingBody("merchant", "key", "body");
+            try (var duplicate = service.openRequestScope()) {
+                assertThatThrownBy(() -> service.findExistingBody("merchant", "key", "body"))
+                        .hasMessageContaining("already claimed");
+            }
+            assertThatThrownBy(() -> service.findExistingBody("merchant", "key", "body"))
+                    .hasMessageContaining("already claimed");
+            service.recordBody("merchant", "key", "body", "{\"status\":\"PENDING\"}");
+        }
+        assertThat(service.findExistingBody("merchant", "key", "body"))
+                .contains("{\"status\":\"PENDING\"}");
+    }
 }

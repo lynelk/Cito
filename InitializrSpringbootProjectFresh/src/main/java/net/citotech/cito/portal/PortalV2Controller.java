@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import net.citotech.cito.Model.MerchantUser;
 import net.citotech.cito.Model.User;
-import net.citotech.cito.SettingsRegistry;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -57,53 +56,68 @@ public class PortalV2Controller {
             scope.addValue("merchant_id", merchantUser.getMerchant_id());
             scope.addValue("merchant_number", merchantUser.getMerchant_number());
         }
+        String environment =
+                currentEnvironment(
+                        merchantScoped ? merchantUser.getMerchant_id() : null,
+                        merchantScoped ? merchantUser.getId() : null);
+        boolean sandbox = "SANDBOX".equals(environment);
+        String transactionView =
+                sandbox ? "merchant_sandbox_transactions" : "merchant_production_transactions";
+        scope.addValue("environment", environment);
         String txScope = merchantScoped ? " WHERE merchant_id=:merchant_id" : "";
         String txAndScope = merchantScoped ? " AND merchant_id=:merchant_id" : "";
-        String runScope = merchantScoped ? " WHERE merchant_number=:merchant_number" : "";
-        String credentialScope = merchantScoped ? " WHERE merchant_id=:merchant_id" : "";
+        String runScope =
+                " WHERE environment=:environment"
+                        + (merchantScoped ? " AND merchant_number=:merchant_number" : "");
+        String credentialScope =
+                " WHERE environment=:environment"
+                        + (merchantScoped ? " AND merchant_id=:merchant_id" : "");
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("scope", merchantScoped ? "MERCHANT" : "ADMIN");
-        response.put(
-                "environment",
-                currentEnvironment(
-                        merchantScoped ? merchantUser.getMerchant_id() : null,
-                        merchantScoped ? merchantUser.getId() : null));
+        response.put("environment", environment);
         response.put(
                 "productionLimit",
                 productionLimitStatus(merchantScoped ? merchantUser.getMerchant_number() : null));
         response.put("merchants", merchantScoped ? 1 : scalarInt("SELECT COUNT(*) FROM merchants"));
         response.put(
                 "transactions",
-                scalarInt(
-                        "SELECT COUNT(*) FROM merchant_production_transactions" + txScope, scope));
+                scalarInt("SELECT COUNT(*) FROM " + transactionView + txScope, scope));
         response.put(
                 "payIns",
                 scalarDecimal(
-                        "SELECT COALESCE(SUM(original_amount),0) FROM merchant_production_transactions WHERE tx_type='PAYIN'"
+                        "SELECT COALESCE(SUM(original_amount),0) FROM "
+                                + transactionView
+                                + " WHERE tx_type='PAYIN'"
                                 + txAndScope,
                         scope));
         response.put(
                 "payOuts",
                 scalarDecimal(
-                        "SELECT COALESCE(SUM(original_amount),0) FROM merchant_production_transactions WHERE tx_type='PAYOUT'"
+                        "SELECT COALESCE(SUM(original_amount),0) FROM "
+                                + transactionView
+                                + " WHERE tx_type='PAYOUT'"
                                 + txAndScope,
                         scope));
         response.put(
                 "pendingCallbacks",
-                scalarInt(
-                        "SELECT COUNT(*) FROM callback_tasks WHERE task_status IN ('PENDING','RETRY','PARKED')"
-                                + txAndScope,
-                        scope));
+                sandbox
+                        ? 0
+                        : scalarInt(
+                                "SELECT COUNT(*) FROM callback_tasks WHERE task_status IN ('PENDING','RETRY','PARKED')"
+                                        + txAndScope,
+                                scope));
         response.put("smsBatches", scalarInt("SELECT COUNT(*) FROM merchant_sms" + txScope, scope));
         response.put(
                 "channelBalances",
-                rows(
-                        "SELECT merchant_id, channel_code, gateway_id, currency, available_balance, ledger_balance, pending_balance "
-                                + "FROM merchant_channel_balances"
-                                + txScope
-                                + " ORDER BY updated_at DESC LIMIT 50",
-                        scope));
+                sandbox
+                        ? List.of()
+                        : rows(
+                                "SELECT merchant_id, channel_code, gateway_id, currency, available_balance, ledger_balance, pending_balance "
+                                        + "FROM merchant_channel_balances"
+                                        + txScope
+                                        + " ORDER BY updated_at DESC LIMIT 50",
+                                scope));
         response.put(
                 "channelMetrics",
                 rows(
@@ -269,22 +283,8 @@ public class PortalV2Controller {
     }
 
     private Map<String, Object> productionLimitStatus(String merchantNumber) {
-        Map<String, Object> status = new LinkedHashMap<>();
-        boolean enabled =
-                SettingsRegistry.getBoolean("production_transaction_limit_enabled", jdbcTemplate);
-        int limit = SettingsRegistry.getInt("production_transaction_limit_count", jdbcTemplate);
-        int used = 0;
-        if (merchantNumber != null && !merchantNumber.trim().isEmpty()) {
-            used =
-                    scalarInt(
-                            "SELECT COUNT(*) FROM merchant_production_usage u JOIN merchants m ON m.id=u.merchant_id WHERE m.account_number=:merchant_number AND u.usage_date=CURRENT_DATE()",
-                            new MapSqlParameterSource("merchant_number", merchantNumber));
-        }
-        status.put("enabled", enabled);
-        status.put("limit", limit);
-        status.put("usedToday", used);
-        status.put("remainingToday", enabled && limit > 0 ? Math.max(0, limit - used) : null);
-        return status;
+        return new net.citotech.cito.merchant.MerchantEnvironmentService(jdbcTemplate)
+                .productionLimitStatus(merchantNumber);
     }
 
     private int limit(int requested) {

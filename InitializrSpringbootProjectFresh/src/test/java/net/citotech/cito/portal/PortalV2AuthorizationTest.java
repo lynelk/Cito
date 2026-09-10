@@ -60,6 +60,11 @@ class PortalV2AuthorizationTest {
     void merchantDashboardScopesCallbacksAndExcludesPlatformAlerts() {
         reset(jdbc);
         when(jdbc.queryForObject(
+                        contains("active_environment"),
+                        any(MapSqlParameterSource.class),
+                        eq(String.class)))
+                .thenReturn("PRODUCTION");
+        when(jdbc.queryForObject(
                         contains("FROM callback_tasks"),
                         any(MapSqlParameterSource.class),
                         eq(Integer.class)))
@@ -87,6 +92,52 @@ class PortalV2AuthorizationTest {
             verify(jdbc, never())
                     .queryForList(
                             contains("FROM operations_alerts"), any(MapSqlParameterSource.class));
+        }
+    }
+
+    @Test
+    @WithMockUser(roles = "MERCHANT")
+    void sandboxDashboardDoesNotPresentProductionMoneyOrCallbacks() {
+        reset(jdbc);
+        when(jdbc.queryForObject(
+                        contains("active_environment"),
+                        any(MapSqlParameterSource.class),
+                        eq(String.class)))
+                .thenReturn("SANDBOX");
+        var merchant = new MerchantUser();
+        merchant.setId(12L);
+        merchant.setMerchant_id(41L);
+        merchant.setMerchant_number("merchant-41");
+        var session = new MockHttpSession();
+        session.setAttribute("merchantUser", merchant);
+        try (var settings = mockStatic(SettingsRegistry.class)) {
+            var response = portal.dashboardSummary(session);
+            assertThat(response.get("environment")).isEqualTo("SANDBOX");
+            assertThat(response.get("pendingCallbacks")).isEqualTo(0);
+            assertThat(response.get("channelBalances")).isEqualTo(List.of());
+            verify(jdbc)
+                    .queryForObject(
+                            eq(
+                                    "SELECT COUNT(*) FROM merchant_sandbox_transactions WHERE merchant_id=:merchant_id"),
+                            any(MapSqlParameterSource.class),
+                            eq(Integer.class));
+            verify(jdbc, never())
+                    .queryForObject(
+                            contains("merchant_production_transactions"),
+                            any(MapSqlParameterSource.class),
+                            any(Class.class));
+            verify(jdbc, never())
+                    .queryForObject(
+                            contains("FROM callback_tasks"),
+                            any(MapSqlParameterSource.class),
+                            eq(Integer.class));
+            verify(jdbc)
+                    .queryForList(
+                            contains(
+                                    "FROM merchant_channel_credentials WHERE environment=:environment"),
+                            argThat(
+                                    (MapSqlParameterSource p) ->
+                                            "SANDBOX".equals(p.getValue("environment"))));
         }
     }
 

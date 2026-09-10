@@ -72,11 +72,15 @@ class MobileMoneyExecutionServiceTest {
                         + UUID.randomUUID()
                         + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1");
         jdbc = new NamedParameterJdbcTemplate(source);
-        jdbc.getJdbcTemplate().execute("CREATE TABLE merchants(id BIGINT PRIMARY KEY)");
         jdbc.getJdbcTemplate()
                 .execute(
-                        "CREATE TABLE provider_endpoint_runs(merchant_number VARCHAR(100),reference_value VARCHAR(255))");
-        jdbc.getJdbcTemplate().execute("INSERT INTO merchants VALUES(10)");
+                        "CREATE TABLE merchants(id BIGINT PRIMARY KEY,account_number VARCHAR(100))");
+        jdbc.getJdbcTemplate()
+                .execute(
+                        "CREATE TABLE provider_endpoint_runs(merchant_number VARCHAR(100),reference_value VARCHAR(255),environment VARCHAR(16),created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+        jdbc.getJdbcTemplate().execute("INSERT INTO merchants VALUES(10,'M10')");
+        jdbc.getJdbcTemplate()
+                .execute("CREATE TABLE settings(name VARCHAR(100),setting_value VARCHAR(255))");
         jdbc.getJdbcTemplate()
                 .execute(
                         "CREATE TABLE merchant_transactions_log(id BIGINT AUTO_INCREMENT PRIMARY KEY,merchant_id BIGINT,merchant_batch_transactions_log_id BIGINT,beneficiary_id BIGINT,gateway_id VARCHAR(80),original_amount DECIMAL(19,4),currency VARCHAR(8),execution_environment VARCHAR(16),tx_type VARCHAR(40),charges DECIMAL(19,4),tx_cost DECIMAL(19,4),charging_method VARCHAR(40),tx_unique_id VARCHAR(64),tx_gateway_ref VARCHAR(100),tx_merchant_ref VARCHAR(255),payer_number VARCHAR(30),tx_description VARCHAR(255),tx_merchant_description VARCHAR(255),callback_url VARCHAR(255),status VARCHAR(40),callback_status VARCHAR(40),tx_request_trace TEXT,tx_update_trace TEXT,originate_ip VARCHAR(100),safaricom_request_reference VARCHAR(100),created_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,callback_trace TEXT, UNIQUE(merchant_id,tx_merchant_ref))");
@@ -209,6 +213,48 @@ class MobileMoneyExecutionServiceTest {
                 .isInstanceOf(PaymentGatewayException.class)
                 .hasMessageContaining("conflicts");
         assertThat(outbound).hasValue(1);
+    }
+
+    @Test
+    void productionCapIsSerializedAndExistingReferencesRemainReplayable() throws Exception {
+        for (int i = 0; i < 9; i++) {
+            PaymentRequest next = request();
+            next.setReference("cap-" + i);
+            submit(next, "COLLECT");
+        }
+        AtomicInteger accepted = new AtomicInteger();
+        AtomicInteger rejected = new AtomicInteger();
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService workers = Executors.newFixedThreadPool(2)) {
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 9; i < 11; i++) {
+                final String reference = "cap-" + i;
+                futures.add(
+                        workers.submit(
+                                () -> {
+                                    start.await();
+                                    PaymentRequest next = request();
+                                    next.setReference(reference);
+                                    try {
+                                        submit(next, "COLLECT");
+                                        accepted.incrementAndGet();
+                                    } catch (PaymentGatewayException capped) {
+                                        assertThat(capped.getMessage())
+                                                .containsIgnoringCase("limit");
+                                        rejected.incrementAndGet();
+                                    }
+                                    return null;
+                                }));
+            }
+            start.countDown();
+            for (Future<?> future : futures) future.get(10, TimeUnit.SECONDS);
+        }
+        assertThat(accepted).hasValue(1);
+        assertThat(rejected).hasValue(1);
+        PaymentRequest replay = request();
+        replay.setReference("cap-0");
+        assertThat(submit(replay, "COLLECT").getStatus()).isEqualTo("PENDING");
+        assertThat(outbound).hasValue(10);
     }
 
     @Test

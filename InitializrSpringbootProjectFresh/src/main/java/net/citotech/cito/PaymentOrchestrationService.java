@@ -58,15 +58,13 @@ public class PaymentOrchestrationService {
     @org.springframework.beans.factory.annotation.Autowired
     private net.citotech.cito.api.v2.AdapterNativePaymentService nativePayments;
 
-    private boolean usesManagedMobileMoney(PaymentRequest request) {
+    public boolean usesManagedMobileMoney(PaymentRequest request, boolean collection) {
         if (request == null) return false;
         if (net.citotech.cito.gateway.MobileMoneyExecutionService.managed(request.getChannel()))
             return true;
         if (request.getChannel() != null && !request.getChannel().isBlank()) return false;
-        String account =
-                request.getPayer() != null
-                        ? request.getPayer().getValue()
-                        : request.getPayee() == null ? null : request.getPayee().getValue();
+        var party = collection ? request.getPayer() : request.getPayee();
+        String account = party == null ? null : party.getValue();
         String gateway = DoPayGateway.getGatewayIdByMsisdn(account, jdbcTemplate);
         if (net.citotech.cito.gateway.LegacyGatewayIds.MTN_MOMO.equals(gateway))
             request.setChannel("mtn_momo");
@@ -78,7 +76,7 @@ public class PaymentOrchestrationService {
     public PaymentResult collect(
             PaymentRequest request, Merchant verifiedMerchant, String originateIp) {
         validatePaymentRequest(request, true);
-        if (usesManagedMobileMoney(request))
+        if (usesManagedMobileMoney(request, true))
             return nativePayments.collect(request, verifiedMerchant, "PRODUCTION");
         Merchant merchant =
                 validateMerchant(
@@ -125,7 +123,7 @@ public class PaymentOrchestrationService {
     public PaymentResult payout(
             PaymentRequest request, Merchant verifiedMerchant, String originateIp) {
         validatePaymentRequest(request, false);
-        if (usesManagedMobileMoney(request))
+        if (usesManagedMobileMoney(request, false))
             return nativePayments.payout(request, verifiedMerchant, "PRODUCTION");
         Merchant merchant =
                 validateMerchant(

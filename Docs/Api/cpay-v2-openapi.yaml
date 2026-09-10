@@ -3725,6 +3725,11 @@ components:
       name: X-CPay-Idempotency-Key
       in: header
       required: false
+      description: >-
+        Merchant-scoped request identity. Identical requests replay their stored result;
+        different bodies conflict. Failed request cleanup replays REQUEST_FAILED without
+        releasing the key. Abandoned claims recover after 15 minutes. Check the payment
+        reference before using a new key; REQUEST_FAILED does not prove provider failure.
       schema:
         type: string
     IdPath:
@@ -3830,6 +3835,9 @@ components:
           $ref: '#/components/schemas/PaymentParty'
     PaymentResult:
       type: object
+      description: >-
+        Payment lifecycle result. REQUEST_FAILED represents an incomplete API request,
+        not a terminal provider outcome; query the reference before retrying.
       properties:
         reference:
           type: string

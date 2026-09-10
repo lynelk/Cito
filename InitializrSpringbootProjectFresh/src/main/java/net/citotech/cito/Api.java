@@ -273,12 +273,12 @@ public class Api {
 
             String result = Common.doPayIn(newTx, merchant, jdbcTemplate, transactionManager);
 
-            // Audit A1/B1: this legacy call site never wrote to the double-entry ledger at all
-            // (Common.java itself has zero ledger calls) - post the same entries the v2
-            // orchestration path posts for parity, keyed by tx_unique_id so a duplicate/replayed
-            // request never double-posts.
-            legacyLedgerPostingService.postPaymentEntries(
-                    Transaction.TX_TYPE_PAYIN, gateway_id, merchant, newTx, amount, charges);
+            // Managed collections settle through their verified canonical finalizer. Preserve
+            // the existing ledger seam only for other compatibility providers.
+            if (!net.citotech.cito.gateway.MobileMoneyCompatibilityBridge.manages(newTx)) {
+                legacyLedgerPostingService.postPaymentEntries(
+                        Transaction.TX_TYPE_PAYIN, gateway_id, merchant, newTx, amount, charges);
+            }
 
             if (!isBlank(idempotencyKey)) {
                 idempotencyService.recordBody(merchant_number, idempotencyKey, requestBody, result);
@@ -546,6 +546,17 @@ public class Api {
                 }
             }
 
+            // Managed payments own approval, reservation and verified settlement. The v1
+            // wrapper must not add a second hold or post/capture on HTTP acceptance.
+            if (net.citotech.cito.gateway.MobileMoneyCompatibilityBridge.manages(newTx)) {
+                String result = Common.doPayOut(newTx, merchant, jdbcTemplate, transactionManager);
+                if (!isBlank(idempotencyKey)) {
+                    idempotencyService.recordBody(
+                            merchant_number, idempotencyKey, requestBody, result);
+                }
+                return result;
+            }
+
             // Payout risk-control parity (V34): the raw v1 payout path previously bypassed
             // PayoutControlService entirely, so a configured daily/monthly/per-transaction or
             // beneficiary-velocity limit (or a first-beneficiary review trigger) could be evaded
@@ -567,11 +578,12 @@ public class Api {
             if (payoutControl != null && payoutControl.isApprovalRequired()) {
                 String approvalMessage =
                         "Payout requires maker-checker approval: " + payoutControl.reasonCode();
+                String approvalResponse = GeneralSuccessResponse.getMessage("000", approvalMessage);
                 if (!isBlank(idempotencyKey)) {
                     idempotencyService.recordBody(
-                            merchant_number, idempotencyKey, requestBody, approvalMessage);
+                            merchant_number, idempotencyKey, requestBody, approvalResponse);
                 }
-                return GeneralSuccessResponse.getMessage("000", approvalMessage);
+                return approvalResponse;
             }
 
             // Audit A8: reserve-then-capture on the v1 payout path, mirroring

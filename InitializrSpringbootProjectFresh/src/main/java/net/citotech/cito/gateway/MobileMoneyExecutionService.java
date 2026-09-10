@@ -185,22 +185,29 @@ public class MobileMoneyExecutionService {
             throw new PaymentGatewayException(
                     "Reference belongs to a historical provider submission; reconcile its provider outcome before creating a new payment");
         Long batchId = null, beneficiaryId = null;
-        if (request.getReference().matches("batch-payout:[0-9]+:[0-9]+")) {
+        if (request.getReference().matches("batch-payout:[0-9]+:[0-9]+(:retry:[0-9a-f-]{36})?")) {
             String[] parts = request.getReference().split(":");
             batchId = Long.valueOf(parts[1]);
             beneficiaryId = Long.valueOf(parts[2]);
             Map<String, Object> batch =
                     jdbc.queryForMap(
-                            "SELECT b.amount,b.account,p.status FROM merchant_batch_transactions_log p JOIN beneficiaries b ON b.batch_id=p.id WHERE p.id=:batch AND b.id=:beneficiary AND p.merchant_id=:merchant FOR UPDATE",
+                            "SELECT b.amount,b.account,b.active_payment_reference,p.status FROM merchant_batch_transactions_log p JOIN beneficiaries b ON b.batch_id=p.id WHERE p.id=:batch AND b.id=:beneficiary AND p.merchant_id=:merchant FOR UPDATE",
                             new MapSqlParameterSource("batch", batchId)
                                     .addValue("beneficiary", beneficiaryId)
                                     .addValue("merchant", merchant.getId()));
             if (!"PROCESSING".equals(batch.get("status"))
                     || !account.equals(batch.get("account"))
-                    || amount.compareTo(new BigDecimal(batch.get("amount").toString())) != 0)
+                    || amount.compareTo(new BigDecimal(batch.get("amount").toString())) != 0
+                    || (batch.get("active_payment_reference") != null
+                            && !request.getReference()
+                                    .equals(batch.get("active_payment_reference"))))
                 throw new PaymentGatewayException(
                         "Batch is stopped or its beneficiary attributes do not match");
         }
+        // Read the cap under the same merchant lock as durable claims. Replays returned above
+        // do not consume another slot, and competing replicas cannot pass on a stale count.
+        new net.citotech.cito.merchant.MerchantEnvironmentService(jdbc)
+                .enforceProductionLimit(merchant, environment);
         productionGuard.reserveProductionExecution(
                 merchant, environment, operation, request.getReference());
         risk.authorizePayment(merchant, request, operation);

@@ -39,7 +39,11 @@ public class MobileMoneyCompatibilityBridge {
     }
 
     public static String submit(Transaction tx, Merchant merchant, boolean payout) {
-        return submit(tx, merchant, payout, null);
+        return submit(
+                tx,
+                merchant,
+                payout,
+                tx.getMerchant_batch_transactions_log_id() > 0 ? "PRODUCTION" : null);
     }
 
     /**
@@ -102,7 +106,10 @@ public class MobileMoneyCompatibilityBridge {
         response.setOurUniqueTxId(result.getTransactionId());
         response.setTransactionStatus(result.getStatus());
         response.setMessage(result.getMessage());
-        response.setStatus("OK");
-        return GeneralSuccessResponse.getApiTxMessage("000", result.getMessage(), response);
+        boolean failed = "FAILED".equals(result.getStatus());
+        response.setStatus(failed ? "ERROR" : "OK");
+        return failed
+                ? GeneralException.getApiTxMessage("143", result.getMessage(), response)
+                : GeneralSuccessResponse.getApiTxMessage("000", result.getMessage(), response);
     }
 }

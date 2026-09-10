@@ -388,7 +388,7 @@ public class PayoutControlService {
         if (rows.isEmpty()) return;
         Map<String, Object> row = rows.get(0);
         String reference = String.valueOf(row.get("payout_reference"));
-        if (!reference.matches("batch-payout:[0-9]+:[0-9]+")) return;
+        if (!reference.matches("batch-payout:[0-9]+:[0-9]+(:retry:[0-9a-f-]{36})?")) return;
         String[] parts = reference.split(":");
         MapSqlParameterSource p =
                 new MapSqlParameterSource("merchant", row.get("merchant_id"))
@@ -405,7 +405,7 @@ public class PayoutControlService {
                 "UPDATE ledger_reservations SET reservation_status='RELEASED' WHERE merchant_id=:merchant AND source_reference=:reference AND reservation_status='RESERVED'",
                 p);
         jdbcTemplate.update(
-                "UPDATE beneficiaries SET status='FAILED',reason='Payout approval rejected or cancelled' WHERE id=:beneficiary AND batch_id=:batch AND EXISTS (SELECT 1 FROM merchant_batch_transactions_log b WHERE b.id=:batch AND b.merchant_id=:merchant)",
+                "UPDATE beneficiaries SET status='FAILED',reason='Payout approval rejected or cancelled' WHERE id=:beneficiary AND batch_id=:batch AND (active_payment_reference IS NULL OR active_payment_reference=:reference) AND EXISTS (SELECT 1 FROM merchant_batch_transactions_log b WHERE b.id=:batch AND b.merchant_id=:merchant)",
                 p);
     }
 
