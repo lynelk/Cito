@@ -1,0 +1,67 @@
+name: Communications Release Gates
+on:
+  pull_request:
+    branches: [main, production]
+  push:
+    branches: [feature/communications-completion-20260910]
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: Communications full backend verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn -B verify --no-transfer-progress -Dspring.flyway.enabled=false
+        working-directory: InitializrSpringbootProjectFresh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: communications-backend-tests
+          path: InitializrSpringbootProjectFresh/target/surefire-reports
+  mysql:
+    name: Fresh MySQL migration and fake SMS lifecycle
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: cpayadmin
+          MYSQL_ROOT_PASSWORD: notification-ci-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pnotification-ci-only"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Permit migration trigger creation in disposable database
+        run: docker exec "$(docker ps --filter ancestor=mysql:8.4 --format '{{.ID}}' | head -n1)" mysql -uroot -pnotification-ci-only -e 'SET GLOBAL log_bin_trust_function_creators=1'
+      - name: Apply V1 through latest and exercise fake provider lifecycle
+        working-directory: InitializrSpringbootProjectFresh
+        env:
+          DB_URL: jdbc:mysql://127.0.0.1:3306/cpayadmin?allowPublicKeyRetrieval=true&useSSL=false
+          DB_USERNAME: root
+          DB_PASSWORD: notification-ci-only
+        run: mvn -B test --no-transfer-progress -Dtest=FlywayMigrationSmokeTest
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: communications-mysql-tests
+          path: InitializrSpringbootProjectFresh/target/surefire-reports

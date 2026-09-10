@@ -60,6 +60,9 @@ jobs:
       - name: Validate Cito admin OpenAPI
         run: python scripts/api_docs/validate_openapi.py Docs/Api/cito-admin-v2-openapi.yaml
 
+      - name: Validate Cito Communications OpenAPI
+        run: python scripts/api_docs/validate_openapi.py Docs/Api/cito-communications-v2-openapi.yaml
+
       - name: Validate Billing BaaS OpenAPI
         run: python scripts/api_docs/validate_openapi.py Docs/Api/billing-baas-v2-openapi.yaml
 
@@ -79,7 +82,7 @@ jobs:
           python scripts/api_docs/changed_controller_contract.py "$BASE_SHA" "$HEAD_SHA"
           Docs/Api/cpay-v2-openapi.yaml Docs/Api/cito-platform-v2-openapi.yaml
           Docs/Api/cito-onboarding-v2-openapi.yaml Docs/Api/cito-admin-v2-openapi.yaml
-          Docs/Api/billing-baas-v2-openapi.yaml
+          Docs/Api/billing-baas-v2-openapi.yaml Docs/Api/cito-communications-v2-openapi.yaml
 
       - name: Scan full controller/OpenAPI drift
         run: python scripts/api_docs/controller_drift.py Docs/Api/cpay-v2-openapi.yaml
