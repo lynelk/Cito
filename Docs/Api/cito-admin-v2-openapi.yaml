@@ -109,6 +109,7 @@ paths:
   /api/v2/admin/compliance/cases:
     get:
       tags: [Admin Compliance]
+      operationId: listComplianceCases
       summary: List actionable compliance cases
       responses:
         '200':
@@ -123,6 +124,7 @@ paths:
   /api/v2/admin/compliance/cases/{id}/decision:
     post:
       tags: [Admin Compliance]
+      operationId: decideComplianceCase
       summary: Record a compliance case decision
       parameters:
         - $ref: '#/components/parameters/PositiveId'
@@ -197,6 +199,7 @@ paths:
   /api/v2/admin/communication/routing/effective:
     get:
       tags: [Admin Communication Routing]
+      operationId: previewEffectiveCommunicationRoute
       summary: Preview the effective communication route
       parameters:
         - in: query

@@ -1,6 +1,5 @@
 package net.citotech.cito.commercial;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -145,13 +144,17 @@ public class CitoCommercialProgrammeController {
             return string;
         }
         if (value instanceof List<?> list) {
-            return "[" + list.stream().map(this::quoted).reduce((a, b) -> a + "," + b).orElse("") + "]";
+            return "["
+                    + list.stream().map(this::quoted).reduce((a, b) -> a + "," + b).orElse("")
+                    + "]";
         }
         if (value instanceof Map<?, ?> map) {
-            return "{" + map.entrySet().stream()
-                    .map(entry -> quoted(entry.getKey()) + ":" + quoted(entry.getValue()))
-                    .reduce((a, b) -> a + "," + b)
-                    .orElse("") + "}";
+            return "{"
+                    + map.entrySet().stream()
+                            .map(entry -> quoted(entry.getKey()) + ":" + quoted(entry.getValue()))
+                            .reduce((a, b) -> a + "," + b)
+                            .orElse("")
+                    + "}";
         }
         return String.valueOf(value);
     }

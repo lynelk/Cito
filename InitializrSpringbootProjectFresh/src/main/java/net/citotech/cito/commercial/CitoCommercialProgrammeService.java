@@ -51,7 +51,8 @@ public class CitoCommercialProgrammeService {
                         .addValue("name", required(packageName, "packageName"))
                         .addValue("segment", blankToNull(targetSegment))
                         .addValue("description", blankToNull(description))
-                        .addValue("services", requiredJsonArray(serviceCodesJson, "serviceCodesJson"))
+                        .addValue(
+                                "services", requiredJsonArray(serviceCodesJson, "serviceCodesJson"))
                         .addValue("support", normalized(onboardingSupportLevel, "STANDARD"))
                         .addValue("terms", jsonOrNull(commercialTermsJson))
                         .addValue("actor", blankToNull(actor));
@@ -119,7 +120,9 @@ public class CitoCommercialProgrammeService {
                         .addValue("merchant", merchantId)
                         .addValue("package", packageId)
                         .addValue("environment", env)
-                        .addValue("from", effectiveFrom == null ? null : Timestamp.from(effectiveFrom))
+                        .addValue(
+                                "from",
+                                effectiveFrom == null ? null : Timestamp.from(effectiveFrom))
                         .addValue("to", effectiveTo == null ? null : Timestamp.from(effectiveTo))
                         .addValue("notes", blankToNull(notes))
                         .addValue("actor", blankToNull(actor));
@@ -224,7 +227,9 @@ public class CitoCommercialProgrammeService {
                         .addValue("slot", slot)
                         .addValue("commercialOwner", blankToNull(commercialOwner))
                         .addValue("customerSuccessOwner", blankToNull(customerSuccessOwner))
-                        .addValue("targetGoLive", targetGoLiveAt == null ? null : Timestamp.from(targetGoLiveAt))
+                        .addValue(
+                                "targetGoLive",
+                                targetGoLiveAt == null ? null : Timestamp.from(targetGoLiveAt))
                         .addValue("notes", blankToNull(notes))
                         .addValue("actor", blankToNull(actor)));
         return founding20Entry(merchantId);
@@ -296,7 +301,9 @@ public class CitoCommercialProgrammeService {
                         .addValue("tier", blankToNull(programmeTier))
                         .addValue("owner", blankToNull(commercialOwner))
                         .addValue("target", targetDownstreamMerchants)
-                        .addValue("targetGoLive", targetGoLiveAt == null ? null : Timestamp.from(targetGoLiveAt))
+                        .addValue(
+                                "targetGoLive",
+                                targetGoLiveAt == null ? null : Timestamp.from(targetGoLiveAt))
                         .addValue("notes", blankToNull(notes))
                         .addValue("actor", blankToNull(actor)));
         return embeddedPartnerEntry(merchantId);
@@ -308,9 +315,11 @@ public class CitoCommercialProgrammeService {
         int updated =
                 jdbc.update(
                         "UPDATE embedded_partner_programmes SET programme_status=:status WHERE merchant_id=:merchant",
-                        new MapSqlParameterSource("merchant", merchantId).addValue("status", normalized));
+                        new MapSqlParameterSource("merchant", merchantId)
+                                .addValue("status", normalized));
         if (updated == 0) {
-            throw new PaymentGatewayException("Merchant is not enrolled in the embedded partner programme");
+            throw new PaymentGatewayException(
+                    "Merchant is not enrolled in the embedded partner programme");
         }
         return embeddedPartnerEntry(merchantId);
     }
@@ -397,7 +406,8 @@ public class CitoCommercialProgrammeService {
                         new MapSqlParameterSource("code", code),
                         Long.class);
         if (id == null || id <= 0) {
-            throw new PaymentGatewayException("Commercial package must be ACTIVE before assignment");
+            throw new PaymentGatewayException(
+                    "Commercial package must be ACTIVE before assignment");
         }
         return id;
     }
@@ -421,7 +431,9 @@ public class CitoCommercialProgrammeService {
 
     private Map<String, Object> first(String sql, MapSqlParameterSource p) {
         List<Map<String, Object>> rows = jdbc.queryForList(sql, p);
-        return rows.isEmpty() ? new java.util.LinkedHashMap<>() : new java.util.LinkedHashMap<>(rows.get(0));
+        return rows.isEmpty()
+                ? new java.util.LinkedHashMap<>()
+                : new java.util.LinkedHashMap<>(rows.get(0));
     }
 
     private String normalizeEnvironment(String value) {

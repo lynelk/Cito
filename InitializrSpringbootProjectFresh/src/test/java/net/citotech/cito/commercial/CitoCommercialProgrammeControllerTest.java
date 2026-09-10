@@ -20,7 +20,8 @@ class CitoCommercialProgrammeControllerTest {
         CitoCommercialProgrammeService service = mock(CitoCommercialProgrammeService.class);
         when(service.packages()).thenReturn(List.of(Map.of("packageCode", "GROWTH")));
 
-        List<Map<String, Object>> response = new CitoCommercialProgrammeController(service).packages();
+        List<Map<String, Object>> response =
+                new CitoCommercialProgrammeController(service).packages();
 
         assertThat(response).hasSize(1);
         assertThat(response.get(0)).containsEntry("packageCode", "GROWTH");
@@ -31,7 +32,8 @@ class CitoCommercialProgrammeControllerTest {
         CitoCommercialProgrammeService service = mock(CitoCommercialProgrammeService.class);
         when(service.enrollFounding20(anyLong(), anyInt(), any(), any(), any(), any(), any()))
                 .thenReturn(Map.of("cohortSlot", 3, "programmeStatus", "CANDIDATE"));
-        CitoCommercialProgrammeController controller = new CitoCommercialProgrammeController(service);
+        CitoCommercialProgrammeController controller =
+                new CitoCommercialProgrammeController(service);
 
         Map<String, Object> response =
                 controller.enrollFounding20(
@@ -42,8 +44,8 @@ class CitoCommercialProgrammeControllerTest {
                                 "actor", "admin@example.test"));
 
         assertThat(response).containsEntry("cohortSlot", 3);
-        verify(service).enrollFounding20(
-                anyLong(), anyInt(), any(), any(), any(), any(), anyString());
+        verify(service)
+                .enrollFounding20(anyLong(), anyInt(), any(), any(), any(), any(), anyString());
     }
 
     @Test
@@ -51,7 +53,8 @@ class CitoCommercialProgrammeControllerTest {
         CitoCommercialProgrammeService service = mock(CitoCommercialProgrammeService.class);
         when(service.enrollEmbeddedPartner(anyLong(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(Map.of("programmeStatus", "CANDIDATE"));
-        CitoCommercialProgrammeController controller = new CitoCommercialProgrammeController(service);
+        CitoCommercialProgrammeController controller =
+                new CitoCommercialProgrammeController(service);
 
         Map<String, Object> response =
                 controller.enrollEmbeddedPartner(
@@ -62,6 +65,7 @@ class CitoCommercialProgrammeControllerTest {
                                 "actor", "admin@example.test"));
 
         assertThat(response).containsEntry("programmeStatus", "CANDIDATE");
-        verify(service).enrollEmbeddedPartner(anyLong(), any(), any(), any(), any(), any(), anyString());
+        verify(service)
+                .enrollEmbeddedPartner(anyLong(), any(), any(), any(), any(), any(), anyString());
     }
 }
