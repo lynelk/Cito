@@ -1,421 +1,121 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Messager from '../../StableMessager';
 import { apiFetch } from '../../../shared/api/httpClient';
 import { apiUrl } from '../../../shared/config';
 import { readStoredUser } from '../../../shared/useAuth';
 import './MerchantModuleSms.css';
+import './MerchantModuleSmsEnhancements.css';
 
 const TABS = [
-  ['overview', 'Overview'],
-  ['compose', 'Compose'],
-  ['conversations', 'Conversations'],
-  ['scheduled', 'Scheduled'],
-  ['history', 'History'],
-  ['contacts', 'Contacts'],
-  ['groups', 'Groups'],
-  ['senders', 'Sender IDs'],
-  ['templates', 'Templates'],
-  ['drafts', 'Drafts'],
+  ['overview', 'Overview'], ['compose', 'Send SMS'], ['campaigns', 'Campaigns'], ['reports', 'Delivery Reports'],
+  ['conversations', 'Conversations'], ['scheduled', 'Scheduled'], ['contacts', 'Contacts'], ['groups', 'Groups'],
+  ['senders', 'Sender IDs'], ['templates', 'Templates'], ['drafts', 'Drafts'], ['billing', 'Usage & Billing'],
 ];
-
+const PROVIDERS = [
+  ['YO_SMS', 'Yo! SMS'], ['AFRICAS_TALKING', "Africa's Talking"], ['TWILIO_SMS', 'Twilio'], ['SMSMOBILO_SMS', 'SMSMobilo'],
+];
 const GSM_BASIC = "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà";
 const GSM_EXTENDED = '^{}\\[~]|€\f';
 
 function analyzeSms(message = '') {
-  let gsm = true;
-  let units = 0;
+  let gsm = true; let units = 0;
   for (const char of message) {
     if (GSM_BASIC.includes(char)) units += 1;
     else if (GSM_EXTENDED.includes(char)) units += 2;
     else { gsm = false; break; }
   }
   if (!gsm) units = message.length;
-  const single = gsm ? 160 : 70;
-  const joined = gsm ? 153 : 67;
+  const single = gsm ? 160 : 70; const joined = gsm ? 153 : 67;
   const segments = units === 0 ? 0 : units <= single ? 1 : Math.ceil(units / joined);
-  const limit = segments <= 1 ? single : joined;
-  const used = segments <= 1 ? units : units % joined;
-  const remaining = units === 0 ? single : used === 0 && segments > 1 ? 0 : limit - used;
-  return { encoding: gsm ? 'GSM-7' : 'UCS-2', characters: message.length, units, segments, remaining };
+  const limit = segments <= 1 ? single : joined; const used = segments <= 1 ? units : units % joined;
+  return { encoding: gsm ? 'GSM-7' : 'UCS-2', characters: message.length, segments, remaining: units === 0 ? single : (used === 0 && segments > 1 ? 0 : limit - used) };
 }
-
-function truthyFlag(value) {
-  return value === true || value === 'Y' || value === 'YES' || value === 1 || value === '1';
+function truthyFlag(v) { return v === true || v === 'Y' || v === 'YES' || v === 1 || v === '1'; }
+function fmtDate(v) { if (!v) return '—'; const d = new Date(v); return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString(); }
+function money(v, currency = 'UGX') { const n = Number(v || 0); return `${currency} ${Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}`; }
+function statusTone(v) { const s = String(v || '').toUpperCase(); if (['DELIVERED','SENT','COMPLETED','APPROVED'].includes(s)) return 'good'; if (['FAILED','REJECTED','CANCELLED','EXPIRED'].includes(s)) return 'bad'; if (['SCHEDULED','PENDING','QUEUED','RECEIVED','RETRY_PENDING'].includes(s)) return 'warn'; return 'neutral'; }
+function parseCsvLine(line) { const cells=[]; let value=''; let quoted=false; for(let i=0;i<line.length;i+=1){const ch=line[i]; if(ch==='"'){if(quoted&&line[i+1]==='"'){value+='"';i+=1;}else quoted=!quoted;}else if(ch===','&&!quoted){cells.push(value.trim());value='';}else value+=ch;} cells.push(value.trim()); return cells; }
+function parseCsv(text='') {
+  const lines = text.split(/\r?\n/).map((v)=>v.trim()).filter(Boolean); if (!lines.length) return { rows: [], headers: [] };
+  const first = parseCsvLine(lines[0]); const hasHeader = first.some((v)=>/^(phone|recipient|mobile|msisdn)$/i.test(v));
+  if (!hasHeader) return { rows: lines.flatMap((line)=>line.split(/[,;\s]+/).filter(Boolean).map((phone)=>({ phone, variables:{} }))), headers: [] };
+  const headers = first.map((v)=>v.trim()); const phoneIndex = headers.findIndex((v)=>/^(phone|recipient|mobile|msisdn)$/i.test(v));
+  const rows = lines.slice(1).map((line)=>{ const cells=parseCsvLine(line); const variables={}; headers.forEach((h,i)=>{ if(i!==phoneIndex&&h) variables[h]=cells[i]||''; }); return { phone: cells[phoneIndex] || '', variables }; }).filter((r)=>r.phone);
+  return { rows, headers: headers.filter((_,i)=>i!==phoneIndex) };
 }
-
-function fmtDate(value) {
-  if (!value) return '—';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString();
-}
-
-function statusTone(status) {
-  const value = String(status || '').toUpperCase();
-  if (['DELIVERED', 'SENT', 'COMPLETED'].includes(value)) return 'good';
-  if (['FAILED', 'REJECTED', 'CANCELLED', 'EXPIRED'].includes(value)) return 'bad';
-  if (['SCHEDULED', 'PENDING', 'RECEIVED', 'FALLBACK_PENDING', 'RETRY_PENDING'].includes(value)) return 'warn';
-  return 'neutral';
-}
-
-async function readJson(path, options = {}) {
-  const response = await apiFetch(apiUrl(path), {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  });
-  const body = await response.json().catch(() => ({}));
+async function readJson(path, options={}) {
+  const response = await apiFetch(apiUrl(path), { credentials:'include', headers:{'Content-Type':'application/json', ...(options.headers||{})}, ...options });
+  const body = await response.json().catch(()=>({}));
   if (response.status === 401) throw new Error('Your merchant session has expired.');
   if (!response.ok) throw new Error(body.message || body.code || 'The SMS request could not be completed.');
   return body;
 }
+function Metric({label,value,hint}) { return <div className="sms-metric"><span>{label}</span><strong>{value ?? 0}</strong>{hint?<small>{hint}</small>:null}</div>; }
+function Status({value}) { return <span className={`sms-status sms-status--${statusTone(value)}`}>{value || 'UNKNOWN'}</span>; }
+function Empty({children}) { return <div className="sms-empty">{children}</div>; }
+function SectionHeader({title,description,action}) { return <div className="sms-section-heading"><div><h3>{title}</h3>{description?<p>{description}</p>:null}</div>{action||null}</div>; }
 
-function Metric({ label, value, hint }) {
-  return (
-    <div className="sms-metric">
-      <span>{label}</span>
-      <strong>{value ?? 0}</strong>
-      {hint ? <small>{hint}</small> : null}
-    </div>
-  );
+export default function MerchantModuleSms({ loader=()=>{} }) {
+  const [tab,setTab]=useState('overview'); const [mode,setMode]=useState('single');
+  const [overview,setOverview]=useState({metrics:{},recent:[]}); const [contacts,setContacts]=useState([]); const [groups,setGroups]=useState([]);
+  const [senders,setSenders]=useState([]); const [templates,setTemplates]=useState([]); const [drafts,setDrafts]=useState([]); const [history,setHistory]=useState([]);
+  const [campaigns,setCampaigns]=useState([]); const [reports,setReports]=useState([]); const [billing,setBilling]=useState({allTime:{},last30Days:{},providers:[]});
+  const [conversations,setConversations]=useState([]); const [conversationMessages,setConversationMessages]=useState([]); const [selectedConversation,setSelectedConversation]=useState(null);
+  const [routePreview,setRoutePreview]=useState(null); const [notice,setNotice]=useState(''); const [error,setError]=useState(''); const [saving,setSaving]=useState(false); const [reply,setReply]=useState('');
+  const [contactForm,setContactForm]=useState({displayName:'',phone:'',email:''}); const [groupForm,setGroupForm]=useState({groupName:'',description:''});
+  const [senderForm,setSenderForm]=useState({senderId:'',senderType:'ALPHANUMERIC',providerCode:'',countryCode:'UG',useCase:'',supportingDocumentRef:'',notes:''});
+  const [filters,setFilters]=useState({from:'',to:'',senderId:'',status:''}); const [csvRows,setCsvRows]=useState([]); const [csvHeaders,setCsvHeaders]=useState([]); const [pasteAudience,setPasteAudience]=useState('');
+  const [compose,setCompose]=useState({recipients:'',contactIds:[],groupIds:[],senderId:'',purpose:'NOTIFICATION',content:'',routingStrategy:'BALANCED',countryCode:'UG',currencyCode:'UGX',scheduledAt:'',requireDeliveryReceipts:true,requireInbound:false,fallbackEnabled:true});
+  const [campaign,setCampaign]=useState({name:'',contactIds:[],groupIds:[],senderId:'',purpose:'MARKETING',content:'',routingStrategy:'BALANCED',countryCode:'UG',currencyCode:'UGX',scheduledAt:'',requireDeliveryReceipts:true,requireInbound:false,fallbackEnabled:true});
+  const analysis=useMemo(()=>analyzeSms(mode==='bulk'?campaign.content:compose.content),[mode,campaign.content,compose.content]);
+  const approvedSenders=useMemo(()=>senders.filter((s)=>String(s.approvalStatus||'').toUpperCase()==='APPROVED'),[senders]);
+  const user=readStoredUser('merchant')||{}; const privileges=new Set((user.privileges||[]).map((p)=>p.privilege)); const canSend=privileges.size===0||privileges.has('SEND_SMS')||privileges.has('CREATE_BATCH_TX');
+
+  const work=async(fn)=>{setError('');setNotice('');loader('START');try{return await fn();}catch(e){setError(e.message||'SMS operation failed.');return null;}finally{loader('STOP');}};
+  const loadOverview=()=>work(async()=>setOverview(await readJson('/api/v2/merchant/communication/sms/overview')));
+  const loadContacts=()=>work(async()=>setContacts(await readJson('/api/v2/merchant/communication/sms/contacts')));
+  const loadGroups=()=>work(async()=>setGroups(await readJson('/api/v2/merchant/communication/sms/groups')));
+  const loadSenders=()=>work(async()=>setSenders(await readJson('/api/v2/merchant/communication/sms/sender-identities')));
+  const loadTemplates=()=>work(async()=>setTemplates(await readJson('/api/v2/merchant/communication/sms/templates')));
+  const loadDrafts=()=>work(async()=>setDrafts(await readJson('/api/v2/merchant/communication/sms/drafts')));
+  const loadCampaigns=()=>work(async()=>setCampaigns(await readJson('/api/v2/merchant/communication/sms/campaigns')));
+  const loadBilling=()=>work(async()=>setBilling(await readJson('/api/v2/merchant/communication/sms/billing-summary')));
+  const loadConversations=()=>work(async()=>setConversations(await readJson('/api/v2/merchant/communication/sms/conversations')));
+  const loadHistory=(status='')=>work(async()=>setHistory(await readJson(`/api/v2/merchant/communication/sms/history${status?`?status=${encodeURIComponent(status)}`:''}`)));
+  const loadReports=()=>work(async()=>{const q=new URLSearchParams(); Object.entries(filters).forEach(([k,v])=>{if(v)q.set(k,v);}); setReports(await readJson(`/api/v2/merchant/communication/sms/delivery-reports?${q.toString()}`));});
+
+  useEffect(()=>{loadOverview(); Promise.all([loadContacts(),loadGroups(),loadSenders(),loadTemplates(),loadCampaigns(),loadBilling()]); /* eslint-disable-next-line react-hooks/exhaustive-deps */},[]);
+  useEffect(()=>{if(tab==='campaigns')loadCampaigns(); if(tab==='reports')loadReports(); if(tab==='billing')loadBilling(); if(tab==='scheduled'){loadHistory('SCHEDULED');loadCampaigns();} if(tab==='contacts')loadContacts(); if(tab==='groups')loadGroups(); if(tab==='senders')loadSenders(); if(tab==='templates')loadTemplates(); if(tab==='drafts')loadDrafts(); if(tab==='conversations')loadConversations(); /* eslint-disable-next-line react-hooks/exhaustive-deps */},[tab]);
+  useEffect(()=>{const current=mode==='bulk'?campaign:compose; if(!current.content){setRoutePreview(null);return undefined;} const timer=setTimeout(async()=>{try{setRoutePreview(await readJson('/api/v2/merchant/communication/sms/preview',{method:'POST',body:JSON.stringify({content:current.content,senderId:current.senderId||null,routingStrategy:current.routingStrategy,countryCode:current.countryCode,currencyCode:current.currencyCode,requireDeliveryReceipts:current.requireDeliveryReceipts,requireInbound:current.requireInbound})}));}catch(e){setRoutePreview({routable:false,explanation:e.message});}},450); return()=>clearTimeout(timer);},[mode,compose,campaign]);
+
+  const toggle=(setter,name,id)=>setter((current)=>{const values=new Set(current[name]); if(values.has(id))values.delete(id);else values.add(id);return{...current,[name]:Array.from(values)};});
+  const submitSingle=async()=>{if(!canSend)return setError('Your role does not include SMS sending permission.'); const recipients=compose.recipients.split(/[\n,;]+/).map((v)=>v.trim()).filter(Boolean); if(!compose.content.trim())return setError('Write a message before sending.'); if(!recipients.length&&!compose.contactIds.length&&!compose.groupIds.length)return setError('Add a phone number, contact or group.'); setSaving(true); const result=await work(()=>readJson('/api/v2/merchant/communication/sms/send',{method:'POST',body:JSON.stringify({...compose,recipients,scheduledAt:compose.scheduledAt?new Date(compose.scheduledAt).toISOString():null})})); setSaving(false); if(result){setNotice(`${result.accepted} SMS message(s) accepted.${result.suppressed?` ${result.suppressed} opt-out recipient(s) skipped.`:''}`);setCompose((c)=>({...c,recipients:'',contactIds:[],groupIds:[],content:'',scheduledAt:''}));loadOverview();}};
+  const submitCampaign=async()=>{if(!canSend)return setError('Your role does not include SMS sending permission.'); if(!campaign.name.trim())return setError('Campaign name is required.'); if(!campaign.content.trim())return setError('Write a campaign message.'); const pasted=parseCsv(pasteAudience).rows; const recipients=[...csvRows,...pasted]; if(!recipients.length&&!campaign.contactIds.length&&!campaign.groupIds.length)return setError('Add recipients, contacts or a contact group.'); setSaving(true); const result=await work(()=>readJson('/api/v2/merchant/communication/sms/campaigns',{method:'POST',body:JSON.stringify({...campaign,recipients,scheduledAt:campaign.scheduledAt?new Date(campaign.scheduledAt).toISOString():null})})); setSaving(false); if(result){setNotice(`Campaign ${result.name} accepted: ${result.accepted} queued, ${result.suppressed} suppressed.`);setCampaign((c)=>({...c,name:'',contactIds:[],groupIds:[],content:'',scheduledAt:''}));setPasteAudience('');setCsvRows([]);setCsvHeaders([]);loadCampaigns();loadOverview();}};
+  const handleCsv=(file)=>{if(!file)return; const reader=new FileReader(); reader.onload=()=>{const parsed=parseCsv(String(reader.result||''));setCsvRows(parsed.rows);setCsvHeaders(parsed.headers);}; reader.readAsText(file);};
+  const saveDraft=async()=>{const current=mode==='bulk'?campaign:compose;if(!current.content.trim())return setError('Write a message before saving a draft.');const result=await work(()=>readJson('/api/v2/merchant/communication/sms/drafts',{method:'POST',body:JSON.stringify({title:(current.name||current.content).slice(0,60),recipientMode:mode==='bulk'?'CAMPAIGN':'MIXED',recipientPayloadJson:JSON.stringify(mode==='bulk'?{contactIds:campaign.contactIds,groupIds:campaign.groupIds,csvRows,pasteAudience}:{recipients:compose.recipients,contactIds:compose.contactIds,groupIds:compose.groupIds}),senderId:current.senderId,purpose:current.purpose,messageBody:current.content,routingStrategy:current.routingStrategy,scheduledAt:current.scheduledAt||null})}));if(result)setNotice('Draft saved.');};
+  const saveContact=async()=>{const r=await work(()=>readJson('/api/v2/merchant/communication/sms/contacts',{method:'POST',body:JSON.stringify(contactForm)}));if(r){setContactForm({displayName:'',phone:'',email:''});setNotice('Contact saved.');loadContacts();}};
+  const saveGroup=async()=>{const r=await work(()=>readJson('/api/v2/merchant/communication/sms/groups',{method:'POST',body:JSON.stringify(groupForm)}));if(r){setGroupForm({groupName:'',description:''});setNotice('Group saved.');loadGroups();}};
+  const requestSender=async()=>{const r=await work(()=>readJson('/api/v2/merchant/communication/sms/sender-identities/request',{method:'POST',body:JSON.stringify(senderForm)}));if(r){setSenderForm({senderId:'',senderType:'ALPHANUMERIC',providerCode:'',countryCode:'UG',useCase:'',supportingDocumentRef:'',notes:''});setNotice('Sender identity submitted for approval.');loadSenders();}};
+  const openConversation=async(c)=>{setSelectedConversation(c);setReply('');const rows=await work(()=>readJson(`/api/v2/merchant/communication/sms/conversations/${encodeURIComponent(c.conversationId)}/messages`));if(rows)setConversationMessages([...rows].reverse());};
+  const replyConversation=async()=>{if(!selectedConversation||!reply.trim())return;const r=await work(()=>readJson(`/api/v2/merchant/communication/sms/conversations/${encodeURIComponent(selectedConversation.conversationId)}/reply`,{method:'POST',body:JSON.stringify({content:reply})}));if(r){setReply('');setNotice('Reply queued.');openConversation(selectedConversation);}};
+
+  const table=(rows,columns,empty='Nothing here yet.')=>rows.length?<div className="sms-table-wrap"><table className="sms-table"><thead><tr>{columns.map((c)=><th key={c.key}>{c.label}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={r.id||r.messageReference||r.conversationId||r.draftId||i}>{columns.map((c)=><td key={c.key}>{c.render?c.render(r):(r[c.key]??'—')}</td>)}</tr>)}</tbody></table></div>:<Empty>{empty}</Empty>;
+  const senderSelect=(current,setter)=><select value={current.senderId} onChange={(e)=>setter((c)=>({...c,senderId:e.target.value}))}><option value="">Provider default</option>{approvedSenders.map((s)=><option key={s.id} value={s.senderId}>{s.senderId} · {s.senderType}</option>)}</select>;
+  const commonOptions=(current,setter)=><><div className="sms-form-grid"><label className="sms-field"><span>Sender ID</span>{senderSelect(current,setter)}</label><label className="sms-field"><span>Purpose</span><select value={current.purpose} onChange={(e)=>setter((c)=>({...c,purpose:e.target.value}))}><option>NOTIFICATION</option><option>TRANSACTIONAL</option><option>OTP</option><option>SECURITY</option><option>MARKETING</option></select></label></div><label className="sms-field sms-message-field"><span>Message</span><textarea rows="8" value={current.content} onChange={(e)=>setter((c)=>({...c,content:e.target.value}))} placeholder={mode==='bulk'?'Hello {{first_name}}, your update is ready.':'Write your message…'} /><div className="sms-counter"><span>{analysis.encoding}</span><span>{analysis.characters} characters</span><span>{analysis.segments} segment{analysis.segments===1?'':'s'}</span><span>{analysis.remaining} remaining</span></div></label><div className="sms-form-grid"><label className="sms-field"><span>Send</span><input type="datetime-local" value={current.scheduledAt} onChange={(e)=>setter((c)=>({...c,scheduledAt:e.target.value}))}/><small>Leave blank to send now.</small></label><label className="sms-field"><span>Routing strategy</span><select value={current.routingStrategy} onChange={(e)=>setter((c)=>({...c,routingStrategy:e.target.value}))}><option value="BALANCED">Balanced · recommended</option><option value="LOWEST_COST">Lowest cost</option><option value="RELIABILITY_FIRST">Reliability first</option><option value="PRIORITY">Configured priority</option></select></label></div><div className="sms-options"><label><input type="checkbox" checked={current.requireDeliveryReceipts} onChange={(e)=>setter((c)=>({...c,requireDeliveryReceipts:e.target.checked}))}/> Delivery receipts</label><label><input type="checkbox" checked={current.fallbackEnabled} onChange={(e)=>setter((c)=>({...c,fallbackEnabled:e.target.checked}))}/> Automatic fallback</label></div></>;
+
+  const renderOverview=()=>{const m=overview.metrics||{}, b=billing.last30Days||{};return <div className="sms-stack"><div className="sms-metrics"><Metric label="Messages" value={m.totalMessages} hint="All SMS activity"/><Metric label="Scheduled" value={m.scheduledMessages} hint="Waiting to send"/><Metric label="Contacts" value={m.contacts} hint={`${m.contactGroups||0} groups`}/><Metric label="Unread" value={m.unreadConversations} hint="Two-way conversations"/><Metric label="30-day deliveries" value={b.successfulDeliveries||0} hint={money(b.chargedAmount||0)}/></div><div className="sms-card"><SectionHeader title="Quick actions" description="The common jobs are one click away, rather than hidden behind administrative plumbing."/><div className="sms-quick-actions"><button className="sms-quick-action" onClick={()=>{setMode('single');setTab('compose');}}><strong>Send single SMS</strong><span>One number, contacts or groups</span></button><button className="sms-quick-action" onClick={()=>{setMode('bulk');setTab('compose');}}><strong>Start campaign</strong><span>CSV, pasted numbers and personalization</span></button><button className="sms-quick-action" onClick={()=>setTab('reports')}><strong>Delivery reports</strong><span>Filter by date, sender and status</span></button><button className="sms-quick-action" onClick={()=>setTab('senders')}><strong>Request sender ID</strong><span>Purpose and evidence captured</span></button></div></div><div className="sms-card"><SectionHeader title="Provider fabric" description="Cito smart routing evaluates cost, health and capability before dispatch. SMSMobilo is included but remains unavailable for live routing until its exact production send contract and credentials are configured."/><div className="sms-provider-badges">{PROVIDERS.map(([code,label])=><span key={code} className={`sms-provider-badge ${code==='SMSMOBILO_SMS'?'is-disabled':''}`}>{label}{code==='SMSMOBILO_SMS'?' · configuration pending':''}</span>)}</div></div><div className="sms-card"><SectionHeader title="Recent messages"/>{table(overview.recent||[],[{key:'messageReference',label:'Reference'},{key:'recipient',label:'Recipient'},{key:'status',label:'Status',render:(r)=><Status value={r.status}/>},{key:'provider',label:'Route'},{key:'createdAt',label:'Created',render:(r)=>fmtDate(r.createdAt)}])}</div></div>;};
+  const renderCompose=()=>{const current=mode==='bulk'?campaign:compose,setter=mode==='bulk'?setCampaign:setCompose;return <div className="sms-compose-layout"><div className="sms-card sms-compose-main"><SectionHeader title="Send SMS" description="Use the same smart-routing and delivery controls for one message or a full campaign." action={<div className="sms-mode-switch"><button className={mode==='single'?'is-active':''} onClick={()=>setMode('single')}>Single</button><button className={mode==='bulk'?'is-active':''} onClick={()=>setMode('bulk')}>Bulk / Campaign</button></div>}/>{mode==='single'?<><label className="sms-field"><span>Direct recipients</span><textarea rows="3" value={compose.recipients} onChange={(e)=>setCompose((c)=>({...c,recipients:e.target.value}))} placeholder="+256700000000, +2567… or one number per line"/></label><div className="sms-picker-row"><div><span className="sms-field-label">Contacts</span><div className="sms-chip-list">{contacts.slice(0,30).map((c)=><button key={c.id} type="button" className={`sms-chip ${compose.contactIds.includes(c.id)?'is-selected':''}`} onClick={()=>toggle(setCompose,'contactIds',c.id)}>{c.displayName||c.phone}</button>)}</div></div><div><span className="sms-field-label">Groups</span><div className="sms-chip-list">{groups.map((g)=><button key={g.id} type="button" className={`sms-chip ${compose.groupIds.includes(g.id)?'is-selected':''}`} onClick={()=>toggle(setCompose,'groupIds',g.id)}>{g.groupName} <small>{g.memberCount||0}</small></button>)}</div></div></div></>:<><label className="sms-field"><span>Campaign name</span><input value={campaign.name} onChange={(e)=>setCampaign((c)=>({...c,name:e.target.value}))} placeholder="September customer update"/></label><div className="sms-form-grid"><label className="sms-field"><span>Paste phone numbers</span><textarea rows="5" value={pasteAudience} onChange={(e)=>setPasteAudience(e.target.value)} placeholder="One number per line, or comma separated"/></label><label className="sms-field sms-upload"><span>Upload CSV</span><input type="file" accept=".csv,text/csv" onChange={(e)=>handleCsv(e.target.files?.[0])}/><small>Use a phone/recipient column. Other columns become personalization variables.</small><div className="sms-audience-summary"><span>{csvRows.length} CSV recipients</span>{csvHeaders.map((h)=><span key={h}>{`{{${h}}}`}</span>)}</div></label></div><div className="sms-picker-row"><div><span className="sms-field-label">Contacts</span><div className="sms-chip-list">{contacts.slice(0,30).map((c)=><button key={c.id} type="button" className={`sms-chip ${campaign.contactIds.includes(c.id)?'is-selected':''}`} onClick={()=>toggle(setCampaign,'contactIds',c.id)}>{c.displayName||c.phone}</button>)}</div></div><div><span className="sms-field-label">Contact groups</span><div className="sms-chip-list">{groups.map((g)=><button key={g.id} type="button" className={`sms-chip ${campaign.groupIds.includes(g.id)?'is-selected':''}`} onClick={()=>toggle(setCampaign,'groupIds',g.id)}>{g.groupName} <small>{g.memberCount||0}</small></button>)}</div></div></div></>}{commonOptions(current,setter)}{analysis.segments>10?<div className="sms-callout sms-callout--warning">This message uses {analysis.segments} SMS segments per recipient. Shortening it can materially reduce cost.</div>:null}<div className="sms-actions"><button className="sms-btn" onClick={saveDraft}>Save draft</button><button className="sms-btn sms-btn--primary" disabled={saving||!canSend} onClick={mode==='bulk'?submitCampaign:submitSingle}>{current.scheduledAt?'Schedule':'Send'} {mode==='bulk'?'campaign':'SMS'}</button></div></div><aside className="sms-card sms-route-card"><SectionHeader title="Route & cost" description="Preview only. The route is re-checked when the message actually dispatches."/>{routePreview?<><div className="sms-route-result"><span>Recommended</span><strong>{routePreview.selectedProvider||'No eligible route'}</strong><Status value={routePreview.routable?'AVAILABLE':'UNAVAILABLE'}/></div><dl><div><dt>Segments</dt><dd>{routePreview.segments??analysis.segments}</dd></div><div><dt>Estimated provider cost</dt><dd>{routePreview.expectedProviderCost==null?'Rate not configured':money(routePreview.expectedProviderCost,routePreview.currencyCode||current.currencyCode)}</dd></div></dl><p className="sms-route-explanation">{routePreview.explanation}</p>{Array.isArray(routePreview.candidates)&&routePreview.candidates.length?<details><summary>Routing candidates</summary>{routePreview.candidates.map((c)=><div className="sms-candidate" key={c.providerCode}><strong>{c.providerCode}</strong><span>{c.eligible?`${c.healthState} · score ${c.score??'—'}`:c.exclusionReason}</span></div>)}</details>:null}</>:<Empty>Write a message to preview route and cost.</Empty>}</aside></div>;};
+  const renderCampaigns=()=> <div className="sms-card"><SectionHeader title="Campaigns" description="Bulk sends remain traceable as campaigns while each recipient is still a durable, independently retryable SMS." action={<button className="sms-btn sms-btn--primary" onClick={()=>{setMode('bulk');setTab('compose');}}>New campaign</button>}/>{table(campaigns,[{key:'name',label:'Campaign'},{key:'status',label:'Status',render:(r)=><Status value={r.status}/>},{key:'totalRecipients',label:'Audience'},{key:'health',label:'Outcome',render:(r)=><div className="sms-campaign-health"><span>{r.successful||0} success</span><span>{r.failed||0} failed</span><span>{r.suppressed||0} suppressed</span></div>},{key:'scheduledAt',label:'Scheduled',render:(r)=>fmtDate(r.scheduledAt)},{key:'createdAt',label:'Created',render:(r)=>fmtDate(r.createdAt)}],'No campaigns yet.')}</div>;
+  const renderReports=()=> <div className="sms-card"><SectionHeader title="Delivery reports" description="Filter delivery evidence by period, sender ID and final state."/><div className="sms-filter-grid"><label className="sms-field"><span>From</span><input type="date" value={filters.from} onChange={(e)=>setFilters({...filters,from:e.target.value})}/></label><label className="sms-field"><span>To</span><input type="date" value={filters.to} onChange={(e)=>setFilters({...filters,to:e.target.value})}/></label><label className="sms-field"><span>Sender ID</span><select value={filters.senderId} onChange={(e)=>setFilters({...filters,senderId:e.target.value})}><option value="">All senders</option>{senders.map((s)=><option key={s.id} value={s.senderId}>{s.senderId}</option>)}</select></label><label className="sms-field"><span>Status</span><select value={filters.status} onChange={(e)=>setFilters({...filters,status:e.target.value})}><option value="">All statuses</option>{['SCHEDULED','SENT','DELIVERED','FAILED','REJECTED'].map((s)=><option key={s}>{s}</option>)}</select></label><button className="sms-btn sms-btn--primary" onClick={loadReports}>Apply filters</button></div><hr className="sms-section-divider"/>{table(reports,[{key:'messageReference',label:'Reference'},{key:'recipient',label:'Recipient'},{key:'senderId',label:'Sender'},{key:'status',label:'Status',render:(r)=><Status value={r.status}/>},{key:'provider',label:'Provider'},{key:'segments',label:'Parts'},{key:'chargedAmount',label:'Charged',render:(r)=>money(r.chargedAmount)},{key:'deliveryUpdatedAt',label:'Updated',render:(r)=>fmtDate(r.deliveryUpdatedAt||r.createdAt)}],'No delivery records match these filters.')}</div>;
+  const renderBilling=()=>{const a=billing.allTime||{},m=billing.last30Days||{};return <div className="sms-stack"><div className="sms-billing-grid"><div className="sms-billing-card"><span>Last 30 days</span><strong>{m.successfulDeliveries||0}</strong><small>Successful SMS deliveries</small></div><div className="sms-billing-card"><span>30-day charged usage</span><strong>{money(m.chargedAmount)}</strong><small>From the canonical delivery ledger</small></div><div className="sms-billing-card"><span>All-time attempts</span><strong>{a.deliveryAttempts||0}</strong><small>{a.billedAttempts||0} metered into billing</small></div></div><div className="sms-card"><SectionHeader title="Provider usage" description="Actual route usage and charged amount, not invented prepaid credits."/>{table(billing.providers||[],[{key:'provider',label:'Provider'},{key:'attempts',label:'Attempts'},{key:'successful',label:'Successful'},{key:'chargedAmount',label:'Charged',render:(r)=>money(r.chargedAmount)}])}</div></div>;};
+  const renderContacts=()=> <div className="sms-split"><div className="sms-card"><SectionHeader title="Contacts"/>{table(contacts,[{key:'displayName',label:'Name'},{key:'phone',label:'Phone'},{key:'email',label:'Email'}])}</div><div className="sms-card sms-form-card"><SectionHeader title="Add contact"/><label className="sms-field"><span>Name</span><input value={contactForm.displayName} onChange={(e)=>setContactForm({...contactForm,displayName:e.target.value})}/></label><label className="sms-field"><span>Phone</span><input value={contactForm.phone} onChange={(e)=>setContactForm({...contactForm,phone:e.target.value})}/></label><label className="sms-field"><span>Email · optional</span><input value={contactForm.email} onChange={(e)=>setContactForm({...contactForm,email:e.target.value})}/></label><button className="sms-btn sms-btn--primary" onClick={saveContact}>Save contact</button></div></div>;
+  const renderGroups=()=> <div className="sms-split"><div className="sms-card"><SectionHeader title="Contact groups"/>{table(groups,[{key:'groupName',label:'Group'},{key:'description',label:'Description'},{key:'memberCount',label:'Members'},{key:'updatedAt',label:'Updated',render:(r)=>fmtDate(r.updatedAt)}])}</div><div className="sms-card sms-form-card"><SectionHeader title="Create group"/><label className="sms-field"><span>Name</span><input value={groupForm.groupName} onChange={(e)=>setGroupForm({...groupForm,groupName:e.target.value})}/></label><label className="sms-field"><span>Description</span><textarea rows="3" value={groupForm.description} onChange={(e)=>setGroupForm({...groupForm,description:e.target.value})}/></label><button className="sms-btn sms-btn--primary" onClick={saveGroup}>Save group</button></div></div>;
+  const renderSenders=()=> <div className="sms-split"><div className="sms-card"><SectionHeader title="Sender identities" description="Approved sender IDs become available in both single and campaign composers."/>{table(senders,[{key:'senderId',label:'Sender'},{key:'senderType',label:'Type'},{key:'approvalStatus',label:'Approval',render:(r)=><Status value={r.approvalStatus}/>},{key:'providerCode',label:'Provider'},{key:'twoWayCapable',label:'Two-way',render:(r)=>truthyFlag(r.twoWayCapable)?'Yes':'No'}])}</div><div className="sms-card sms-form-card"><SectionHeader title="Request sender ID" description="Capture the use case and supporting evidence up front so approval does not become an email scavenger hunt."/><label className="sms-field"><span>Sender ID / number</span><input value={senderForm.senderId} onChange={(e)=>setSenderForm({...senderForm,senderId:e.target.value})}/></label><label className="sms-field"><span>Type</span><select value={senderForm.senderType} onChange={(e)=>setSenderForm({...senderForm,senderType:e.target.value})}><option>ALPHANUMERIC</option><option>LONG_NUMBER</option><option>SHORT_CODE</option></select></label><label className="sms-field"><span>Preferred provider · optional</span><select value={senderForm.providerCode} onChange={(e)=>setSenderForm({...senderForm,providerCode:e.target.value})}><option value="">Auto / any eligible provider</option>{PROVIDERS.map(([c,l])=><option key={c} value={c}>{l}</option>)}</select></label><label className="sms-field"><span>Purpose / use case</span><textarea rows="3" value={senderForm.useCase} onChange={(e)=>setSenderForm({...senderForm,useCase:e.target.value})} placeholder="Transactional alerts, OTPs, customer notifications…"/></label><label className="sms-field"><span>Supporting document reference · optional</span><input value={senderForm.supportingDocumentRef} onChange={(e)=>setSenderForm({...senderForm,supportingDocumentRef:e.target.value})} placeholder="Secure document URL or internal reference"/><small>Stored as evidence reference; do not paste credentials or secrets.</small></label><button className="sms-btn sms-btn--primary" onClick={requestSender}>Submit for approval</button></div></div>;
+  const renderConversations=()=> <div className="sms-conversation-layout"><div className="sms-card sms-thread-list"><SectionHeader title="Conversations" description="Inbound and two-way SMS threads."/>{conversations.length?conversations.map((c)=><button key={c.conversationId} className={`sms-thread ${selectedConversation?.conversationId===c.conversationId?'is-selected':''}`} onClick={()=>openConversation(c)}><div><strong>{c.contactName||c.phone}</strong>{Number(c.unreadCount)>0?<b>{c.unreadCount}</b>:null}</div><span>{c.senderId||'Sender'} · {c.provider||'Auto route'}</span><small>{fmtDate(c.lastMessageAt)}</small></button>):<Empty>No two-way conversations yet.</Empty>}</div><div className="sms-card sms-thread-pane">{selectedConversation?<><SectionHeader title={selectedConversation.contactName||selectedConversation.phone} description={`${selectedConversation.phone} · ${selectedConversation.senderId||'sender'}`}/><div className="sms-bubbles">{conversationMessages.map((m)=><div key={m.messageId} className={`sms-bubble sms-bubble--${String(m.direction||'').toLowerCase()}`}><p>{m.body}</p><small>{m.direction} · {fmtDate(m.occurredAt)} · {m.status}</small></div>)}</div><div className="sms-reply"><textarea rows="3" value={reply} onChange={(e)=>setReply(e.target.value)} placeholder="Reply…"/><button className="sms-btn sms-btn--primary" onClick={replyConversation}>Send reply</button></div></>:<Empty>Select a conversation to read and reply.</Empty>}</div></div>;
+  const historyColumns=[{key:'messageReference',label:'Reference'},{key:'recipient',label:'Recipient'},{key:'senderId',label:'Sender'},{key:'status',label:'Status',render:(r)=><Status value={r.status}/>},{key:'provider',label:'Provider'},{key:'segments',label:'Parts'},{key:'scheduledAt',label:'Scheduled',render:(r)=>fmtDate(r.scheduledAt)}];
+  const renderScheduled=()=> <div className="sms-stack"><div className="sms-card"><SectionHeader title="Scheduled single messages"/>{table(history,historyColumns,'No scheduled single SMS messages.')}</div><div className="sms-card"><SectionHeader title="Scheduled campaigns"/>{table(campaigns.filter((c)=>String(c.status).toUpperCase()==='SCHEDULED'),[{key:'name',label:'Campaign'},{key:'totalRecipients',label:'Audience'},{key:'status',label:'Status',render:(r)=><Status value={r.status}/>},{key:'scheduledAt',label:'Send time',render:(r)=>fmtDate(r.scheduledAt)}],'No scheduled campaigns.')}</div></div>;
+  const renderTemplates=()=> <div className="sms-card"><SectionHeader title="Templates" description="Reusable content can be loaded into the single-message composer."/>{table(templates,[{key:'templateKey',label:'Template'},{key:'body',label:'Message'},{key:'action',label:'',render:(r)=><button className="sms-link" onClick={()=>{setMode('single');setCompose((c)=>({...c,content:r.body||''}));setTab('compose');}}>Use template</button>}])}</div>;
+  const renderDrafts=()=> <div className="sms-card"><SectionHeader title="Drafts"/>{table(drafts,[{key:'title',label:'Draft'},{key:'purpose',label:'Purpose'},{key:'senderId',label:'Sender'},{key:'updatedAt',label:'Updated',render:(r)=>fmtDate(r.updatedAt)}])}</div>;
+  const content=tab==='overview'?renderOverview():tab==='compose'?renderCompose():tab==='campaigns'?renderCampaigns():tab==='reports'?renderReports():tab==='billing'?renderBilling():tab==='contacts'?renderContacts():tab==='groups'?renderGroups():tab==='senders'?renderSenders():tab==='conversations'?renderConversations():tab==='scheduled'?renderScheduled():tab==='templates'?renderTemplates():tab==='drafts'?renderDrafts():null;
+
+  return <div className="sms-workspace"><div className="sms-workspace-head"><div><span className="sms-eyebrow">Communications · SMS</span><h2>One workspace for single messages, campaigns and delivery operations</h2><p>Send, personalize, schedule, route, track and reply without forcing merchants to learn which gateway is having a difficult day.</p></div><button className="sms-btn sms-btn--primary" onClick={()=>setTab('compose')}>New SMS</button></div><nav className="sms-tabs" aria-label="SMS workspace">{TABS.map(([key,label])=><button key={key} className={tab===key?'is-active':''} onClick={()=>setTab(key)}>{label}{key==='conversations'&&Number(overview.metrics?.unreadConversations)>0?<b>{overview.metrics.unreadConversations}</b>:null}</button>)}</nav>{notice?<div className="sms-notice sms-notice--success">{notice}</div>:null}{error?<div className="sms-notice sms-notice--error">{error}</div>:null}{content}</div>;
 }
-
-function Status({ value }) {
-  return <span className={`sms-status sms-status--${statusTone(value)}`}>{value || 'UNKNOWN'}</span>;
-}
-
-function Empty({ children }) {
-  return <div className="sms-empty">{children}</div>;
-}
-
-function SectionHeader({ title, description, action }) {
-  return (
-    <div className="sms-section-heading">
-      <div><h3>{title}</h3>{description ? <p>{description}</p> : null}</div>
-      {action || null}
-    </div>
-  );
-}
-
-function MerchantModuleSms({ loader = () => {} }) {
-  const [tab, setTab] = useState('overview');
-  const [overview, setOverview] = useState({ metrics: {}, recent: [] });
-  const [history, setHistory] = useState([]);
-  const [contacts, setContacts] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [senders, setSenders] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [drafts, setDrafts] = useState([]);
-  const [conversations, setConversations] = useState([]);
-  const [conversationMessages, setConversationMessages] = useState([]);
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [routePreview, setRoutePreview] = useState(null);
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [contactForm, setContactForm] = useState({ displayName: '', phone: '', email: '' });
-  const [groupForm, setGroupForm] = useState({ groupName: '', description: '' });
-  const [senderForm, setSenderForm] = useState({ senderId: '', senderType: 'ALPHANUMERIC', providerCode: '', countryCode: 'UG', notes: '' });
-  const [reply, setReply] = useState('');
-  const [compose, setCompose] = useState({
-    recipients: '', contactIds: [], groupIds: [], senderId: '', purpose: 'NOTIFICATION',
-    content: '', routingStrategy: 'BALANCED', countryCode: 'UG', currencyCode: 'UGX',
-    scheduledAt: '', requireDeliveryReceipts: true, requireInbound: false, fallbackEnabled: true,
-  });
-  const messagerRef = React.useRef(null);
-  const analysis = useMemo(() => analyzeSms(compose.content), [compose.content]);
-  const approvedSenders = useMemo(() => senders.filter((s) => String(s.approvalStatus || '').toUpperCase() === 'APPROVED'), [senders]);
-  const selectedSender = approvedSenders.find((s) => s.senderId === compose.senderId);
-  const canTwoWay = selectedSender ? truthyFlag(selectedSender.twoWayCapable) : false;
-  const user = readStoredUser('merchant') || {};
-  const privileges = new Set((user.privileges || []).map((p) => p.privilege));
-  const canSend = privileges.size === 0 || privileges.has('SEND_SMS') || privileges.has('CREATE_BATCH_TX');
-
-  const work = async (fn) => {
-    setError(''); setNotice(''); loader('START');
-    try { return await fn(); }
-    catch (e) { setError(e.message || 'SMS operation failed.'); return null; }
-    finally { loader('STOP'); }
-  };
-
-  const loadOverview = () => work(async () => setOverview(await readJson('/api/v2/merchant/communication/sms/overview')));
-  const loadContacts = () => work(async () => setContacts(await readJson('/api/v2/merchant/communication/sms/contacts')));
-  const loadGroups = () => work(async () => setGroups(await readJson('/api/v2/merchant/communication/sms/groups')));
-  const loadSenders = () => work(async () => setSenders(await readJson('/api/v2/merchant/communication/sms/sender-identities')));
-  const loadTemplates = () => work(async () => setTemplates(await readJson('/api/v2/merchant/communication/sms/templates')));
-  const loadDrafts = () => work(async () => setDrafts(await readJson('/api/v2/merchant/communication/sms/drafts')));
-  const loadConversations = () => work(async () => setConversations(await readJson('/api/v2/merchant/communication/sms/conversations')));
-  const loadHistory = (status = '') => work(async () => setHistory(await readJson(`/api/v2/merchant/communication/sms/history${status ? `?status=${encodeURIComponent(status)}` : ''}`)));
-
-  useEffect(() => {
-    loadOverview();
-    Promise.all([loadContacts(), loadGroups(), loadSenders(), loadTemplates()]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (tab === 'history') loadHistory();
-    if (tab === 'scheduled') loadHistory('SCHEDULED');
-    if (tab === 'contacts') loadContacts();
-    if (tab === 'groups') loadGroups();
-    if (tab === 'senders') loadSenders();
-    if (tab === 'templates') loadTemplates();
-    if (tab === 'drafts') loadDrafts();
-    if (tab === 'conversations') loadConversations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
-
-  useEffect(() => {
-    if (!compose.content) { setRoutePreview(null); return undefined; }
-    const timer = setTimeout(async () => {
-      try {
-        const preview = await readJson('/api/v2/merchant/communication/sms/preview', {
-          method: 'POST',
-          body: JSON.stringify({
-            content: compose.content,
-            senderId: compose.senderId || null,
-            routingStrategy: compose.routingStrategy,
-            countryCode: compose.countryCode,
-            currencyCode: compose.currencyCode,
-            requireDeliveryReceipts: compose.requireDeliveryReceipts,
-            requireInbound: compose.requireInbound,
-          }),
-        });
-        setRoutePreview(preview);
-      } catch (e) {
-        setRoutePreview({ routable: false, explanation: e.message });
-      }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [compose.content, compose.senderId, compose.routingStrategy, compose.countryCode, compose.currencyCode, compose.requireDeliveryReceipts, compose.requireInbound]);
-
-  const updateCompose = (name, value) => setCompose((current) => ({ ...current, [name]: value }));
-  const toggleId = (name, id) => setCompose((current) => {
-    const list = new Set(current[name]);
-    if (list.has(id)) list.delete(id); else list.add(id);
-    return { ...current, [name]: Array.from(list) };
-  });
-
-  const sendMessage = async () => {
-    if (!canSend) { setError('Your role does not include SMS sending permission.'); return; }
-    if (!compose.content.trim()) { setError('Write a message before sending.'); return; }
-    if (compose.requireInbound && !canTwoWay) { setError('Choose an approved two-way sender before enabling replies.'); return; }
-    const recipients = compose.recipients.split(/[\n,;]+/).map((v) => v.trim()).filter(Boolean);
-    if (!recipients.length && !compose.contactIds.length && !compose.groupIds.length) {
-      setError('Add a phone number, contact or group.'); return;
-    }
-    setSaving(true);
-    const result = await work(() => readJson('/api/v2/merchant/communication/sms/send', {
-      method: 'POST',
-      body: JSON.stringify({ ...compose, recipients, scheduledAt: compose.scheduledAt ? new Date(compose.scheduledAt).toISOString() : null }),
-    }));
-    setSaving(false);
-    if (!result) return;
-    const suffix = result.suppressed ? ` ${result.suppressed} marketing opt-out recipient(s) were skipped.` : '';
-    setNotice(`${result.accepted} SMS message(s) accepted.${suffix}`);
-    setCompose((current) => ({ ...current, recipients: '', contactIds: [], groupIds: [], content: '', scheduledAt: '' }));
-    setRoutePreview(null);
-    loadOverview();
-  };
-
-  const saveDraft = async () => {
-    if (!compose.content.trim()) { setError('Write a message before saving a draft.'); return; }
-    const result = await work(() => readJson('/api/v2/merchant/communication/sms/drafts', {
-      method: 'POST',
-      body: JSON.stringify({
-        title: compose.content.slice(0, 60), recipientMode: 'MIXED',
-        recipientPayloadJson: JSON.stringify({ recipients: compose.recipients, contactIds: compose.contactIds, groupIds: compose.groupIds }),
-        senderId: compose.senderId, purpose: compose.purpose, messageBody: compose.content,
-        routingStrategy: compose.routingStrategy, scheduledAt: compose.scheduledAt || null,
-      }),
-    }));
-    if (result) setNotice('Draft saved.');
-  };
-
-  const saveContact = async () => {
-    const result = await work(() => readJson('/api/v2/merchant/communication/sms/contacts', {
-      method: 'POST', body: JSON.stringify(contactForm),
-    }));
-    if (result) { setContactForm({ displayName: '', phone: '', email: '' }); setNotice('Contact saved.'); loadContacts(); }
-  };
-
-  const saveGroup = async () => {
-    const result = await work(() => readJson('/api/v2/merchant/communication/sms/groups', {
-      method: 'POST', body: JSON.stringify(groupForm),
-    }));
-    if (result) { setGroupForm({ groupName: '', description: '' }); setNotice('Group saved.'); loadGroups(); }
-  };
-
-  const requestSender = async () => {
-    const result = await work(() => readJson('/api/v2/merchant/communication/sms/sender-identities', {
-      method: 'POST', body: JSON.stringify(senderForm),
-    }));
-    if (result) { setSenderForm({ senderId: '', senderType: 'ALPHANUMERIC', providerCode: '', countryCode: 'UG', notes: '' }); setNotice('Sender identity submitted for approval.'); loadSenders(); }
-  };
-
-  const openConversation = async (conversation) => {
-    setSelectedConversation(conversation); setReply('');
-    const rows = await work(() => readJson(`/api/v2/merchant/communication/sms/conversations/${encodeURIComponent(conversation.conversationId)}/messages`));
-    if (rows) setConversationMessages([...rows].reverse());
-  };
-
-  const replyToConversation = async () => {
-    if (!selectedConversation || !reply.trim()) return;
-    const result = await work(() => readJson(`/api/v2/merchant/communication/sms/conversations/${encodeURIComponent(selectedConversation.conversationId)}/reply`, {
-      method: 'POST', body: JSON.stringify({ content: reply }),
-    }));
-    if (result) { setReply(''); setNotice('Reply queued.'); openConversation(selectedConversation); }
-  };
-
-  const useTemplate = (template) => {
-    setCompose((current) => ({ ...current, content: template.body || '' }));
-    setTab('compose');
-  };
-
-  const loadDraft = (draft) => {
-    let recipients = '';
-    let contactIds = [];
-    let groupIds = [];
-    try {
-      const payload = typeof draft.recipientPayload === 'string' ? JSON.parse(draft.recipientPayload) : draft.recipientPayload;
-      recipients = payload?.recipients || '';
-      contactIds = payload?.contactIds || [];
-      groupIds = payload?.groupIds || [];
-    } catch (_) { /* legacy draft payload is optional */ }
-    setCompose((current) => ({
-      ...current, recipients, contactIds, groupIds, senderId: draft.senderId || '', purpose: draft.purpose || 'NOTIFICATION',
-      content: draft.messageBody || '', routingStrategy: draft.routingStrategy || 'BALANCED', scheduledAt: '',
-    }));
-    setTab('compose');
-  };
-
-  const table = (rows, columns, emptyText = 'Nothing here yet.') => (
-    rows.length ? (
-      <div className="sms-table-wrap"><table className="sms-table"><thead><tr>{columns.map((c) => <th key={c.key}>{c.label}</th>)}</tr></thead>
-        <tbody>{rows.map((row, index) => <tr key={row.id || row.messageReference || row.conversationId || row.draftId || index}>{columns.map((c) => <td key={c.key}>{c.render ? c.render(row) : (row[c.key] ?? '—')}</td>)}</tr>)}</tbody>
-      </table></div>
-    ) : <Empty>{emptyText}</Empty>
-  );
-
-  const renderOverview = () => {
-    const m = overview.metrics || {};
-    return <>
-      <div className="sms-metrics">
-        <Metric label="Messages" value={m.totalMessages} hint="All SMS activity" />
-        <Metric label="Scheduled" value={m.scheduledMessages} hint="Waiting to send" />
-        <Metric label="Contacts" value={m.contacts} hint={`${m.contactGroups || 0} groups`} />
-        <Metric label="Unread" value={m.unreadConversations} hint="Two-way conversations" />
-        <Metric label="Approved senders" value={m.approvedSenders} hint="Ready to use" />
-      </div>
-      <div className="sms-card">
-        <SectionHeader title="SMS at a glance" description="Cito automatically chooses an eligible route using cost, provider health, capability and your routing policy." action={<button className="sms-btn sms-btn--primary" onClick={() => setTab('compose')}>Compose SMS</button>} />
-        <div className="sms-explainer-grid">
-          <div><strong>Smart routing</strong><span>Least-cost and health-aware provider selection with automatic retry and fallback.</span></div>
-          <div><strong>Two-way ready</strong><span>Inbound messages, replies, delivery receipts and conversation history for supported sender numbers.</span></div>
-          <div><strong>API first</strong><span>The same scheduling, sender, routing and segment logic is available through the Cito communications APIs.</span></div>
-        </div>
-      </div>
-      <div className="sms-card"><SectionHeader title="Recent activity" description="Latest outbound SMS messages." />
-        {table(overview.recent || [], [
-          { key: 'messageReference', label: 'Reference' },
-          { key: 'recipient', label: 'Recipient' },
-          { key: 'status', label: 'Status', render: (r) => <Status value={r.status} /> },
-          { key: 'provider', label: 'Route' },
-          { key: 'createdAt', label: 'Created', render: (r) => fmtDate(r.createdAt) },
-        ])}
-      </div>
-    </>;
-  };
-
-  const renderCompose = () => <div className="sms-compose-layout">
-    <div className="sms-card sms-compose-main">
-      <SectionHeader title="Compose SMS" description="Send to one number, contacts, groups or any combination. Duplicates are removed automatically." />
-      <label className="sms-field"><span>Direct recipients</span><textarea rows="3" value={compose.recipients} onChange={(e) => updateCompose('recipients', e.target.value)} placeholder="+256700000000, +2567… or one number per line" /></label>
-      <div className="sms-picker-row">
-        <div><span className="sms-field-label">Contacts</span><div className="sms-chip-list">{contacts.slice(0, 30).map((c) => <button key={c.id} type="button" className={`sms-chip ${compose.contactIds.includes(c.id) ? 'is-selected' : ''}`} onClick={() => toggleId('contactIds', c.id)}>{c.displayName || c.phone}</button>)}</div></div>
-        <div><span className="sms-field-label">Groups</span><div className="sms-chip-list">{groups.map((g) => <button key={g.id} type="button" className={`sms-chip ${compose.groupIds.includes(g.id) ? 'is-selected' : ''}`} onClick={() => toggleId('groupIds', g.id)}>{g.groupName} <small>{g.memberCount || 0}</small></button>)}</div></div>
-      </div>
-      <div className="sms-form-grid">
-        <label className="sms-field"><span>Sender ID</span><select value={compose.senderId} onChange={(e) => { updateCompose('senderId', e.target.value); if (!truthyFlag(approvedSenders.find((s) => s.senderId === e.target.value)?.twoWayCapable)) updateCompose('requireInbound', false); }}><option value="">Provider default</option>{approvedSenders.map((s) => <option key={s.id} value={s.senderId}>{s.senderId} · {s.senderType}{truthyFlag(s.twoWayCapable) ? ' · two-way' : ''}</option>)}</select></label>
-        <label className="sms-field"><span>Purpose</span><select value={compose.purpose} onChange={(e) => updateCompose('purpose', e.target.value)}><option>NOTIFICATION</option><option>TRANSACTIONAL</option><option>OTP</option><option>SECURITY</option><option>MARKETING</option></select></label>
-      </div>
-      <label className="sms-field sms-message-field"><span>Message</span><textarea rows="8" value={compose.content} onChange={(e) => updateCompose('content', e.target.value)} placeholder="Write your message…" /><div className="sms-counter"><span>{analysis.encoding}</span><span>{analysis.characters} characters</span><span>{analysis.segments} segment{analysis.segments === 1 ? '' : 's'}</span><span>{analysis.remaining} remaining</span></div></label>
-      {analysis.segments > 10 ? <div className="sms-callout sms-callout--warning">This message uses {analysis.segments} SMS segments per recipient. Shortening it can materially reduce cost.</div> : null}
-      <div className="sms-form-grid">
-        <label className="sms-field"><span>Send</span><input type="datetime-local" value={compose.scheduledAt} onChange={(e) => updateCompose('scheduledAt', e.target.value)} /><small>Leave blank to send now.</small></label>
-        <label className="sms-field"><span>Routing strategy</span><select value={compose.routingStrategy} onChange={(e) => updateCompose('routingStrategy', e.target.value)}><option value="BALANCED">Balanced · recommended</option><option value="LOWEST_COST">Lowest cost</option><option value="RELIABILITY_FIRST">Reliability first</option><option value="PRIORITY">Configured priority</option></select></label>
-      </div>
-      <div className="sms-options">
-        <label><input type="checkbox" checked={compose.requireDeliveryReceipts} onChange={(e) => updateCompose('requireDeliveryReceipts', e.target.checked)} /> Delivery receipts</label>
-        <label className={!canTwoWay ? 'is-disabled' : ''}><input type="checkbox" disabled={!canTwoWay} checked={compose.requireInbound} onChange={(e) => updateCompose('requireInbound', e.target.checked)} /> Allow replies / two-way SMS</label>
-        <label><input type="checkbox" checked={compose.fallbackEnabled} onChange={(e) => updateCompose('fallbackEnabled', e.target.checked)} /> Automatic fallback</label>
-      </div>
-      <div className="sms-actions"><button className="sms-btn" onClick={saveDraft}>Save draft</button><button className="sms-btn sms-btn--primary" disabled={saving || !canSend} onClick={sendMessage}>{compose.scheduledAt ? 'Schedule SMS' : 'Send SMS'}</button></div>
-    </div>
-    <aside className="sms-card sms-route-card">
-      <SectionHeader title="Route & cost" description="Live estimate. Final routing is re-checked at dispatch." />
-      {routePreview ? <>
-        <div className="sms-route-result"><span>Recommended route</span><strong>{routePreview.selectedProvider || 'No eligible route'}</strong><Status value={routePreview.routable ? 'AVAILABLE' : 'UNAVAILABLE'} /></div>
-        <dl><div><dt>Strategy</dt><dd>{routePreview.routingStrategy || compose.routingStrategy}</dd></div><div><dt>Segments</dt><dd>{routePreview.segments ?? analysis.segments}</dd></div><div><dt>Estimated provider cost</dt><dd>{routePreview.expectedProviderCost == null ? 'Rate not configured' : `${routePreview.currencyCode || compose.currencyCode} ${routePreview.expectedProviderCost}`}</dd></div></dl>
-        <p className="sms-route-explanation">{routePreview.explanation}</p>
-        {Array.isArray(routePreview.candidates) && routePreview.candidates.length ? <details><summary>Routing candidates</summary>{routePreview.candidates.map((c) => <div key={c.providerCode} className="sms-candidate"><strong>{c.providerCode}</strong><span>{c.eligible ? `Score ${c.score ?? '—'} · ${c.healthState}` : c.exclusionReason}</span></div>)}</details> : null}
-      </> : <Empty>Write a message to preview routing and estimated cost.</Empty>}
-      <div className="sms-callout"><strong>Provider choice stays automatic.</strong> Cito filters unsupported or unavailable channels first, then optimises within the eligible set.</div>
-    </aside>
-  </div>;
-
-  const renderConversations = () => <div className="sms-conversation-layout">
-    <div className="sms-card sms-thread-list"><SectionHeader title="Conversations" description="Inbound and two-way SMS threads." />
-      {conversations.length ? conversations.map((c) => <button key={c.conversationId} className={`sms-thread ${selectedConversation?.conversationId === c.conversationId ? 'is-selected' : ''}`} onClick={() => openConversation(c)}><div><strong>{c.contactName || c.phone}</strong>{Number(c.unreadCount) > 0 ? <b>{c.unreadCount}</b> : null}</div><span>{c.senderId || 'Sender'} · {c.provider || 'Auto route'}</span><small>{fmtDate(c.lastMessageAt)}</small></button>) : <Empty>No two-way SMS conversations yet.</Empty>}
-    </div>
-    <div className="sms-card sms-thread-pane">{selectedConversation ? <>
-      <SectionHeader title={selectedConversation.contactName || selectedConversation.phone} description={`${selectedConversation.phone} · ${selectedConversation.senderId || 'sender'}`} />
-      <div className="sms-bubbles">{conversationMessages.map((m) => <div key={m.messageId} className={`sms-bubble sms-bubble--${String(m.direction || '').toLowerCase()}`}><p>{m.body}</p><small>{m.direction} · {fmtDate(m.occurredAt)} · {m.status}</small></div>)}</div>
-      <div className="sms-reply"><textarea rows="3" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Reply…" /><button className="sms-btn sms-btn--primary" onClick={replyToConversation}>Send reply</button></div>
-    </> : <Empty>Select a conversation to read and reply.</Empty>}</div>
-  </div>;
-
-  const historyColumns = [
-    { key: 'messageReference', label: 'Reference' }, { key: 'recipient', label: 'Recipient' }, { key: 'senderId', label: 'Sender' },
-    { key: 'status', label: 'Status', render: (r) => <Status value={r.status} /> }, { key: 'provider', label: 'Provider' },
-    { key: 'segments', label: 'Segments' }, { key: 'encoding', label: 'Encoding' },
-    { key: 'scheduledAt', label: 'Scheduled', render: (r) => fmtDate(r.scheduledAt) }, { key: 'createdAt', label: 'Created', render: (r) => fmtDate(r.createdAt) },
-  ];
-
-  const renderContacts = () => <div className="sms-split"><div className="sms-card"><SectionHeader title="Address book" description="Reusable, deduplicated recipient records." />{table(contacts, [
-    { key: 'displayName', label: 'Name' }, { key: 'phone', label: 'Phone' }, { key: 'email', label: 'Email' },
-    { key: 'actions', label: '', render: (r) => <button className="sms-link" onClick={async () => { await work(() => readJson(`/api/v2/merchant/communication/sms/contacts/${r.id}`, { method: 'DELETE' })); loadContacts(); }}>Remove</button> },
-  ])}</div><div className="sms-card sms-form-card"><SectionHeader title="Add contact" /><label className="sms-field"><span>Name</span><input value={contactForm.displayName} onChange={(e) => setContactForm({ ...contactForm, displayName: e.target.value })} /></label><label className="sms-field"><span>Phone</span><input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="+256…" /></label><label className="sms-field"><span>Email · optional</span><input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} /></label><button className="sms-btn sms-btn--primary" onClick={saveContact}>Save contact</button></div></div>;
-
-  const renderGroups = () => <div className="sms-split"><div className="sms-card"><SectionHeader title="Contact groups" description="Build reusable audiences without copying phone lists." />{table(groups, [{ key: 'groupName', label: 'Group' }, { key: 'description', label: 'Description' }, { key: 'memberCount', label: 'Members' }, { key: 'updatedAt', label: 'Updated', render: (r) => fmtDate(r.updatedAt) }])}</div><div className="sms-card sms-form-card"><SectionHeader title="Create group" /><label className="sms-field"><span>Group name</span><input value={groupForm.groupName} onChange={(e) => setGroupForm({ ...groupForm, groupName: e.target.value })} /></label><label className="sms-field"><span>Description</span><textarea rows="3" value={groupForm.description} onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })} /></label><button className="sms-btn sms-btn--primary" onClick={saveGroup}>Save group</button><p className="sms-muted">Add members by selecting contacts and groups from Compose. Group membership management remains available through the SMS workspace API.</p></div></div>;
-
-  const renderSenders = () => <div className="sms-split"><div className="sms-card"><SectionHeader title="Sender identities" description="Only approved identities appear in the composer. Alphanumeric sender IDs are outbound-only unless a provider explicitly supports replies." />{table(senders, [
-    { key: 'senderId', label: 'Sender' }, { key: 'senderType', label: 'Type' }, { key: 'approvalStatus', label: 'Approval', render: (r) => <Status value={r.approvalStatus} /> }, { key: 'providerCode', label: 'Provider' }, { key: 'twoWayCapable', label: 'Two-way', render: (r) => truthyFlag(r.twoWayCapable) ? 'Yes' : 'No' },
-  ])}</div><div className="sms-card sms-form-card"><SectionHeader title="Request sender" /><label className="sms-field"><span>Sender ID / number</span><input value={senderForm.senderId} onChange={(e) => setSenderForm({ ...senderForm, senderId: e.target.value })} /></label><label className="sms-field"><span>Type</span><select value={senderForm.senderType} onChange={(e) => setSenderForm({ ...senderForm, senderType: e.target.value })}><option>ALPHANUMERIC</option><option>LONG_NUMBER</option><option>SHORT_CODE</option></select></label><label className="sms-field"><span>Provider · optional</span><input value={senderForm.providerCode} onChange={(e) => setSenderForm({ ...senderForm, providerCode: e.target.value })} placeholder="e.g. YO_SMS" /></label><label className="sms-field"><span>Country</span><input value={senderForm.countryCode} onChange={(e) => setSenderForm({ ...senderForm, countryCode: e.target.value.toUpperCase() })} /></label><button className="sms-btn sms-btn--primary" onClick={requestSender}>Submit for approval</button></div></div>;
-
-  const content = (() => {
-    if (tab === 'overview') return renderOverview();
-    if (tab === 'compose') return renderCompose();
-    if (tab === 'conversations') return renderConversations();
-    if (tab === 'scheduled') return <div className="sms-card"><SectionHeader title="Scheduled SMS" description="Messages waiting for their send time. Provider selection is re-evaluated at dispatch." />{table(history, historyColumns, 'No scheduled SMS messages.')}</div>;
-    if (tab === 'history') return <div className="sms-card"><SectionHeader title="SMS history" description="Searchable delivery evidence across scheduled and immediate sends." />{table(history, historyColumns)}</div>;
-    if (tab === 'contacts') return renderContacts();
-    if (tab === 'groups') return renderGroups();
-    if (tab === 'senders') return renderSenders();
-    if (tab === 'templates') return <div className="sms-card"><SectionHeader title="Templates" description="Reusable message content. Variables are rendered by the Communications service when configured." />{table(templates, [{ key: 'templateKey', label: 'Template' }, { key: 'body', label: 'Message' }, { key: 'actions', label: '', render: (r) => <button className="sms-link" onClick={() => useTemplate(r)}>Use template</button> }])}</div>;
-    if (tab === 'drafts') return <div className="sms-card"><SectionHeader title="Drafts" description="Resume unfinished messages without rebuilding the audience and routing choices." />{table(drafts, [{ key: 'title', label: 'Draft' }, { key: 'purpose', label: 'Purpose' }, { key: 'senderId', label: 'Sender' }, { key: 'updatedAt', label: 'Updated', render: (r) => fmtDate(r.updatedAt) }, { key: 'actions', label: '', render: (r) => <div className="sms-inline-actions"><button className="sms-link" onClick={() => loadDraft(r)}>Open</button><button className="sms-link sms-link--danger" onClick={async () => { await work(() => readJson(`/api/v2/merchant/communication/sms/drafts/${encodeURIComponent(r.draftId)}`, { method: 'DELETE' })); loadDrafts(); }}>Delete</button></div> }])}</div>;
-    return null;
-  })();
-
-  return (
-    <div className="sms-workspace">
-      <div className="sms-workspace-head"><div><span className="sms-eyebrow">Communications · SMS</span><h2>Message customers without managing gateway plumbing</h2><p>Compose, schedule, route, track and reply to SMS from one workspace. Cito chooses an eligible delivery provider automatically unless policy requires otherwise.</p></div><button className="sms-btn sms-btn--primary" onClick={() => setTab('compose')}>New SMS</button></div>
-      <nav className="sms-tabs" aria-label="SMS workspace">{TABS.map(([key, label]) => <button key={key} className={tab === key ? 'is-active' : ''} onClick={() => setTab(key)}>{label}{key === 'conversations' && Number(overview.metrics?.unreadConversations) > 0 ? <b>{overview.metrics.unreadConversations}</b> : null}</button>)}</nav>
-      {notice ? <div className="sms-notice sms-notice--success">{notice}</div> : null}
-      {error ? <div className="sms-notice sms-notice--error">{error}</div> : null}
-      {content}
-      <Messager ref={messagerRef} />
-    </div>
-  );
-}
-
-export default MerchantModuleSms;
