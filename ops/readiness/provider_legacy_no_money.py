@@ -32,6 +32,9 @@ def run():
             merchant_mode = str(values.get("use_merchant_provider_credentials") or "").lower() in {"true", "yes", "1"}
             emit({"legacyMerchantCredentialMode": merchant_mode, "legacySandboxSimulation": str(values.get("application_settings_state") or "").lower() == "sandbox" and str(values.get("simulate_transactions") or "").lower() == "yes"})
             if merchant_mode:
+                names = ["gw_mtn_api_collections_user_id", "gw_mtn_api_collections_user_key", "gw_mtn_api_collections_subscription_key", "gw_mtn_api_disbursements_user_id", "gw_mtn_api_disbursements_user_key", "gw_mtn_api_disbursements_subscription_key", "gw_airtelmoney_api_username", "gw_airtelmoney_api_password"]
+                emit({"source": "LEGACY_GLOBAL_NOT_SELECTED", "configuredFieldNames": [name for name in names if str(values.get(name) or "").strip()], "missingFieldNames": [name for name in names if not str(values.get(name) or "").strip()], "tokenObtained": False})
+            if merchant_mode:
                 cursor.execute("SELECT merchant_id, name, setting_value FROM merchant_settings WHERE name LIKE 'gw_mtn_api_%' OR name LIKE 'gw_airtelmoney_%' ORDER BY merchant_id LIMIT 2001")
                 rows = cursor.fetchall()
                 if len(rows) > 2000:
