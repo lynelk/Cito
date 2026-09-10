@@ -9,7 +9,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice(
-        assignableTypes = {ProductExperienceController.class, PublicExperienceController.class})
+        assignableTypes = {
+            ProductExperienceController.class,
+            PublicExperienceController.class,
+            MerchantOnboardingController.class
+        })
 public class ExperienceExceptionHandler {
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<Map<String, Object>> unavailable(DataAccessException exception) {

@@ -8,8 +8,11 @@ Cito is the platform. CPay is the payments capability within Cito. API documenta
 | --- | --- | --- | --- | --- |
 | CPay Payments API | `Docs/Api/cpay-v2-openapi.yaml` | Server-to-server payment integrations and payment-adjacent compatibility surfaces | CPay v2 request signature or explicitly documented admin/public auth | Owns payment execution and compatibility routes that are not assigned to a more specific Cito contract |
 | Cito Platform API | `Docs/Api/cito-platform-v2-openapi.yaml` | Signed-in merchant workspace, platform services, developer control plane and merchant capability APIs | Cito merchant session plus service/environment entitlements | Owns merchant-facing platform and capability routes |
+| Cito Merchant Onboarding API | `Docs/Api/cito-onboarding-v2-openapi.yaml` | Merchant and administrator onboarding/readiness clients | Cito merchant/admin session with tenant-scope enforcement | Owns `/api/v2/merchants/{merchantId}/onboarding` and its readiness schema as a specialized Cito Platform sub-contract |
 | Cito Admin API | `Docs/Api/cito-admin-v2-openapi.yaml` | Administrator-only Cito operations and control-plane routes | Cito administrator session/RBAC | Owns `/api/v2/admin/**` routes unless a route is explicitly designated as a payment-compatibility alias |
 | Cito Billing BaaS API | `Docs/Api/cito-billing-baas-v2.1-openapi.yaml` | Billing/BaaS tenants, merchants and embedded billing integrations | Billing/BaaS tenant/API-key/service-account contract as documented | Owns current Billing BaaS routes and schemas; this is the current versioned source for Billing BaaS |
+
+The dedicated onboarding contract is a specialized Cito Platform sub-contract. For its onboarding path and schemas it is authoritative, not a duplicate compatibility copy. It is validated, linted and published by the API documentation workflow alongside the broader platform contract.
 
 ### Compatibility specifications
 
@@ -27,12 +30,14 @@ Supporting documentation remains authoritative for behavior that does not belong
 - `Docs/CITO_BRAND_AND_MODULE_BOUNDARY.md` - platform/module naming boundary
 - `Docs/CITO_SECURITY_ARCHITECTURE.md` - layered platform security architecture
 - `Docs/Api/Cito-API-Lifecycle-and-Contract-Standard.md` - normative API ownership and lifecycle rules
+- `Docs/Experience/Merchant-Onboarding-and-Readiness.md` - canonical onboarding/readiness projection and UX semantics
 
 ## Platform API groups
 
 The Cito Platform contract currently includes merchant self-service APIs for:
 
 - service catalog and merchant entitlements;
+- coherent merchant onboarding and production readiness;
 - developer projects, service accounts, credentials, test events, request logs and readiness;
 - intelligent payment routing simulation, policies, rules and decisions;
 - marketplace subaccounts, split rules, executions, refund allocations and recovery events;
