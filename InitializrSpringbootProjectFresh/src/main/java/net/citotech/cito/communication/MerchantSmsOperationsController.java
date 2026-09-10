@@ -26,13 +26,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Campaign, delivery-report and usage surfaces for the merchant SMS workspace.
- * Bulk sends deliberately use the same durable communication outbox as single SMS.
- */
+/** Campaign, delivery-report and usage surfaces for the merchant SMS workspace. */
 @RestController
 @RequestMapping("/api/v2/merchant/communication/sms")
 public class MerchantSmsOperationsController {
+
+    private static final int MAX_CAMPAIGN_RECIPIENTS = 5000;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final MerchantCommunicationService communicationService;
@@ -63,7 +62,10 @@ public class MerchantSmsOperationsController {
                 + " GROUP BY c.id,c.name,c.status,c.total_recipients,c.processed_recipients,c.scheduled_at,c.created_at,c.updated_at"
                 + " ORDER BY c.created_at DESC LIMIT :limit";
         return ResponseEntity.ok(jdbcTemplate.queryForList(
-                sql, new MapSqlParameterSource().addValue("merchant", merchantId(user)).addValue("limit", safeLimit)));
+                sql,
+                new MapSqlParameterSource()
+                        .addValue("merchant", merchantId(user))
+                        .addValue("limit", safeLimit)));
     }
 
     @PostMapping(path = "/campaigns", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -72,20 +74,18 @@ public class MerchantSmsOperationsController {
         if (user == null) return unauthorized();
         if (input == null || blank(input.name())) return bad("Campaign name is required.");
         if (blank(input.content())) return bad("Campaign message is required.");
-        if (input.recipients() == null || input.recipients().isEmpty()) return bad("Add at least one campaign recipient.");
-        if (input.recipients().size() > 5000) return bad("A campaign can contain at most 5,000 recipients per submission.");
+        if (!hasAudience(input)) return bad("Add recipients, contacts or at least one contact group.");
 
         long merchantId = merchantId(user);
         try {
-            LinkedHashMap<String, CampaignRecipient> unique = new LinkedHashMap<>();
-            for (CampaignRecipient row : input.recipients()) {
-                if (row == null) continue;
-                String phone = normalizePhone(row.phone());
-                unique.putIfAbsent(phone, new CampaignRecipient(phone, row.variables()));
+            LinkedHashMap<String, CampaignRecipient> unique = expandAudience(merchantId, input);
+            if (unique.isEmpty()) return bad("No valid campaign recipients were found.");
+            if (unique.size() > MAX_CAMPAIGN_RECIPIENTS) {
+                return bad("A campaign can contain at most 5,000 unique recipients per submission.");
             }
-            if (unique.isEmpty()) return bad("No valid campaign recipients were provided.");
 
-            String status = blank(input.scheduledAt()) ? "QUEUED" : "SCHEDULED";
+            Timestamp scheduled = scheduleTimestamp(input.scheduledAt());
+            String status = scheduled == null ? "QUEUED" : "SCHEDULED";
             KeyHolder keyHolder = new GeneratedKeyHolder();
             jdbcTemplate.update(
                     "INSERT INTO communication_campaigns"
@@ -96,7 +96,7 @@ public class MerchantSmsOperationsController {
                             .addValue("name", input.name().trim())
                             .addValue("total", unique.size())
                             .addValue("status", status)
-                            .addValue("scheduled", scheduleTimestamp(input.scheduledAt()))
+                            .addValue("scheduled", scheduled)
                             .addValue("createdBy", userLabel(user)),
                     keyHolder,
                     new String[] {"id"});
@@ -108,9 +108,10 @@ public class MerchantSmsOperationsController {
             int suppressed = 0;
             int index = 0;
             List<Map<String, Object>> messages = new ArrayList<>();
+            String purpose = blank(input.purpose()) ? "MARKETING" : input.purpose().trim().toUpperCase(Locale.ROOT);
             for (CampaignRecipient recipient : unique.values()) {
                 String rendered = personalize(input.content(), recipient.variables());
-                if ("MARKETING".equalsIgnoreCase(input.purpose()) && isSuppressed(merchantId, recipient.phone())) {
+                if ("MARKETING".equals(purpose) && isSuppressed(merchantId, recipient.phone())) {
                     insertCampaignItem(campaignId, recipient.phone(), null, rendered, "SUPPRESSED", "Marketing opt-out");
                     suppressed++;
                     index++;
@@ -121,7 +122,7 @@ public class MerchantSmsOperationsController {
                         merchantId,
                         recipient.phone(),
                         rendered,
-                        input.purpose(),
+                        purpose,
                         reference,
                         reference,
                         input.expiresInSeconds(),
@@ -132,25 +133,33 @@ public class MerchantSmsOperationsController {
                                 Boolean.TRUE.equals(input.requireInbound()),
                                 input.fallbackEnabled() == null || input.fallbackEnabled()));
                 String messageReference = String.valueOf(queued.getOrDefault("messageReference", ""));
-                insertCampaignItem(campaignId, recipient.phone(), blank(messageReference) ? null : messageReference,
-                        rendered, "QUEUED", reference);
+                insertCampaignItem(
+                        campaignId,
+                        recipient.phone(),
+                        blank(messageReference) ? null : messageReference,
+                        rendered,
+                        "QUEUED",
+                        reference);
                 messages.add(queued);
                 accepted++;
                 index++;
             }
             jdbcTemplate.update(
-                    "UPDATE communication_campaigns SET processed_recipients=:processed,updated_at=NOW() WHERE id=:id AND merchant_id=:merchant",
+                    "UPDATE communication_campaigns SET processed_recipients=:processed,updated_at=NOW()"
+                            + " WHERE id=:id AND merchant_id=:merchant",
                     new MapSqlParameterSource()
                             .addValue("processed", accepted + suppressed)
                             .addValue("id", campaignId)
                             .addValue("merchant", merchantId));
-            return ResponseEntity.accepted().body(Map.of(
-                    "campaignId", campaignId,
-                    "name", input.name().trim(),
-                    "accepted", accepted,
-                    "suppressed", suppressed,
-                    "scheduled", !blank(input.scheduledAt()),
-                    "messages", messages));
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("campaignId", campaignId);
+            response.put("name", input.name().trim());
+            response.put("audience", unique.size());
+            response.put("accepted", accepted);
+            response.put("suppressed", suppressed);
+            response.put("scheduled", scheduled != null);
+            response.put("messages", messages);
+            return ResponseEntity.accepted().body(response);
         } catch (IllegalArgumentException e) {
             return bad(e.getMessage());
         }
@@ -177,7 +186,8 @@ public class MerchantSmsOperationsController {
                             + " JSON_UNQUOTE(JSON_EXTRACT(m.metadata_json,'$.encoding')) encoding,"
                             + " m.scheduled_at scheduledAt,m.created_at createdAt,d.updated_at deliveryUpdatedAt"
                             + " FROM communication_messages m"
-                            + " LEFT JOIN communication_message_deliveries d ON d.id=(SELECT MAX(d2.id) FROM communication_message_deliveries d2"
+                            + " LEFT JOIN communication_message_deliveries d ON d.id=(SELECT MAX(d2.id)"
+                            + " FROM communication_message_deliveries d2"
                             + " WHERE d2.reference_id=m.id AND d2.merchant_id=m.merchant_id AND d2.channel='SMS')"
                             + " WHERE m.merchant_id=:merchant AND m.selected_channel='SMS'");
             MapSqlParameterSource params = new MapSqlParameterSource("merchant", merchantId(user));
@@ -245,7 +255,9 @@ public class MerchantSmsOperationsController {
         if (input == null || blank(input.senderId())) return bad("Sender ID or number is required.");
         if (blank(input.useCase())) return bad("Describe the sender ID purpose or use case.");
         String type = blank(input.senderType()) ? "ALPHANUMERIC" : input.senderType().trim().toUpperCase(Locale.ROOT);
-        if (!List.of("ALPHANUMERIC", "LONG_NUMBER", "SHORT_CODE").contains(type)) return bad("Unsupported sender type.");
+        if (!List.of("ALPHANUMERIC", "LONG_NUMBER", "SHORT_CODE").contains(type)) {
+            return bad("Unsupported sender type.");
+        }
         jdbcTemplate.update(
                 "INSERT INTO communication_sender_identities"
                         + " (merchant_id,sender_id,sender_type,provider_code,country_code,use_case,supporting_document_ref,approval_status,two_way_capable,notes)"
@@ -265,9 +277,64 @@ public class MerchantSmsOperationsController {
         return ResponseEntity.accepted().body(Map.of("requested", true, "approvalStatus", "PENDING"));
     }
 
-    private void insertCampaignItem(long campaignId, String phone, String messageReference, String body, String status, String trace) {
+    private LinkedHashMap<String, CampaignRecipient> expandAudience(long merchantId, CampaignRequest input) {
+        LinkedHashMap<String, CampaignRecipient> unique = new LinkedHashMap<>();
+        if (input.recipients() != null) {
+            for (CampaignRecipient row : input.recipients()) {
+                if (row == null) continue;
+                String phone = normalizePhone(row.phone());
+                unique.putIfAbsent(phone, new CampaignRecipient(phone, row.variables() == null ? Map.of() : row.variables()));
+            }
+        }
+        if (input.contactIds() != null && !input.contactIds().isEmpty()) {
+            List<Map<String, Object>> contacts = jdbcTemplate.queryForList(
+                    "SELECT phone_e164,display_name FROM communication_contacts"
+                            + " WHERE merchant_id=:merchant AND active_flag='Y' AND id IN (:ids)",
+                    new MapSqlParameterSource()
+                            .addValue("merchant", merchantId)
+                            .addValue("ids", input.contactIds()));
+            for (Map<String, Object> row : contacts) {
+                String phone = normalizePhone(String.valueOf(row.get("phone_e164")));
+                String name = row.get("display_name") == null ? "" : String.valueOf(row.get("display_name"));
+                unique.putIfAbsent(phone, new CampaignRecipient(phone, contactVariables(name)));
+            }
+        }
+        if (input.groupIds() != null && !input.groupIds().isEmpty()) {
+            List<Map<String, Object>> members = jdbcTemplate.queryForList(
+                    "SELECT c.phone_e164,c.display_name FROM communication_contact_group_members gm"
+                            + " JOIN communication_contact_groups g ON g.id=gm.group_id"
+                            + " JOIN communication_contacts c ON c.id=gm.contact_id"
+                            + " WHERE g.merchant_id=:merchant AND c.merchant_id=:merchant AND c.active_flag='Y'"
+                            + " AND gm.group_id IN (:groups)",
+                    new MapSqlParameterSource()
+                            .addValue("merchant", merchantId)
+                            .addValue("groups", input.groupIds()));
+            for (Map<String, Object> row : members) {
+                String phone = normalizePhone(String.valueOf(row.get("phone_e164")));
+                String name = row.get("display_name") == null ? "" : String.valueOf(row.get("display_name"));
+                unique.putIfAbsent(phone, new CampaignRecipient(phone, contactVariables(name)));
+            }
+        }
+        return unique;
+    }
+
+    private Map<String, String> contactVariables(String displayName) {
+        if (blank(displayName)) return Map.of();
+        String firstName = displayName.trim().split("\\s+", 2)[0];
+        return Map.of("name", displayName.trim(), "first_name", firstName);
+    }
+
+    private boolean hasAudience(CampaignRequest input) {
+        return (input.recipients() != null && !input.recipients().isEmpty())
+                || (input.contactIds() != null && !input.contactIds().isEmpty())
+                || (input.groupIds() != null && !input.groupIds().isEmpty());
+    }
+
+    private void insertCampaignItem(
+            long campaignId, String phone, String messageReference, String body, String status, String trace) {
         jdbcTemplate.update(
-                "INSERT INTO communication_campaign_items (campaign_id,recipient,message_reference,message_body,status,trace)"
+                "INSERT INTO communication_campaign_items"
+                        + " (campaign_id,recipient,message_reference,message_body,status,trace)"
                         + " VALUES (:campaign,:recipient,:messageReference,:body,:status,:trace)",
                 new MapSqlParameterSource()
                         .addValue("campaign", campaignId)
@@ -293,7 +360,10 @@ public class MerchantSmsOperationsController {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM communication_sms_suppressions WHERE merchant_id=:merchant"
                         + " AND phone_e164=:phone AND scope='MARKETING' AND active_flag='Y'",
-                new MapSqlParameterSource().addValue("merchant", merchantId).addValue("phone", phone), Integer.class);
+                new MapSqlParameterSource()
+                        .addValue("merchant", merchantId)
+                        .addValue("phone", phone),
+                Integer.class);
         return count != null && count > 0;
     }
 
@@ -305,10 +375,9 @@ public class MerchantSmsOperationsController {
     }
 
     private long merchantId(MerchantUser user) {
-        Object value = user.getMerchant_id();
-        if (value instanceof Number number) return number.longValue();
-        try { return Long.parseLong(String.valueOf(value)); }
-        catch (Exception e) { throw new IllegalStateException("Merchant session has no valid merchant id."); }
+        Long value = user.getMerchant_id();
+        if (value == null || value <= 0) throw new IllegalStateException("Merchant session has no valid merchant id.");
+        return value;
     }
 
     private String userLabel(MerchantUser user) {
@@ -319,35 +388,65 @@ public class MerchantSmsOperationsController {
 
     private Timestamp scheduleTimestamp(String value) {
         if (blank(value)) return null;
-        try { return Timestamp.from(OffsetDateTime.parse(value.trim()).toInstant()); }
-        catch (DateTimeParseException e) {
-            try { return Timestamp.valueOf(value.trim().replace('T', ' ')); }
-            catch (IllegalArgumentException invalid) { throw new IllegalArgumentException("Invalid campaign schedule."); }
+        try {
+            return Timestamp.from(OffsetDateTime.parse(value.trim()).toInstant());
+        } catch (DateTimeParseException e) {
+            try {
+                return Timestamp.valueOf(value.trim().replace('T', ' '));
+            } catch (IllegalArgumentException invalid) {
+                throw new IllegalArgumentException("Invalid campaign schedule.");
+            }
         }
     }
 
     private String normalizePhone(String value) {
         if (blank(value)) throw new IllegalArgumentException("Recipient phone is required.");
         String normalized = value.trim().replaceAll("[\\s()-]", "");
-        if (!normalized.matches("\\+?[0-9]{7,15}")) throw new IllegalArgumentException("Invalid recipient phone: " + value);
+        if (!normalized.matches("\\+?[0-9]{7,15}")) {
+            throw new IllegalArgumentException("Invalid recipient phone: " + value);
+        }
         return normalized;
     }
 
-    private boolean blank(String value) { return value == null || value.trim().isEmpty(); }
+    private boolean blank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
 
     private ResponseEntity<?> unauthorized() {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("code", "MERCHANT_SESSION_REQUIRED"));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("code", "MERCHANT_SESSION_REQUIRED"));
     }
 
     private ResponseEntity<?> bad(String message) {
-        return ResponseEntity.badRequest().body(Map.of("code", "INVALID_SMS_OPERATION_REQUEST", "message", message));
+        return ResponseEntity.badRequest()
+                .body(Map.of("code", "INVALID_SMS_OPERATION_REQUEST", "message", message));
     }
 
     public record CampaignRecipient(String phone, Map<String, String> variables) {}
-    public record CampaignRequest(String name, List<CampaignRecipient> recipients, String content, String purpose,
-                                  Integer expiresInSeconds, String senderId, String scheduledAt, String routingStrategy,
-                                  String countryCode, String currencyCode, Boolean requireDeliveryReceipts,
-                                  Boolean requireInbound, Boolean fallbackEnabled) {}
-    public record SenderEvidenceRequest(String senderId, String senderType, String providerCode, String countryCode,
-                                        String useCase, String supportingDocumentRef, String notes) {}
+
+    public record CampaignRequest(
+            String name,
+            List<CampaignRecipient> recipients,
+            List<Long> contactIds,
+            List<Long> groupIds,
+            String content,
+            String purpose,
+            Integer expiresInSeconds,
+            String senderId,
+            String scheduledAt,
+            String routingStrategy,
+            String countryCode,
+            String currencyCode,
+            Boolean requireDeliveryReceipts,
+            Boolean requireInbound,
+            Boolean fallbackEnabled) {}
+
+    public record SenderEvidenceRequest(
+            String senderId,
+            String senderType,
+            String providerCode,
+            String countryCode,
+            String useCase,
+            String supportingDocumentRef,
+            String notes) {}
 }

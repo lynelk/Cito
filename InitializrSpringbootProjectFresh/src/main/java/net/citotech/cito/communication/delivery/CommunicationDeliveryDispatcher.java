@@ -1,5 +1,6 @@
 package net.citotech.cito.communication.delivery;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -42,7 +43,8 @@ public class CommunicationDeliveryDispatcher {
                                 new SmsCommunicationProviderAdapter(smsGateway, "LEGACY_SETTINGS"),
                                 new SmsCommunicationProviderAdapter(smsGateway, "YO_SMS"),
                                 new SmsCommunicationProviderAdapter(smsGateway, "AFRICAS_TALKING"),
-                                new SmsCommunicationProviderAdapter(smsGateway, "TWILIO_SMS"))),
+                                new SmsCommunicationProviderAdapter(smsGateway, "TWILIO_SMS"),
+                                new SmsCommunicationProviderAdapter(smsGateway, "SMSMOBILO_SMS"))),
                 emailDeliveryService,
                 null);
     }
@@ -158,7 +160,7 @@ public class CommunicationDeliveryDispatcher {
                                     content,
                                     null,
                                     Map.of(),
-                                    safeMetadata));
+                                    stringMetadata(safeMetadata)));
                     status = mapProviderStatus(result);
                     trace = result == null ? "No provider result" : result.trace();
                     gwResponse = result == null ? "" : result.safeResponse();
@@ -204,6 +206,15 @@ public class CommunicationDeliveryDispatcher {
     private boolean bool(Map<String, Object> values, String key) {
         Object value = values.get(key);
         return value instanceof Boolean b ? b : value != null && Boolean.parseBoolean(String.valueOf(value));
+    }
+
+    private Map<String, String> stringMetadata(Map<String, Object> values) {
+        if (values == null || values.isEmpty()) return Map.of();
+        Map<String, String> converted = new LinkedHashMap<>();
+        values.forEach((key, value) -> {
+            if (key != null && value != null) converted.put(key, String.valueOf(value));
+        });
+        return Map.copyOf(converted);
     }
 
     public record DeliveryOutcome(long deliveryId, DeliveryStatus status, String providerCode) {}
