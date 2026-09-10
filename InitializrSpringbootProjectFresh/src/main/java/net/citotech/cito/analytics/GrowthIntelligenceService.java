@@ -5,8 +5,6 @@ import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -15,11 +13,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.citotech.cito.gateway.PaymentGatewayException;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Executive and merchant-level growth reporting built exclusively from existing durable Cito
@@ -28,9 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class GrowthIntelligenceService {
-    private static final Set<String> SUCCESS_STATUSES =
-            Set.of("SUCCESS", "SUCCESSFUL", "COMPLETED");
-
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public GrowthIntelligenceService(NamedParameterJdbcTemplate jdbcTemplate) {
@@ -58,10 +54,9 @@ public class GrowthIntelligenceService {
         Timestamp wauFrom = Timestamp.from(now.minus(7, ChronoUnit.DAYS));
         Timestamp mauFrom = Timestamp.from(now.minus(30, ChronoUnit.DAYS));
         Timestamp dormantFrom = Timestamp.from(now.minus(90, ChronoUnit.DAYS));
-        LocalDate fromDate = from.toInstant().atZone(ZoneOffset.UTC).toLocalDate();
 
         Map<String, Object> response = new LinkedHashMap<>();
-        response.put("generatedAt", Timestamp.from(now));
+        response.put("generatedAt", now.toString());
         response.put("windowDays", windowDays);
         response.put("definitionsVersion", "2026-09-10");
         response.put("activation", activation(from));
@@ -70,7 +65,7 @@ public class GrowthIntelligenceService {
         response.put("payments", paymentPerformance(from));
         response.put("serviceAttachment", serviceAttachment(mauFrom));
         response.put("economics", economics(from));
-        response.put("providerPerformance", providerPerformance(fromDate));
+        response.put("providerPerformance", providerPerformance(from));
         response.put("lifecycleBlockers", lifecycleBlockers());
         response.put("funnel", funnel());
         response.put("funnelTrend", funnelTrend(from));
@@ -82,7 +77,6 @@ public class GrowthIntelligenceService {
         requireMerchant(merchantId);
         int windowDays = safeWindow(requestedWindowDays);
         Timestamp from = Timestamp.from(Instant.now().minus(windowDays, ChronoUnit.DAYS));
-        LocalDate fromDate = from.toInstant().atZone(ZoneOffset.UTC).toLocalDate();
 
         MapSqlParameterSource merchant = new MapSqlParameterSource("merchantId", merchantId);
         MapSqlParameterSource scoped =
@@ -95,7 +89,8 @@ public class GrowthIntelligenceService {
                                 + "FROM merchant_activation_lifecycles WHERE merchant_id=:merchantId",
                         merchant);
         if (lifecycle.isEmpty()) {
-            throw new PaymentGatewayException("Merchant activation lifecycle was not found");
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Merchant activation lifecycle was not found");
         }
 
         Map<String, Object> response = new LinkedHashMap<>();
@@ -120,16 +115,7 @@ public class GrowthIntelligenceService {
         response.put("payments", paymentPerformance(scoped));
         response.put("serviceAttachment", serviceAttachmentForMerchant(merchantId));
         response.put("economics", economicsForMerchant(merchantId, from));
-        response.put(
-                "providerPerformance",
-                jdbcTemplate.queryForList(
-                        "SELECT channel_code AS channelCode,operation,SUM(routed_count) routedCount,"
-                                + "SUM(successful_count) successfulCount,SUM(failed_count) failedCount,"
-                                + "ROUND(AVG(average_latency_ms)) averageLatencyMs "
-                                + "FROM merchant_provider_analytics WHERE merchant_id=:merchantId AND metric_date>=:fromDate "
-                                + "GROUP BY channel_code,operation ORDER BY routedCount DESC",
-                        new MapSqlParameterSource("merchantId", merchantId)
-                                .addValue("fromDate", fromDate)));
+        response.put("providerPerformance", providerPerformanceForMerchant(merchantId, from));
         response.put(
                 "milestones",
                 jdbcTemplate.queryForList(
@@ -227,17 +213,19 @@ public class GrowthIntelligenceService {
         return paymentPerformance(params("from", from));
     }
 
-    private List<Map<String, Object>> paymentPerformance(MapSqlParameterSource params) {
-        String merchantClause = params.hasValue("merchantId") ? " AND merchant_id=:merchantId" : "";
+    private List<Map<String, Object>> paymentPerformance(MapSqlParameterSource parameters) {
+        String merchantClause =
+                parameters.hasValue("merchantId") ? " AND merchant_id=:merchantId" : "";
         return jdbcTemplate.queryForList(
                 "SELECT COALESCE(NULLIF(currency,''),'UNKNOWN') currency,COUNT(*) transactionCount,"
                         + "SUM(CASE WHEN status IN ('SUCCESS','SUCCESSFUL','COMPLETED') THEN 1 ELSE 0 END) successfulCount,"
                         + "SUM(CASE WHEN status IN ('FAILED','FAILURE','REJECTED','CANCELLED') THEN 1 ELSE 0 END) failedCount,"
-                        + "COALESCE(SUM(CASE WHEN status IN ('SUCCESS','SUCCESSFUL','COMPLETED') THEN original_amount ELSE 0 END),0) successfulVolume "
+                        + "COALESCE(SUM(CASE WHEN status IN ('SUCCESS','SUCCESSFUL','COMPLETED') "
+                        + "THEN CAST(original_amount AS DECIMAL(20,4)) ELSE CAST(0 AS DECIMAL(20,4)) END),CAST(0 AS DECIMAL(20,4))) successfulVolume "
                         + "FROM merchant_transactions_log WHERE created_on>=:from"
                         + merchantClause
                         + " GROUP BY COALESCE(NULLIF(currency,''),'UNKNOWN') ORDER BY transactionCount DESC",
-                params);
+                parameters);
     }
 
     private Map<String, Object> serviceAttachment(Timestamp mauFrom) {
@@ -280,17 +268,23 @@ public class GrowthIntelligenceService {
         return result;
     }
 
-    private Map<String, Object> attachmentSummary(List<Map<String, Object>> rows, long activeMerchants) {
+    private Map<String, Object> attachmentSummary(
+            List<Map<String, Object>> rows, long activeMerchants) {
         Map<Long, Set<String>> merchantFamilies = new LinkedHashMap<>();
         Map<String, Set<Long>> familyMerchants = new LinkedHashMap<>();
         for (Map<String, Object> row : rows) {
             long merchantId = ((Number) row.get("merchantId")).longValue();
-            String family = GrowthMetricCatalog.familyForService(String.valueOf(row.get("serviceCode")));
+            String family =
+                    GrowthMetricCatalog.familyForService(String.valueOf(row.get("serviceCode")));
             if (family == null) {
                 continue;
             }
-            merchantFamilies.computeIfAbsent(merchantId, ignored -> new LinkedHashSet<>()).add(family);
-            familyMerchants.computeIfAbsent(family, ignored -> new LinkedHashSet<>()).add(merchantId);
+            merchantFamilies
+                    .computeIfAbsent(merchantId, ignored -> new LinkedHashSet<>())
+                    .add(family);
+            familyMerchants
+                    .computeIfAbsent(family, ignored -> new LinkedHashSet<>())
+                    .add(merchantId);
         }
         long multiProduct =
                 merchantFamilies.values().stream().filter(families -> families.size() >= 2).count();
@@ -299,15 +293,15 @@ public class GrowthIntelligenceService {
         result.put("multiProductMerchants", multiProduct);
         result.put("attachRatePercent", percent(multiProduct, activeMerchants));
         Map<String, Integer> familyCounts = new LinkedHashMap<>();
-        familyMerchants.forEach((family, merchants) -> familyCounts.put(family, merchants.size()));
+        familyMerchants.forEach(
+                (family, merchants) -> familyCounts.put(family, merchants.size()));
         result.put("merchantCountByFamily", familyCounts);
         return result;
     }
 
     private List<Map<String, Object>> economics(Timestamp from) {
         return economicsQuery(
-                "WHERE r.computed_at>=:from",
-                new MapSqlParameterSource("from", from));
+                "WHERE r.computed_at>=:from", new MapSqlParameterSource("from", from));
     }
 
     private List<Map<String, Object>> economicsForMerchant(long merchantId, Timestamp from) {
@@ -343,14 +337,29 @@ public class GrowthIntelligenceService {
         return rows;
     }
 
-    private List<Map<String, Object>> providerPerformance(LocalDate fromDate) {
+    private List<Map<String, Object>> providerPerformance(Timestamp from) {
         return jdbcTemplate.queryForList(
-                "SELECT channel_code AS channelCode,operation,SUM(routed_count) routedCount,"
-                        + "SUM(successful_count) successfulCount,SUM(failed_count) failedCount,"
-                        + "ROUND(AVG(average_latency_ms)) averageLatencyMs "
-                        + "FROM merchant_provider_analytics WHERE metric_date>=:fromDate "
-                        + "GROUP BY channel_code,operation ORDER BY routedCount DESC",
-                params("fromDate", fromDate));
+                "SELECT selected_channel AS channelCode,operation,COUNT(*) routedCount,"
+                        + "SUM(CASE WHEN outcome='SUCCESS' THEN 1 ELSE 0 END) successfulCount,"
+                        + "SUM(CASE WHEN outcome='FAILED' THEN 1 ELSE 0 END) failedCount,"
+                        + "ROUND(COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN COALESCE(latency_ms,0) ELSE 0 END) "
+                        + "/ NULLIF(SUM(CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END),0),0)) averageLatencyMs "
+                        + "FROM payment_route_decisions WHERE created_at>=:from AND environment='PRODUCTION' "
+                        + "GROUP BY selected_channel,operation ORDER BY routedCount DESC",
+                params("from", from));
+    }
+
+    private List<Map<String, Object>> providerPerformanceForMerchant(
+            long merchantId, Timestamp from) {
+        return jdbcTemplate.queryForList(
+                "SELECT selected_channel AS channelCode,operation,COUNT(*) routedCount,"
+                        + "SUM(CASE WHEN outcome='SUCCESS' THEN 1 ELSE 0 END) successfulCount,"
+                        + "SUM(CASE WHEN outcome='FAILED' THEN 1 ELSE 0 END) failedCount,"
+                        + "ROUND(COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN COALESCE(latency_ms,0) ELSE 0 END) "
+                        + "/ NULLIF(SUM(CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END),0),0)) averageLatencyMs "
+                        + "FROM payment_route_decisions WHERE merchant_id=:merchantId AND created_at>=:from "
+                        + "AND environment='PRODUCTION' GROUP BY selected_channel,operation ORDER BY routedCount DESC",
+                new MapSqlParameterSource("merchantId", merchantId).addValue("from", from));
     }
 
     private List<Map<String, Object>> lifecycleBlockers() {
@@ -407,13 +416,13 @@ public class GrowthIntelligenceService {
 
     private void requireMerchant(long merchantId) {
         if (merchantId <= 0) {
-            throw new PaymentGatewayException("merchantId must be positive");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "merchantId must be positive");
         }
         if (count(
                         "SELECT COUNT(*) FROM merchants WHERE id=:merchantId",
                         params("merchantId", merchantId))
                 == 0) {
-            throw new PaymentGatewayException("Merchant was not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Merchant was not found");
         }
     }
 
