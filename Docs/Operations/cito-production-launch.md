@@ -19,6 +19,26 @@ All Cito Railway operations, diagnostics, deployments, verification, domain work
 
 Operational rule: never infer or reuse a Cito Railway target from an old ticket, chat, branch, deployment note or historical incident. Resolve the project by name, confirm the project ID above, and then use the canonical environment/service IDs above. Any other Cito Railway project ID is invalid until this document is formally updated.
 
+The machine-readable environment contract is `ops/environments/cito-environments.json`. GitHub repository `lynelk/Cito` is the source of truth. A runtime or Railway configuration change is not complete until the required application/configuration-contract/runbook state is committed back to the repository.
+
+## Frontend/backend parity gate
+
+Cito frontend and backend are one product and must not drift in feature availability, functionality, permissions, lifecycle state, validation, process flow, empty/error/degraded states or operator behavior.
+
+Every pull request must comply with `Docs/Operations/Cito-Frontend-Backend-Parity-and-Staging.md` and the `Frontend Backend Delivery Parity` workflow. Behavior-bearing one-sided changes require an approved exception reference. Cross-surface features must update and test both sides in the same reviewed change set.
+
+A release is not complete unless the backend and frontend deployed to the same Railway environment resolve to the same accepted Git commit SHA and that SHA is the head of the environment's configured GitHub branch.
+
+## Future staging model
+
+When staging is created, it must be a separate Railway environment **inside the same active Cito project**, not a separate Cito project. It will track `main` automatically and use isolated staging data, secrets and non-production provider credentials.
+
+Required flow after staging exists:
+
+`feature branch -> PR/CI/parity gates -> main -> automatic staging deployment -> smoke/UAT on exact main SHA -> main-to-production promotion -> production -> runtime verification`
+
+Staging backend and frontend must always deploy the same `main` SHA. Production backend and frontend must always deploy the same accepted `production` SHA. Promotion must identify the exact staging-tested SHA. No staging service may use production provider credentials, balances, callbacks, settlement destinations or unsanitized production data.
+
 ## Implemented application controls
 
 - `/login` is the single public Cito sign-in gateway.
@@ -40,13 +60,18 @@ Operational rule: never infer or reuse a Cito Railway target from an old ticket,
 ## Deployment sequence
 
 1. Confirm the Railway project, environment and service IDs against the canonical target section above before any operational action.
-2. Merge the reviewed change set only after automated build, typecheck, unit-test, and security/dependency gates are green.
-3. Deploy the database migration before or together with the backend release. Flyway migration `V83__cito_access_requests.sql` is additive.
-4. Deploy backend services and verify `/api/public/access-requests` returns HTTP 202 for a valid request and HTTP 429 after the configured shared rate limit is exhausted.
-5. Deploy the client and verify `/`, `/login`, `/signup`, `/portal`, `/verify-email`, `/dashboard`, and `/dashboardMerchant` routing through the production reverse proxy.
-6. Verify merchant login, platform login, MFA paths, password-reset paths, email verification, logout, and session expiry using non-production test accounts in the target environment.
-7. Verify a privileged access request appears as `PENDING` in the production database and does not create an account or role.
-8. Complete the human and external launch gates below before public production activation.
+2. Confirm the intended GitHub commit exists in `lynelk/Cito`; no uncommitted runtime-only application state may be used as the release source.
+3. Confirm frontend/backend parity declaration and applicable parity evidence are accepted by CI.
+4. Merge the reviewed change set only after automated build, typecheck, unit-test, API, parity, browser, security/dependency and governance gates are green.
+5. When staging exists, deploy the exact `main` SHA to both staging backend and frontend and record staging smoke/UAT evidence before production promotion.
+6. Deploy the database migration before or together with the backend release when applicable.
+7. Deploy backend and frontend from the same accepted production SHA and verify both services report that SHA.
+8. Verify `/api/public/access-requests` returns HTTP 202 for a valid request and HTTP 429 after the configured shared rate limit is exhausted.
+9. Verify `/`, `/login`, `/signup`, `/portal`, `/verify-email`, `/dashboard`, and `/dashboardMerchant` routing through the production reverse proxy.
+10. Verify merchant login, platform login, MFA paths, password-reset paths, email verification, logout, and session expiry using approved test accounts in the target environment.
+11. Verify a privileged access request appears as `PENDING` in the production database and does not create an account or role.
+12. Confirm Railway has no staged configuration changes and GitHub environment records/runbooks reflect any configuration changes made during the release.
+13. Complete the human and external launch gates below before public production activation.
 
 ## Human or external launch gates
 
@@ -54,7 +79,7 @@ These items cannot be truthfully completed by application code or CI and remain 
 
 1. **Privileged-account approval:** verify identity, employment or partner relationship, business need, least-privilege role, and separation-of-duties requirements before provisioning each requested privileged account.
 2. **Payment-provider production certification and credentials:** complete any outstanding MTN MoMo, Airtel Money/OpenAPI, Safaricom M-Pesa, Yo! Payments, banking, or other provider certification and production credential issuance.
-3. **Production-like staging migration and UAT acceptance:** run migrations and critical workflows against representative data and record business acceptance.
+3. **Production-like staging migration and UAT acceptance:** after staging exists, run migrations and critical workflows against representative staging data and record business acceptance on the exact SHA proposed for production.
 4. **Real-provider callback/webhook verification:** confirm externally delivered production callbacks, signatures, retry behavior, allowlists, and reconciliation references end to end.
 5. **Finance and reconciliation sign-off:** confirm settlement, fees, balances, exception handling, ledger/reconciliation outputs, and operational ownership.
 6. **Independent security review:** complete penetration testing or equivalent independent review, resolve launch-blocking findings, and record risk acceptance for any residual findings.
@@ -65,4 +90,4 @@ These items cannot be truthfully completed by application code or CI and remain 
 
 ## Launch decision
 
-Cito is technically releasable only when automated gates are green and every applicable human/external gate above has a named owner, dated evidence, and explicit approval. A deployment succeeding is not equivalent to a production launch being approved.
+Cito is technically releasable only when automated gates are green, frontend/backend parity is verified, both canonical services run the accepted GitHub SHA, Railway contains no undocumented staged drift, and every applicable human/external gate has a named owner, dated evidence, and explicit approval. A deployment succeeding is not equivalent to a production launch being approved.
