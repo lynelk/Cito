@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,7 +24,9 @@ public class MerchantOnboardingController {
 
     @GetMapping
     public Map<String, Object> readiness(
-            long merchantId, HttpServletRequest request, Authentication authentication) {
+            @PathVariable long merchantId,
+            HttpServletRequest request,
+            Authentication authentication) {
         ExperienceAccessContext.Access access = accessContext.require(request, authentication);
         accessContext.requireMerchantScope(access, merchantId);
         return readinessService.readiness(merchantId);
