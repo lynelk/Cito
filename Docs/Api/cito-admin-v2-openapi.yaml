@@ -1,0 +1,301 @@
+openapi: 3.1.0
+info:
+  title: Cito Admin API
+  version: 2.0.0
+  description: |
+    Administrative API contract for Cito operational control-plane workflows.
+    These endpoints are authenticated and restricted to administrator roles.
+servers:
+  - url: https://cito.coresynergi.es
+    description: Production
+security:
+  - merchantSession: []
+tags:
+  - name: Admin Compliance
+  - name: Admin Communication Routing
+paths:
+  /api/v2/admin/compliance/summary:
+    get:
+      tags: [Admin Compliance]
+      summary: Get compliance summary
+      responses:
+        '200':
+          description: Compliance summary returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/compliance/report:
+    get:
+      tags: [Admin Compliance]
+      summary: Get compliance report
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+      responses:
+        '200':
+          description: Compliance report returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/compliance/events/{id}/review:
+    post:
+      tags: [Admin Compliance]
+      summary: Mark a compliance event reviewed
+      parameters:
+        - $ref: '#/components/parameters/PositiveId'
+        - in: query
+          name: reviewedBy
+          schema: { type: string }
+      responses:
+        '200':
+          description: Review recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/compliance/profiles:
+    get:
+      tags: [Admin Compliance]
+      summary: List compliance profiles
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        '200':
+          description: Profiles returned, including an empty collection when no profiles match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Admin Compliance]
+      summary: Create or update a compliance profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entityId]
+              properties:
+                entityId: { type: integer, format: int64, minimum: 1 }
+                entityType: { type: string }
+                profileType: { type: string }
+                tier: { type: string }
+                status: { type: string }
+                riskRating: { type: string }
+                requiredDocumentsJson: { type: string }
+                decisionReason: { type: string }
+                verifiedBy: { type: string }
+      responses:
+        '200':
+          description: Profile persisted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/compliance/cases:
+    get:
+      tags: [Admin Compliance]
+      summary: List actionable compliance cases
+      description: Returns a successful empty collection when no cases are open or in review.
+      responses:
+        '200':
+          description: Actionable compliance cases returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/compliance/cases/{id}/decision:
+    post:
+      tags: [Admin Compliance]
+      summary: Record a compliance case decision
+      parameters:
+        - $ref: '#/components/parameters/PositiveId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, minLength: 1 }
+                reason: { type: string }
+                actor: { type: string }
+      responses:
+        '200':
+          description: Decision recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Compliance case not found.
+  /api/v2/admin/communication/routing/providers:
+    get:
+      tags: [Admin Communication Routing]
+      summary: List communication providers
+      responses:
+        '200':
+          description: Provider catalog returned.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/communication/routing/rules:
+    get:
+      tags: [Admin Communication Routing]
+      summary: List communication routing rules
+      responses:
+        '200':
+          description: Routing rules returned.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Admin Communication Routing]
+      summary: Create or update a routing rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [providerCode]
+              properties:
+                id: { type: integer, format: int64 }
+                channel: { type: string, default: SMS }
+                merchantId: { type: integer, format: int64 }
+                priority: { type: integer, default: 100 }
+                providerCode: { type: string, minLength: 1 }
+                enabledFlag: { type: string, default: YES }
+      responses:
+        '200':
+          description: Routing rule persisted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/communication/routing/rules/{ruleId}:
+    delete:
+      tags: [Admin Communication Routing]
+      summary: Delete a communication routing rule
+      parameters:
+        - in: path
+          name: ruleId
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        '200':
+          description: Routing rule deleted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/communication/routing/effective:
+    get:
+      tags: [Admin Communication Routing]
+      summary: Preview the effective communication route
+      description: |
+        Resolves the merchant-specific or platform-default provider route for a channel.
+        Missing rules and missing providers are successful unresolved states rather than server errors.
+      parameters:
+        - in: query
+          name: merchantId
+          schema: { type: integer, format: int64, minimum: 1 }
+        - in: query
+          name: channel
+          schema:
+            type: string
+            default: SMS
+            enum: [SMS, WHATSAPP, EMAIL, USSD, PUSH, IN_APP]
+      responses:
+        '200':
+          description: Route preview returned. Inspect resolved and reason fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, resolved]
+                properties:
+                  code: { type: string }
+                  resolved: { type: boolean }
+                  reason:
+                    type: string
+                    enum: [ROUTE_NOT_CONFIGURED, PROVIDER_NOT_CONFIGURED]
+                  rule: { type: object, additionalProperties: true }
+                  provider: { type: object, additionalProperties: true }
+        '400':
+          description: Unsupported channel or invalid merchant identifier.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: string }
+                  resolved: { type: boolean }
+                  error:
+                    type: string
+                    enum: [UNSUPPORTED_CHANNEL, INVALID_MERCHANT_ID]
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    merchantSession:
+      type: apiKey
+      in: cookie
+      name: SESSION
+  parameters:
+    PositiveId:
+      in: path
+      name: id
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+  schemas:
+    ObjectResponse:
+      type: object
+      additionalProperties: true
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: Authentication required.
+    Forbidden:
+      description: Administrator role required.
