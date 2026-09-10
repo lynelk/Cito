@@ -15,6 +15,45 @@ tags:
   - name: Admin Communication Routing
   - name: Admin Commercial Programmes
 paths:
+  /api/v2/admin/communication/routing/providers/{providerCode}/activation:
+    post:
+      tags: [Admin Communication Routing]
+      operationId: setSmsProviderActivation
+      summary: Enable or disable an SMS provider
+      description: Requires ADMIN session and CSRF protection. Checks send configuration when enabling and audits state changes. Routing rules remain separate; activation does not certify live delivery.
+      parameters:
+      - in: path
+        name: providerCode
+        required: true
+        schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: {type: boolean}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Provider activation saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: {type: string}
+                  providerCode: {type: string}
+                  enabledFlag: {type: string, enum: ['YES', 'NO']}
+        '400': {description: Explicit enabled state required.}
+        '404': {description: SMS provider not found.}
+        '409': {description: Provider adapter or send configuration unavailable.}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v2/admin/communication/notifications/catalogue:
     get:
       tags:
