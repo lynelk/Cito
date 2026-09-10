@@ -102,6 +102,8 @@ Before merge:
 
 ## Post-merge verification
 
+The MySQL migration/payment lifecycle gate also runs the deterministic stale-snapshot ledger reservation scenario for single and batch payouts. See [Staging consolidation](Docs/Operations/staging-consolidation-20260910.md) for its financial invariant and the preserved older branch work.
+
 A successful merge does not prove production has deployed it. Where deployment is automatic, verify the actual deployment status and runtime logs. For database changes, confirm the runtime Flyway version rather than assuming migration application from Git history.
 
 Financial post-deploy checks should include health, database connectivity, scheduler locking, ledger balance, reconciliation behavior, settlement replay safety and a fresh backup result.

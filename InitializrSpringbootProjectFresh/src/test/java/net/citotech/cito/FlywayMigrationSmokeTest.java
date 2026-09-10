@@ -55,6 +55,9 @@ class FlywayMigrationSmokeTest {
             assertEquals(0, defaultOperationalMerchantUserCount(connection));
             assertEquals(0, nonZeroDefaultOperationalBalanceCount(connection));
         }
+        net.citotech.cito.ledger.LedgerReservationMysqlScenario.run(
+                new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                        url, username, password));
         net.citotech.cito.gateway.MobileMoneyMysqlScenario.run(url, username, password);
         net.citotech.cito.communication.outbox.NotificationMysqlScenario.run(
                 url, username, password);
