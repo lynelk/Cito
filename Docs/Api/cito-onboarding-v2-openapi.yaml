@@ -1,0 +1,104 @@
+openapi: 3.1.0
+info:
+  title: Cito Merchant Onboarding API
+  version: 2.0.0
+  description: Unified merchant onboarding and production-readiness projection over the canonical Cito lifecycle and entitlement stores.
+servers:
+  - url: https://cito.coresynergi.es
+    description: Production
+security:
+  - merchantSession: []
+tags:
+  - name: Merchant Onboarding
+paths:
+  /api/v2/merchants/{merchantId}/onboarding:
+    get:
+      tags: [Merchant Onboarding]
+      summary: Get coherent merchant onboarding and readiness state
+      description: |
+        Returns lifecycle progress, blockers, sandbox certification, product entitlement states,
+        go-live status and progressive production controls. The response is read-only and cannot
+        activate production. Merchant callers may access only their authenticated merchant ID;
+        administrators may inspect a merchant by ID.
+      parameters:
+        - in: path
+          name: merchantId
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        '200':
+          description: Merchant onboarding/readiness projection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingReadiness'
+        '401':
+          description: Portal authentication required.
+        '403':
+          description: Merchant scope does not permit access to the requested merchant.
+        '404':
+          description: Merchant does not exist.
+components:
+  securitySchemes:
+    merchantSession:
+      type: apiKey
+      in: cookie
+      name: SESSION
+  schemas:
+    OnboardingReadiness:
+      type: object
+      required:
+        - merchantId
+        - lifecycle
+        - progress
+        - steps
+        - blockers
+        - sandbox
+        - products
+        - goLive
+        - productionRollout
+        - readyForProduction
+      properties:
+        merchantId:
+          type: integer
+          format: int64
+        lifecycle:
+          type: object
+          additionalProperties: true
+        progress:
+          type: object
+          properties:
+            requiredSteps: { type: integer }
+            completedRequiredSteps: { type: integer }
+            completionPercent: { type: number }
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        blockers:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        sandbox:
+          type: object
+          additionalProperties: true
+        products:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        goLive:
+          type: object
+          additionalProperties: true
+        productionRollout:
+          type: object
+          additionalProperties: true
+        nextAction:
+          type: [string, 'null']
+        readyForProduction:
+          type: boolean
