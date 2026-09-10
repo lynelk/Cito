@@ -16,9 +16,9 @@ jobs:
       - name: Check fixed public liveness and backend-readiness endpoints
         shell: bash
         env:
-          EXPECTED_RELEASE_SHA: 47b35b3fb7ac41595ebe9eb5ecfbeadde1d33e66
-          FRONTEND_RAILWAY_DEPLOYMENT_ID: 091de287-2a3a-4f84-b0c2-75d572eb88b4
-          BACKEND_RAILWAY_DEPLOYMENT_ID: 449218f1-2032-4b79-ba03-d0cd7b54ac38
+          EXPECTED_RELEASE_SHA: 6535ea24884cf3a3a606959acb85faacc3566b2e
+          FRONTEND_RAILWAY_DEPLOYMENT_ID: 5fa0aaa7-6f10-40b4-b982-4551bbbd53df
+          BACKEND_RAILWAY_DEPLOYMENT_ID: f6fe9f3e-640b-4e46-bafd-f13d66dc77c6
         run: |
           python3 - <<'PY'
           import http.client
