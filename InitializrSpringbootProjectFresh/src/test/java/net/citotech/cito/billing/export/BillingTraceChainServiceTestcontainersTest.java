@@ -107,6 +107,8 @@ class BillingTraceChainServiceTestcontainersTest {
                 invoiceService.createDraft(
                         31L, "UGX", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30));
         invoiceService.stageCharges(invoiceId);
+        net.citotech.cito.billing.SyntheticBillingEvidence.recordCompleteSource(
+                jdbcTemplate, invoiceRepository, invoiceId);
         gateService.submit(invoiceId, "billing-maker");
         gateService.approve(invoiceId, "billing-checker", null);
         long ledgerTransactionId = invoiceService.finalizeInvoice(invoiceId, "billing-finalizer");
@@ -146,6 +148,8 @@ class BillingTraceChainServiceTestcontainersTest {
                 invoiceService.createDraft(
                         32L, "UGX", LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
         invoiceService.stageCharges(invoiceId);
+        net.citotech.cito.billing.SyntheticBillingEvidence.recordCompleteSource(
+                jdbcTemplate, invoiceRepository, invoiceId);
         gateService.submit(invoiceId, "billing-maker");
         gateService.approve(invoiceId, "billing-checker", null);
         invoiceService.finalizeInvoice(invoiceId, "billing-finalizer");

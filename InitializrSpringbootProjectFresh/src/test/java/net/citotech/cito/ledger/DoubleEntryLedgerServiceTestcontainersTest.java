@@ -341,6 +341,106 @@ class DoubleEntryLedgerServiceTestcontainersTest {
                 .isEqualByComparingTo("20000.0000");
     }
 
+    @Test
+    void reservationsUseCurrentBalancesEvenWhenOuterTransactionHasAnOlderSnapshot()
+            throws Exception {
+        NamedParameterJdbcTemplate jdbc = new NamedParameterJdbcTemplate(dataSource);
+        DoubleEntryLedgerService service = new DoubleEntryLedgerService(jdbc);
+        DataSourceTransactionManager manager = new DataSourceTransactionManager(dataSource);
+        for (boolean batch : List.of(false, true)) {
+            long merchant = batch ? 2202L : 2201L;
+            String prefix = "STALE-SNAPSHOT-" + merchant;
+            service.post(
+                    prefix + "-SEED",
+                    "PAYMENT",
+                    prefix + "-SEED",
+                    "synthetic opening liability",
+                    List.of(
+                            entry(
+                                    "merchant:" + merchant + ":UGX:merchant_liability",
+                                    "MERCHANT_LIABILITY",
+                                    "MERCHANT",
+                                    merchant,
+                                    "CR",
+                                    "100000",
+                                    "UGX"),
+                            entry(
+                                    "provider:mtn_momo:UGX:stale-snapshot:" + merchant,
+                                    "CONTROL",
+                                    "PROVIDER",
+                                    9001L,
+                                    "DR",
+                                    "100000",
+                                    "UGX")));
+            TransactionTemplate outer = new TransactionTemplate(manager);
+            outer.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+            try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+                outer.executeWithoutResult(
+                        status -> {
+                            jdbc.getJdbcTemplate()
+                                    .queryForObject(
+                                            "SELECT COUNT(*) FROM ledger_reservations",
+                                            Integer.class);
+                            Future<?> committed =
+                                    executor.submit(
+                                            () ->
+                                                    new TransactionTemplate(manager)
+                                                            .executeWithoutResult(
+                                                                    inner ->
+                                                                            service.reserve(
+                                                                                    prefix
+                                                                                            + "-FIRST",
+                                                                                    merchant,
+                                                                                    prefix
+                                                                                            + "-PAYMENT-FIRST",
+                                                                                    new BigDecimal(
+                                                                                            "80000"),
+                                                                                    "UGX")));
+                            try {
+                                committed.get(30, java.util.concurrent.TimeUnit.SECONDS);
+                            } catch (Exception failure) {
+                                throw new IllegalStateException(failure);
+                            }
+                            if (batch) {
+                                var result =
+                                        service.reserveAll(
+                                                merchant,
+                                                "UGX",
+                                                List.of(
+                                                        new DoubleEntryLedgerService
+                                                                .ReservationCommand(
+                                                                prefix + "-SECOND",
+                                                                prefix + "-PAYMENT-SECOND",
+                                                                new BigDecimal("80000"))));
+                                assertThat(result.reserved()).isFalse();
+                                assertThat(result.available()).isEqualByComparingTo("20000.0000");
+                            } else {
+                                assertThatThrownBy(
+                                                () ->
+                                                        service.reserve(
+                                                                prefix + "-SECOND",
+                                                                merchant,
+                                                                prefix + "-PAYMENT-SECOND",
+                                                                new BigDecimal("80000"),
+                                                                "UGX"))
+                                        .isInstanceOf(PaymentGatewayException.class)
+                                        .hasMessageContaining(
+                                                "Insufficient ledger-derived available balance");
+                            }
+                        });
+            }
+            assertThat(service.availableMerchantBalance(merchant, "UGX"))
+                    .isEqualByComparingTo("20000.0000");
+            Integer count =
+                    jdbc.getJdbcTemplate()
+                            .queryForObject(
+                                    "SELECT COUNT(*) FROM ledger_reservations WHERE merchant_id=? AND reservation_status='RESERVED'",
+                                    Integer.class,
+                                    merchant);
+            assertThat(count).isEqualTo(1);
+        }
+    }
+
     private Callable<Boolean> reserveWhenReleased(
             DoubleEntryLedgerService service,
             DataSourceTransactionManager transactionManager,

@@ -82,6 +82,8 @@ class BillingInvoiceFinalizeWorkflowTestcontainersTest {
                 invoiceService.createDraft(
                         20L, "UGX", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31));
         assertThat(invoiceService.stageCharges(invoiceId)).isEqualTo(1);
+        net.citotech.cito.billing.SyntheticBillingEvidence.recordCompleteSource(
+                jdbcTemplate, invoiceRepository, invoiceId);
         gateService.submit(invoiceId, "billing-maker");
         gateService.approve(invoiceId, "billing-checker", null);
 
@@ -138,6 +140,8 @@ class BillingInvoiceFinalizeWorkflowTestcontainersTest {
                 invoiceService.createDraft(
                         22L, "UGX", LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
         assertThat(invoiceService.stageCharges(invoiceId)).isZero();
+        net.citotech.cito.billing.SyntheticBillingEvidence.recordCompleteSource(
+                jdbcTemplate, invoiceRepository, invoiceId);
         gateService.submit(invoiceId, "billing-maker");
         gateService.approve(invoiceId, "billing-checker", null);
 
