@@ -8,29 +8,28 @@ def replace(text, old, new, count=1):
 
 path = ROOT/'main/java/net/citotech/cito/ledger/DoubleEntryLedgerService.java'
 s = path.read_text()
-# Acquire the merchant/currency serialization lock before the idempotent lookup, then
-# force current reads even if an enclosing REPEATABLE READ transaction has an older snapshot.
-s = replace(s, '        ExistingReservation existing = findReservation(reservation.reservationReference());', '        lockReservationScope(merchantId, reservation.currency());\n        ExistingReservation existing = findReservation(reservation.reservationReference());')
+s = replace(s, '\n        ExistingReservation existing = findReservation(reservation.reservationReference());', '\n        lockReservationScope(merchantId, reservation.currency());\n        ExistingReservation existing = findReservation(reservation.reservationReference());')
 s = replace(s, '        lockReservationScope(merchantId, reservation.currency());\n        BigDecimal availableBalance = availableMerchantBalance(merchantId, reservation.currency());', '        BigDecimal availableBalance = availableMerchantBalance(merchantId, reservation.currency(), true);')
 s = replace(s, 'BigDecimal available = availableMerchantBalance(merchantId, normalizedCurrency);', 'BigDecimal available = availableMerchantBalance(merchantId, normalizedCurrency, true);')
 s = replace(s, '    public BigDecimal availableMerchantBalance(long merchantId, String currency) {', '''    public BigDecimal availableMerchantBalance(long merchantId, String currency) {
         return availableMerchantBalance(merchantId, currency, false);
     }
 
-    /** Reservations must not use a snapshot created before the merchant-scope lock. */
+    /** Both query levels must read current rows, not an earlier REPEATABLE READ snapshot. */
     private BigDecimal availableMerchantBalance(long merchantId, String currency, boolean locking) {''')
-s = replace(s, '+ " lr.reservation_status=\'RESERVED\'), 0) AS active_reservations FROM"', '+ " lr.reservation_status=\'RESERVED\'"\n                                + (locking ? " FOR UPDATE" : "")\n                                + "), 0) AS active_reservations FROM"')
-s = replace(s, '+ " le.currency=:currency",\n                        p);', '+ " le.currency=:currency"\n                                + (locking ? " FOR UPDATE" : ""),\n                        p);')
-# findReservation is used only after the same merchant/currency lock in reserve/reserveAll.
+a = s.index('    private BigDecimal availableMerchantBalance(')
+b = s.index('    @Transactional', a)
+part = s[a:b]
+part = replace(part, '+ " lr.reservation_status=\'RESERVED\'), 0) AS active_reservations FROM"', '+ " lr.reservation_status=\'RESERVED\'"\n                                + (locking ? " FOR UPDATE" : "")\n                                + "), 0) AS active_reservations FROM"')
+part = replace(part, '+ " le.currency=:currency",\n                        p);', '+ " le.currency=:currency"\n                                + (locking ? " FOR UPDATE" : ""),\n                        p);')
+s = s[:a]+part+s[b:]
 a = s.index('    private ExistingReservation findReservation(')
-b = s.index('    private void validateEntries(', a)
+b = s.index('    private Long findTransaction(', a)
 part = s[a:b]
 part = replace(part, 'reservation_reference=:reservation_reference"', 'reservation_reference=:reservation_reference FOR UPDATE"')
 s = s[:a]+part+s[b:]
 path.write_text(s)
 
-# Supply genuine synthetic source-completeness evidence to tests that intend to finalize.
-# Approval remains a distinct maker/checker action; missing-source tests still fail closed.
 for name in ['billing/export/BillingTraceChainServiceTestcontainersTest.java', 'billing/invoicing/BillingInvoiceFinalizeWorkflowTestcontainersTest.java', 'billing/invoicing/BillingPhase3ExitCriterionTestcontainersTest.java']:
     path = ROOT/'test/java/net/citotech/cito'/name
     s = path.read_text()
