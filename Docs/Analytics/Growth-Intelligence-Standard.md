@@ -43,7 +43,7 @@ Five product families are used for service-attachment reporting:
 4. **Billing & BaaS:** `BILLING`, `EMBEDDED_CITO`.
 5. **KYC & Identity:** `IDENTITY_VALIDATION`.
 
-Support capabilities such as Merchant Analytics and Developer Control Plane are intentionally excluded from commercial attach-rate calculations.
+Support and platform capabilities such as Merchant Analytics, Developer Control Plane and Integrations Marketplace are intentionally excluded from commercial attach-rate calculations. They may be reported separately as platform adoption metrics, but they do not increase the commercial service-family count.
 
 ## Funnel milestone projection
 
