@@ -1,0 +1,65 @@
+name: Provider repair validation
+on:
+  push:
+    branches: [feature/airtel-status-recovery]
+    paths:
+      - '.github/workflows/provider-repair-validation.yml'
+      - '.ci/provider-repair.patch'
+permissions:
+  contents: write
+concurrency:
+  group: provider-repair-validation
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.repository == 'lynelk/Cito' && github.ref == 'refs/heads/feature/airtel-status-recovery'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - name: Export tracked source for isolated review
+        run: git archive --format=tar.gz -o /tmp/cito-provider-source.tar.gz HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cito-provider-source
+          path: /tmp/cito-provider-source.tar.gz
+          retention-days: 1
+      - uses: actions/setup-java@v4
+        if: hashFiles('.ci/provider-repair.patch') != ''
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Apply reviewed repair patch
+        if: hashFiles('.ci/provider-repair.patch') != ''
+        run: |
+          git apply --check .ci/provider-repair.patch
+          git apply .ci/provider-repair.patch
+      - name: Format and verify backend repair
+        if: hashFiles('.ci/provider-repair.patch') != ''
+        working-directory: InitializrSpringbootProjectFresh
+        run: |
+          mvn -B -ntp spotless:apply
+          mvn -B -ntp verify
+      - name: Record validated source on repair branch only
+        if: success() && hashFiles('.ci/provider-repair.patch') != ''
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm .ci/provider-repair.patch
+          git add -A
+          git diff --cached --check
+          git commit -m 'Fix Airtel lifecycle recovery and provider credential isolation'
+          git push origin HEAD:refs/heads/feature/airtel-status-recovery
+      - name: Export verification reports
+        if: always() && hashFiles('InitializrSpringbootProjectFresh/target/surefire-reports/*') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-repair-test-results
+          path: |
+            InitializrSpringbootProjectFresh/target/surefire-reports
+            InitializrSpringbootProjectFresh/target/failsafe-reports
+          retention-days: 3
