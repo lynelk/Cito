@@ -18,6 +18,7 @@ paths:
   /api/v2/admin/compliance/summary:
     get:
       tags: [Admin Compliance]
+      operationId: getComplianceSummary
       summary: Get compliance summary
       responses:
         '200':
@@ -30,6 +31,7 @@ paths:
   /api/v2/admin/compliance/report:
     get:
       tags: [Admin Compliance]
+      operationId: getComplianceReport
       summary: Get compliance report
       parameters:
         - in: query
@@ -49,6 +51,7 @@ paths:
   /api/v2/admin/compliance/events/{id}/review:
     post:
       tags: [Admin Compliance]
+      operationId: reviewComplianceEvent
       summary: Mark a compliance event reviewed
       parameters:
         - $ref: '#/components/parameters/PositiveId'
@@ -66,6 +69,7 @@ paths:
   /api/v2/admin/compliance/profiles:
     get:
       tags: [Admin Compliance]
+      operationId: listComplianceProfiles
       summary: List compliance profiles
       parameters:
         - in: query
@@ -83,6 +87,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Admin Compliance]
+      operationId: upsertComplianceProfile
       summary: Create or update a compliance profile
       requestBody:
         required: true
@@ -148,6 +153,7 @@ paths:
   /api/v2/admin/communication/routing/providers:
     get:
       tags: [Admin Communication Routing]
+      operationId: listCommunicationProviders
       summary: List communication providers
       responses:
         '200': { $ref: '#/components/responses/ObjectOk' }
@@ -156,6 +162,7 @@ paths:
   /api/v2/admin/communication/routing/rules:
     get:
       tags: [Admin Communication Routing]
+      operationId: listCommunicationRoutingRules
       summary: List communication routing rules
       responses:
         '200': { $ref: '#/components/responses/ObjectOk' }
@@ -163,6 +170,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Admin Communication Routing]
+      operationId: upsertCommunicationRoutingRule
       summary: Create or update a routing rule
       requestBody:
         required: true
@@ -186,6 +194,7 @@ paths:
   /api/v2/admin/communication/routing/rules/{ruleId}:
     delete:
       tags: [Admin Communication Routing]
+      operationId: deleteCommunicationRoutingRule
       summary: Delete a communication routing rule
       parameters:
         - in: path
