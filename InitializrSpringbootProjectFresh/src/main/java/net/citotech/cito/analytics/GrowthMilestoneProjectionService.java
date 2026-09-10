@@ -93,7 +93,7 @@ public class GrowthMilestoneProjectionService {
                 FROM merchant_activation_steps s
                 JOIN merchant_activation_lifecycles l ON l.id=s.lifecycle_id
                 WHERE s.step_code=:stepCode
-                  AND s.status IN ('COMPLETED','WAIVED','SKIPPED')
+                  AND s.status='COMPLETED'
                   AND s.completed_at IS NOT NULL
                 """,
                 params);
@@ -122,9 +122,10 @@ public class GrowthMilestoneProjectionService {
                 INSERT IGNORE INTO product_analytics_events
                     (event_reference,event_name,audience,merchant_id,environment,properties_json,occurred_at)
                 SELECT CONCAT('GROWTH-FIRST-PROD-',merchant_id), 'FIRST_PRODUCTION_SUCCESS', 'ADMIN',
-                       merchant_id, 'PRODUCTION', JSON_OBJECT('source','merchant_production_usage'),
-                       MIN(created_at)
-                FROM merchant_production_usage
+                       merchant_id, 'PRODUCTION', JSON_OBJECT('source','payment_route_decisions'),
+                       MIN(COALESCE(completed_at,created_at))
+                FROM payment_route_decisions
+                WHERE environment='PRODUCTION' AND outcome='SUCCESS' AND merchant_id IS NOT NULL
                 GROUP BY merchant_id
                 """,
                 new MapSqlParameterSource());
