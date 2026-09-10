@@ -50,9 +50,20 @@ public class DeliveryLogRepository {
         return key.longValue();
     }
 
+    public int linkCommunication(long deliveryId, long communicationId) {
+        return jdbcTemplate.update(
+                "UPDATE communication_message_deliveries d JOIN communication_messages m ON m.id=:communication"
+                        + " AND m.merchant_id=d.merchant_id SET d.communication_id=m.id,"
+                        + " d.attempt_no=(SELECT attempts FROM communication_outbox WHERE communication_id=m.id AND event_type='DISPATCH')"
+                        + " WHERE d.id=:delivery",
+                new MapSqlParameterSource()
+                        .addValue("communication", communicationId)
+                        .addValue("delivery", deliveryId));
+    }
+
     public int updateStatus(long id, DeliveryStatus status, String trace, String gwResponse) {
         return jdbcTemplate.update(
-                "UPDATE communication_message_deliveries SET status=:status, trace=:trace, gw_response=:gw_response WHERE id=:id",
+                "UPDATE communication_message_deliveries SET status=:status, trace=:trace, gw_response=:gw_response, sent_at=IF(:status='SENT',COALESCE(sent_at,NOW()),sent_at) WHERE id=:id",
                 new MapSqlParameterSource()
                         .addValue("id", id)
                         .addValue("status", status.name())
@@ -70,6 +81,7 @@ public class DeliveryLogRepository {
     }
 
     public int updateByProviderMessageId(
+            long merchantId,
             String providerCode,
             String providerMessageId,
             DeliveryStatus status,
@@ -82,8 +94,9 @@ public class DeliveryLogRepository {
         return jdbcTemplate.update(
                 "UPDATE communication_message_deliveries SET status=:status, trace=:trace,"
                         + " gw_response=:response, delivered_at=IF(:delivered, NOW(), delivered_at)"
-                        + " WHERE provider_code=:provider AND provider_message_id=:provider_message_id",
+                        + " WHERE merchant_id=:merchant AND provider_code=:provider AND provider_message_id=:provider_message_id AND (status<>'DELIVERED' OR :delivered)",
                 new MapSqlParameterSource()
+                        .addValue("merchant", merchantId)
                         .addValue("status", status.name())
                         .addValue("trace", trace)
                         .addValue("response", safeResponse)
@@ -120,7 +133,7 @@ public class DeliveryLogRepository {
                 "SELECT id, merchant_id, channel, provider_code, reference_type, reference_id, recipient,"
                         + " status, trace, gw_response, charged_amount, billed_flag"
                         + " FROM communication_message_deliveries"
-                        + " WHERE channel=:channel AND id>:after_id AND status IN ('SENT','DELIVERED') AND billed_flag='N'"
+                        + " WHERE channel=:channel AND status IN ('SENT','DELIVERED') AND billed_flag='N'"
                         + " ORDER BY id ASC LIMIT :limit",
                 p,
                 this::mapRow);

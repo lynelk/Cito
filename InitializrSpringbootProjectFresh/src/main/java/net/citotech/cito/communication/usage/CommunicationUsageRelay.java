@@ -101,6 +101,9 @@ public class CommunicationUsageRelay {
                 if (relayOne(delivery)) {
                     relayed++;
                     watermark = delivery.id();
+                } else {
+                    saveWatermark(channel, watermark);
+                    return relayed;
                 }
             }
             // No progress across a full batch (every row failed to relay, e.g. the tenant
@@ -116,6 +119,14 @@ public class CommunicationUsageRelay {
 
     private boolean relayOne(MessageDelivery delivery) {
         try {
+            // Platform alerts have no merchant billing tenant. Preserve their provider/delivery
+            // evidence
+            // with an explicit zero customer charge instead of handing merchant 0 to the billing
+            // engine.
+            if (delivery.merchantId() == 0) {
+                deliveryLogRepository.markBilled(delivery.id());
+                return true;
+            }
             Map<String, String> dimensions = new HashMap<>();
             dimensions.put("channel", delivery.channel());
             if (delivery.providerCode() != null && !delivery.providerCode().isBlank()) {
@@ -126,7 +137,7 @@ public class CommunicationUsageRelay {
                     serviceCodeFor(delivery.channel()),
                     meterCodeFor(delivery.channel()),
                     Instant.now(),
-                    BigDecimal.ONE,
+                    unitsFor(delivery),
                     null,
                     dimensions,
                     "COMM_DELIVERY:" + delivery.id(),
@@ -140,6 +151,25 @@ public class CommunicationUsageRelay {
                     ex);
             return false;
         }
+    }
+
+    private BigDecimal unitsFor(MessageDelivery delivery) {
+        if (!"SMS".equals(delivery.channel())) return BigDecimal.ONE;
+        List<BigDecimal> quantities =
+                jdbcTemplate.queryForList(
+                        "SELECT CAST(JSON_UNQUOTE(JSON_EXTRACT(m.metadata_json,'$.segments')) AS DECIMAL(18,4))"
+                                + " FROM communication_message_deliveries d JOIN communication_messages m ON m.id=d.communication_id"
+                                + " WHERE d.id=:id AND m.merchant_id=:merchant",
+                        new MapSqlParameterSource()
+                                .addValue("id", delivery.id())
+                                .addValue("merchant", delivery.merchantId()),
+                        BigDecimal.class);
+        if (quantities.isEmpty())
+            return BigDecimal.ONE; // Legacy, unlinked single-message delivery.
+        BigDecimal quantity = quantities.getFirst();
+        if (quantity == null || quantity.signum() <= 0 || quantity.stripTrailingZeros().scale() > 0)
+            throw new IllegalStateException("SMS segment evidence is invalid");
+        return quantity;
     }
 
     private List<String> registeredChannels() {

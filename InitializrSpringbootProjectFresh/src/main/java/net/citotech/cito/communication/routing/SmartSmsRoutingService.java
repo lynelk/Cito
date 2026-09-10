@@ -57,7 +57,7 @@ public class SmartSmsRoutingService {
         return select(context);
     }
 
-    /** Used by the API/UI before enqueue so a merchant can see the likely route and cost. */
+    /** Used by the API/UI before enqueue so a merchant can see the likely route and charge. */
     public RouteDecision preview(
             long merchantId,
             String content,
@@ -66,6 +66,30 @@ public class SmartSmsRoutingService {
             String strategy,
             boolean requireDeliveryReceipts,
             boolean requireInbound) {
+        return preview(
+                merchantId,
+                content,
+                countryCode,
+                currencyCode,
+                strategy,
+                requireDeliveryReceipts,
+                requireInbound,
+                null);
+    }
+
+    /**
+     * Preview with an optional provider constraint. Provider-specific sender identities use this so
+     * the preview cannot recommend one provider while dispatch is pinned to another.
+     */
+    public RouteDecision preview(
+            long merchantId,
+            String content,
+            String countryCode,
+            String currencyCode,
+            String strategy,
+            boolean requireDeliveryReceipts,
+            boolean requireInbound,
+            String requiredProviderCode) {
         return select(
                 new MessageRoutingContext(
                         null,
@@ -76,7 +100,8 @@ public class SmartSmsRoutingService {
                         normalizeStrategy(strategy),
                         requireDeliveryReceipts,
                         requireInbound,
-                        null));
+                        null,
+                        normalizeProvider(requiredProviderCode)));
     }
 
     private RouteDecision select(MessageRoutingContext context) {
@@ -87,7 +112,10 @@ public class SmartSmsRoutingService {
         var analysis = encodingService.analyze(context.content());
         int segments = Math.max(1, analysis.segments());
 
-        String manualProvider = manualPreferredProvider(context.merchantId());
+        String constrainedProvider =
+                context.requiredProviderCode() == null
+                        ? manualPreferredProvider(context.merchantId())
+                        : context.requiredProviderCode();
         List<Candidate> candidates = new ArrayList<>();
         for (ProviderCatalogRow provider : enabledProviders()) {
             Candidate candidate =
@@ -98,7 +126,7 @@ public class SmartSmsRoutingService {
                             segments,
                             requireDlr,
                             requireInbound,
-                            manualProvider);
+                            constrainedProvider);
             candidates.add(candidate);
         }
 
@@ -114,6 +142,7 @@ public class SmartSmsRoutingService {
                             context.countryCode(),
                             context.currencyCode(),
                             segments,
+                            null,
                             null,
                             List.copyOf(candidates),
                             "No enabled SMS provider satisfied availability and capability requirements.");
@@ -145,10 +174,14 @@ public class SmartSmsRoutingService {
                         .toList();
 
         Candidate winner = scored.get(0);
-        BigDecimal expectedCost =
+        BigDecimal expectedProviderCost =
                 winner.providerCostPerSegment() == null
                         ? null
                         : winner.providerCostPerSegment().multiply(BigDecimal.valueOf(segments));
+        BigDecimal expectedCustomerCharge =
+                winner.customerPricePerSegment() == null
+                        ? null
+                        : winner.customerPricePerSegment().multiply(BigDecimal.valueOf(segments));
         String explanation = explanation(winner, strategy, requireDlr, requireInbound, segments);
         List<Candidate> auditCandidates = new ArrayList<>(candidates);
         for (Candidate candidate : scored) {
@@ -170,7 +203,8 @@ public class SmartSmsRoutingService {
                         context.countryCode(),
                         context.currencyCode(),
                         segments,
-                        expectedCost,
+                        expectedProviderCost,
+                        expectedCustomerCharge,
                         List.copyOf(auditCandidates),
                         explanation);
         persistDecision(decision);
@@ -193,30 +227,51 @@ public class SmartSmsRoutingService {
             int segments,
             boolean requireDlr,
             boolean requireInbound,
-            String manualProvider) {
+            String constrainedProvider) {
         String code = provider.providerCode();
         Optional<CommunicationProviderAdapter> adapterOptional =
                 providerRegistry.find(code, CommunicationChannel.SMS);
         if (adapterOptional.isEmpty()) {
             return Candidate.ineligible(code, provider.providerName(), "Adapter is not registered");
         }
-        if (manualProvider != null && !manualProvider.equalsIgnoreCase(code)) {
+        if (constrainedProvider != null && !constrainedProvider.equalsIgnoreCase(code)) {
             return Candidate.ineligible(
-                    code,
-                    provider.providerName(),
-                    "Merchant manual routing selects another provider");
+                    code, provider.providerName(), "Routing is constrained to another provider");
         }
         if (healthService.isOpen(code, CHANNEL)) {
             return Candidate.ineligible(code, provider.providerName(), "Provider circuit is open");
         }
 
+        if (context.communicationId() != null && constrainedProvider == null) {
+            Integer failed =
+                    jdbcTemplate.queryForObject(
+                            "SELECT COUNT(*) FROM communication_message_deliveries WHERE communication_id=:id"
+                                    + " AND merchant_id=:merchant AND provider_code=:provider AND status='FAILED'",
+                            new MapSqlParameterSource()
+                                    .addValue("id", context.communicationId())
+                                    .addValue("merchant", context.merchantId())
+                                    .addValue("provider", code),
+                            Integer.class);
+            if (failed != null && failed > 0)
+                return Candidate.ineligible(
+                        code,
+                        provider.providerName(),
+                        "Provider already failed this message; evaluating fallback");
+        }
         CommunicationProviderAdapter adapter = adapterOptional.get();
         ProviderCapabilities runtime = adapter.capabilities();
         CapabilityOverride override = capabilityOverride(code, context.countryCode());
         boolean canSend = runtime.send();
         boolean supportsDlr =
-                override == null ? runtime.deliveryReceipts() : override.deliveryReceipts();
-        boolean supportsInbound = override == null ? runtime.inbound() : override.inbound();
+                "SMSMOBILO_SMS".equals(code)
+                        ? runtime.deliveryReceipts()
+                        : override == null
+                                ? runtime.deliveryReceipts()
+                                : override.deliveryReceipts();
+        boolean supportsInbound =
+                "SMSMOBILO_SMS".equals(code)
+                        ? runtime.inbound()
+                        : override == null ? runtime.inbound() : override.inbound();
         if (!canSend)
             return Candidate.ineligible(code, provider.providerName(), "Provider cannot send SMS");
         if (requireDlr && !supportsDlr) {
@@ -238,8 +293,9 @@ public class SmartSmsRoutingService {
                     code, provider.providerName(), "Provider health is unavailable");
         }
 
-        BigDecimal providerCost =
-                effectiveProviderCost(code, context.countryCode(), context.currencyCode());
+        RateQuote rate = effectiveRate(code, context.countryCode(), context.currencyCode());
+        BigDecimal providerCost = rate == null ? null : rate.providerCostPerUnit();
+        BigDecimal customerPrice = rate == null ? null : rate.customerPricePerUnit();
         if (policy.maxProviderCostPerUnit() != null
                 && providerCost != null
                 && providerCost.compareTo(policy.maxProviderCostPerUnit()) > 0) {
@@ -250,6 +306,8 @@ public class SmartSmsRoutingService {
         BigDecimal reliability = observedReliability(code, health == null ? null : health.state());
         BigDecimal totalCost =
                 providerCost == null ? null : providerCost.multiply(BigDecimal.valueOf(segments));
+        BigDecimal totalCharge =
+                customerPrice == null ? null : customerPrice.multiply(BigDecimal.valueOf(segments));
         return new Candidate(
                 code,
                 provider.providerName(),
@@ -260,6 +318,8 @@ public class SmartSmsRoutingService {
                 reliability,
                 providerCost,
                 totalCost,
+                customerPrice,
+                totalCharge,
                 supportsDlr,
                 supportsInbound,
                 BigDecimal.ZERO);
@@ -344,7 +404,8 @@ public class SmartSmsRoutingService {
                 normalizeStrategy(text(metadata, "routingStrategy")),
                 bool(metadata, "requireDeliveryReceipts"),
                 bool(metadata, "requireInbound"),
-                text(metadata, "senderId"));
+                text(metadata, "senderId"),
+                null);
     }
 
     private RoutingPolicy resolvePolicy(MessageRoutingContext context) {
@@ -407,11 +468,10 @@ public class SmartSmsRoutingService {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
-    private BigDecimal effectiveProviderCost(
-            String providerCode, String countryCode, String currencyCode) {
-        List<BigDecimal> rows =
+    private RateQuote effectiveRate(String providerCode, String countryCode, String currencyCode) {
+        List<RateQuote> rows =
                 jdbcTemplate.query(
-                        "SELECT provider_cost_per_unit FROM communication_provider_rates"
+                        "SELECT provider_cost_per_unit,customer_price_per_unit FROM communication_provider_rates"
                                 + " WHERE provider_code=:provider AND channel='SMS' AND enabled_flag='Y'"
                                 + " AND currency_code=:currency AND (country_code=:country OR country_code IS NULL)"
                                 + " AND valid_from<=NOW() AND (valid_to IS NULL OR valid_to>NOW())"
@@ -420,7 +480,10 @@ public class SmartSmsRoutingService {
                                 .addValue("provider", providerCode)
                                 .addValue("country", countryCode)
                                 .addValue("currency", currencyCode),
-                        (rs, rowNum) -> rs.getBigDecimal("provider_cost_per_unit"));
+                        (rs, rowNum) ->
+                                new RateQuote(
+                                        rs.getBigDecimal("provider_cost_per_unit"),
+                                        rs.getBigDecimal("customer_price_per_unit")));
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -456,7 +519,7 @@ public class SmartSmsRoutingService {
     private BigDecimal observedReliability(String providerCode, String healthState) {
         List<Map<String, Object>> rows =
                 jdbcTemplate.queryForList(
-                        "SELECT COUNT(*) total, SUM(CASE WHEN status='SENT' THEN 1 ELSE 0 END) successes"
+                        "SELECT COUNT(*) total, SUM(CASE WHEN status IN ('SENT','DELIVERED') THEN 1 ELSE 0 END) successes"
                                 + " FROM communication_message_deliveries WHERE channel='SMS'"
                                 + " AND provider_code=:provider AND created_at>=DATE_SUB(NOW(), INTERVAL 24 HOUR)",
                         new MapSqlParameterSource("provider", providerCode));
@@ -562,6 +625,10 @@ public class SmartSmsRoutingService {
                 : "BALANCED";
     }
 
+    private String normalizeProvider(String value) {
+        return value == null || value.isBlank() ? null : value.trim().toUpperCase();
+    }
+
     private record MessageRoutingContext(
             Long communicationId,
             long merchantId,
@@ -571,7 +638,8 @@ public class SmartSmsRoutingService {
             String strategy,
             boolean requireDeliveryReceipts,
             boolean requireInbound,
-            String senderId) {}
+            String senderId,
+            String requiredProviderCode) {}
 
     private record RoutingPolicy(
             String strategy,
@@ -588,6 +656,8 @@ public class SmartSmsRoutingService {
 
     private record CapabilityOverride(boolean deliveryReceipts, boolean inbound) {}
 
+    private record RateQuote(BigDecimal providerCostPerUnit, BigDecimal customerPricePerUnit) {}
+
     public record Candidate(
             String providerCode,
             String providerName,
@@ -598,6 +668,8 @@ public class SmartSmsRoutingService {
             BigDecimal reliability,
             BigDecimal providerCostPerSegment,
             BigDecimal expectedProviderCost,
+            BigDecimal customerPricePerSegment,
+            BigDecimal expectedCustomerCharge,
             boolean deliveryReceipts,
             boolean inbound,
             BigDecimal score) {
@@ -610,6 +682,8 @@ public class SmartSmsRoutingService {
                     1000,
                     "UNKNOWN",
                     BigDecimal.ZERO,
+                    null,
+                    null,
                     null,
                     null,
                     false,
@@ -628,6 +702,8 @@ public class SmartSmsRoutingService {
                     reliability,
                     providerCostPerSegment,
                     expectedProviderCost,
+                    customerPricePerSegment,
+                    expectedCustomerCharge,
                     deliveryReceipts,
                     inbound,
                     value);
@@ -644,6 +720,7 @@ public class SmartSmsRoutingService {
             String currencyCode,
             int smsSegments,
             BigDecimal expectedProviderCost,
+            BigDecimal expectedCustomerCharge,
             List<Candidate> candidates,
             String explanation) {
         public boolean routable() {

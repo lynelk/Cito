@@ -15,6 +15,292 @@ tags:
   - name: Admin Communication Routing
   - name: Admin Commercial Programmes
 paths:
+  /api/v2/admin/communication/notifications/catalogue:
+    get:
+      tags:
+      - Admin Communication Routing
+      operationId: getCatalogueNotifications
+      summary: List notification event catalogue
+      description: Requires platform ADMIN authorization. Uses the existing session/CSRF
+        security boundary. Changes are audited.
+      responses:
+        '200':
+          description: Notification operation completed.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '400':
+          description: Invalid notification policy, recipient, or quiet-hours request.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/admin/communication/notifications/policies:
+    get:
+      tags:
+      - Admin Communication Routing
+      operationId: getPoliciesNotifications
+      summary: List platform alert policies
+      description: Requires platform ADMIN authorization. Uses the existing session/CSRF
+        security boundary. Changes are audited.
+      responses:
+        '200':
+          description: Notification operation completed.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '400':
+          description: Invalid notification policy, recipient, or quiet-hours request.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - Admin Communication Routing
+      operationId: postPoliciesNotifications
+      summary: Update platform alert policy
+      description: Requires platform ADMIN authorization. Uses the existing session/CSRF
+        security boundary. Changes are audited.
+      responses:
+        '200':
+          description: Notification operation completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Invalid notification policy, recipient, or quiet-hours request.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - eventType
+              - enabled
+              - dedupSeconds
+              - maxPerHour
+              - escalationSeconds
+              properties:
+                eventType:
+                  type: string
+                enabled:
+                  type: boolean
+                dedupSeconds:
+                  type: integer
+                  minimum: 0
+                  maximum: 86400
+                maxPerHour:
+                  type: integer
+                  minimum: 1
+                  maximum: 1000
+                escalationSeconds:
+                  type: integer
+                  minimum: 60
+                  maximum: 86400
+              additionalProperties: false
+  /api/v2/admin/communication/notifications/groups:
+    get:
+      tags:
+      - Admin Communication Routing
+      operationId: getGroupsNotifications
+      summary: List administrator alert groups and recipients
+      description: Requires platform ADMIN authorization. Uses the existing session/CSRF
+        security boundary. Changes are audited.
+      responses:
+        '200':
+          description: Notification operation completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Invalid notification policy, recipient, or quiet-hours request.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/admin/communication/notifications/groups/{group}/recipients:
+    post:
+      tags:
+      - Admin Communication Routing
+      operationId: postGroupsGroupRecipientsNotifications
+      summary: Assign or deactivate an administrator recipient
+      description: Requires platform ADMIN authorization. Uses the existing session/CSRF
+        security boundary. Changes are audited.
+      responses:
+        '200':
+          description: Notification operation completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Invalid notification policy, recipient, or quiet-hours request.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - adminId
+              - escalationLevel
+              - active
+              properties:
+                adminId:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                escalationLevel:
+                  type: integer
+                  minimum: 0
+                  maximum: 5
+                active:
+                  type: boolean
+              additionalProperties: false
+      parameters: &id001
+      - in: path
+        name: group
+        required: true
+        schema:
+          type: string
+          enum:
+          - PLATFORM_OPERATIONS
+          - FINANCE
+          - SECURITY
+          - COMPLIANCE
+          - EXECUTIVE
+  /api/v2/admin/communication/notifications/groups/{group}/quiet-hours:
+    post:
+      tags:
+      - Admin Communication Routing
+      operationId: postGroupsGroupQuietHoursNotifications
+      summary: Set group quiet hours
+      description: Requires platform ADMIN authorization. Uses the existing session/CSRF
+        security boundary. Changes are audited.
+      responses:
+        '200':
+          description: Notification operation completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Invalid notification policy, recipient, or quiet-hours request.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - start
+              - end
+              - timezone
+              properties:
+                start:
+                  type:
+                  - string
+                  - 'null'
+                  description: HH:mm, or null together with end to clear
+                end:
+                  type:
+                  - string
+                  - 'null'
+                timezone:
+                  type: string
+                  example: Africa/Kampala
+              additionalProperties: false
+      parameters: *id001
+  /api/v2/admin/communication/notifications/evidence:
+    get:
+      tags:
+      - Admin Communication Routing
+      operationId: getEvidenceNotifications
+      summary: Read notification delivery and routing evidence
+      description: Requires platform ADMIN authorization. Uses the existing session/CSRF
+        security boundary. Changes are audited.
+      responses:
+        '200':
+          description: Notification operation completed.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '400':
+          description: Invalid notification policy, recipient, or quiet-hours request.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+      - in: query
+        name: afterId
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+          default: 0
+  /api/v2/admin/communication/notifications/events/{id}/acknowledge:
+    post:
+      tags:
+      - Admin Communication Routing
+      operationId: postEventsIdAcknowledgeNotifications
+      summary: Acknowledge an event and cancel pending escalation
+      description: Requires platform ADMIN authorization. Uses the existing session/CSRF
+        security boundary. Changes are audited.
+      responses:
+        '200':
+          description: Notification operation completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Invalid notification policy, recipient, or quiet-hours request.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
   /api/v2/admin/compliance/summary:
     get:
       tags: [Admin Compliance]

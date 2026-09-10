@@ -40,6 +40,9 @@ jobs:
       - name: Validate Cito admin OpenAPI
         run: python scripts/api_docs/validate_openapi.py Docs/Api/cito-admin-v2-openapi.yaml
 
+      - name: Validate Cito Communications OpenAPI
+        run: python scripts/api_docs/validate_openapi.py Docs/Api/cito-communications-v2-openapi.yaml
+
       - name: Validate Billing BaaS OpenAPI
         run: python scripts/api_docs/validate_openapi.py Docs/Api/billing-baas-v2-openapi.yaml
 

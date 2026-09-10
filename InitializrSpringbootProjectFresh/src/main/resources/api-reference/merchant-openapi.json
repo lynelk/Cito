@@ -5625,7 +5625,7 @@
           "SMS Audience"
         ],
         "operationId": "listMerchantSmsContacts",
-        "summary": "List Merchant Sms Contacts",
+        "summary": "List merchant sms contacts",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5653,7 +5653,7 @@
           "SMS Audience"
         ],
         "operationId": "saveMerchantSmsContact",
-        "summary": "Save Merchant Sms Contact",
+        "summary": "Save merchant sms contact",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5696,7 +5696,7 @@
           "SMS Audience"
         ],
         "operationId": "deleteMerchantSmsContact",
-        "summary": "Delete Merchant Sms Contact",
+        "summary": "Delete merchant sms contact",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5731,7 +5731,7 @@
           "SMS Audience"
         ],
         "operationId": "listMerchantSmsGroups",
-        "summary": "List Merchant Sms Groups",
+        "summary": "List merchant sms groups",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5759,7 +5759,7 @@
           "SMS Audience"
         ],
         "operationId": "saveMerchantSmsGroup",
-        "summary": "Save Merchant Sms Group",
+        "summary": "Save merchant sms group",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5802,7 +5802,7 @@
           "SMS Audience"
         ],
         "operationId": "addMerchantSmsGroupMembers",
-        "summary": "Add Merchant Sms Group Members",
+        "summary": "Add merchant sms group members",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5867,7 +5867,7 @@
           "SMS Sender Identities"
         ],
         "operationId": "listMerchantSmsSenderIdentities",
-        "summary": "List Merchant Sms Sender Identities",
+        "summary": "List merchant sms sender identities",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5895,7 +5895,7 @@
           "SMS Sender Identities"
         ],
         "operationId": "requestMerchantSmsSenderIdentity",
-        "summary": "Request Merchant Sms Sender Identity",
+        "summary": "Request merchant sms sender identity",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5981,7 +5981,7 @@
           "Merchant SMS Workspace"
         ],
         "operationId": "listMerchantSmsTemplates",
-        "summary": "List Merchant Sms Templates",
+        "summary": "List merchant sms templates",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6011,7 +6011,7 @@
           "Merchant SMS Workspace"
         ],
         "operationId": "listMerchantSmsDrafts",
-        "summary": "List Merchant Sms Drafts",
+        "summary": "List merchant sms drafts",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6039,7 +6039,7 @@
           "Merchant SMS Workspace"
         ],
         "operationId": "saveMerchantSmsDraft",
-        "summary": "Save Merchant Sms Draft",
+        "summary": "Save merchant sms draft",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6082,7 +6082,7 @@
           "Merchant SMS Workspace"
         ],
         "operationId": "deleteMerchantSmsDraft",
-        "summary": "Delete Merchant Sms Draft",
+        "summary": "Delete merchant sms draft",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6123,7 +6123,7 @@
           "SMS Campaigns"
         ],
         "operationId": "listMerchantSmsCampaigns",
-        "summary": "List Merchant Sms Campaigns",
+        "summary": "List merchant sms campaigns",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6206,7 +6206,7 @@
           "SMS Campaigns"
         ],
         "operationId": "listMerchantSmsDeliveryReports",
-        "summary": "List Merchant Sms Delivery Reports",
+        "summary": "List merchant sms delivery reports",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6281,7 +6281,7 @@
           "SMS Campaigns"
         ],
         "operationId": "getMerchantSmsBillingSummary",
-        "summary": "Get Merchant Sms Billing Summary",
+        "summary": "Get merchant sms billing summary",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6311,7 +6311,7 @@
           "SMS Conversations"
         ],
         "operationId": "listMerchantSmsConversations",
-        "summary": "List Merchant Sms Conversations",
+        "summary": "List merchant sms conversations",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6353,7 +6353,7 @@
           "SMS Conversations"
         ],
         "operationId": "listMerchantSmsConversationMessages",
-        "summary": "List Merchant Sms Conversation Messages",
+        "summary": "List merchant sms conversation messages",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6401,7 +6401,7 @@
           "SMS Conversations"
         ],
         "operationId": "replyToMerchantSmsConversation",
-        "summary": "Reply To Merchant Sms Conversation",
+        "summary": "Reply to merchant sms conversation",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -9746,5 +9746,5 @@
       }
     }
   },
-  "x-source-sha256": "f945c075b8b24ae7676b2d6af16439d22e6da2c8ee52b9967b33693843b10ab3"
+  "x-source-sha256": "376d35ab26df990f0830bf251d0e3091a865524410207d66be2344e0862c87f5"
 }
