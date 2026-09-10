@@ -77,10 +77,7 @@ public class ComplianceReportingController {
         }
         int updated =
                 caseService.decideCase(
-                        id,
-                        decision,
-                        string(body, "reason", null),
-                        string(body, "actor", null));
+                        id, decision, string(body, "reason", null), string(body, "actor", null));
         if (updated == 0) {
             return ResponseEntity.notFound().build();
         }
