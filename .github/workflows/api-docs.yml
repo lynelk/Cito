@@ -81,6 +81,12 @@ jobs:
           Docs/Api/cito-onboarding-v2-openapi.yaml Docs/Api/cito-admin-v2-openapi.yaml
           Docs/Api/billing-baas-v2-openapi.yaml
 
+      - name: Verify searchable portal reference and audience isolation
+        run: |
+          python scripts/api_docs/build_portal_reference.py --check
+          python scripts/api_docs/test_portal_reference.py
+          python scripts/api_docs/validate_openapi.py InitializrSpringbootProjectFresh/src/main/resources/api-reference/merchant-openapi.json
+
       - name: Scan full controller/OpenAPI drift
         run: python scripts/api_docs/controller_drift.py Docs/Api/cpay-v2-openapi.yaml
 

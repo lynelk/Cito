@@ -59,6 +59,12 @@ paths:
     get:
       summary: List supported payment channels
       operationId: listChannels
+      description: Requires a verified merchant v2 signature. API access rate applies per authenticated request.
+      parameters:
+      - name: merchantNumber
+        in: query
+        required: true
+        schema: {type: string}
       responses:
         '200':
           description: Supported channels
@@ -108,6 +114,12 @@ paths:
     get:
       summary: List the versioned webhook event catalog with payload schemas
       operationId: listWebhookEvents
+      description: Requires a verified merchant v2 signature. API access rate applies per authenticated request.
+      parameters:
+      - name: merchantNumber
+        in: query
+        required: true
+        schema: {type: string}
       responses:
         '200':
           description: Webhook event catalog entries
@@ -3650,6 +3662,145 @@ paths:
       responses:
         '201':
           description: Validation run created
+  /api/v2/identity/verify:
+    post:
+      operationId: verifyMerchantIdentity
+      summary: Verify an identity through an enabled provider
+      description: Requires an authenticated merchant and enabled identity service. Supply identityNumber or its nin
+        compatibility alias. Country defaults to UG and identityType defaults to NIN. Responses contain masked subject
+        details. API access admission and any provider/service fee are separate.
+      security:
+      - CPayV2Signature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - merchantNumber
+              properties:
+                merchantNumber:
+                  type: string
+                identityType:
+                  type: string
+                country:
+                  type: string
+                identityNumber:
+                  type: string
+                nin:
+                  type: string
+                fullName:
+                  type: string
+                msisdn:
+                  type: string
+                requestedBy:
+                  type: string
+                consentGranted:
+                  type: boolean
+                  description: Recorded consent required by the applicable identity verification workflow.
+              anyOf:
+              - required:
+                - identityNumber
+              - required:
+                - nin
+      responses:
+        '200':
+          description: Verification request result
+          content:
+            application/json:
+              schema: &id001
+                type: object
+                properties:
+                  requestReference:
+                    type: string
+                  identityType:
+                    type: string
+                  country:
+                    type: string
+                  subjectNameMasked:
+                    type: string
+                  subjectMsisdnMasked:
+                    type: string
+                  identityNumberMask:
+                    type: string
+                  status:
+                    type: string
+                  providerReference:
+                    type: string
+                  requestedBy:
+                    type: string
+        '401': &id002
+          description: Invalid merchant signature
+        '400': &id003
+          description: Invalid request
+  /api/v2/identity/requests/{reference}:
+    get:
+      operationId: getMerchantIdentityRequest
+      summary: Read an identity request within your merchant scope
+      security:
+      - CPayV2Signature: []
+      parameters:
+      - name: reference
+        in: path
+        required: true
+        schema:
+          type: string
+      - &id004
+        name: merchantNumber
+        in: query
+        required: true
+        schema:
+          type: string
+        description: Merchant number resolved by the verified signature.
+      responses:
+        '200':
+          description: Masked identity request state
+          content:
+            application/json:
+              schema: *id001
+        '404':
+          description: Reference not found in this merchant scope
+        '401': *id002
+        '400': *id003
+  /api/v2/merchant/balances:
+    get:
+      operationId: getSignedMerchantBalanceViews
+      summary: Read merchant ledger, pending and available balance views
+      description: A signed API despite its merchant path prefix; a portal session alone is insufficient. Balances
+        retain their individual currency.
+      security:
+      - CPayV2Signature: []
+      parameters:
+      - *id004
+      responses:
+        '200':
+          description: Balance views
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    merchantId:
+                      type: integer
+                      format: int64
+                    channelCode:
+                      type: string
+                    gatewayId:
+                      type: string
+                    currency:
+                      type: string
+                    availableBalance:
+                      type: string
+                    ledgerBalance:
+                      type: string
+                    pendingBalance:
+                      type: string
+        '401': *id002
+        '400': *id003
+
 components:
   securitySchemes:
     CPayV2Signature:

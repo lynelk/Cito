@@ -1,0 +1,29 @@
+.cito-api-reference { color: var(--ios-text, #0b2545); max-width: 100%; padding: 16px; }
+.cito-api-reference * { box-sizing: border-box; }
+.cito-api-reference h2 { font-size: 1.7rem; margin: 6px 0 12px; }
+.cito-api-eyebrow { color: var(--cito-deep-blue, #0047b3); font-weight: 700; }
+.cito-api-reference button, .cito-api-reference input, .cito-api-reference select, .cito-api-reference textarea { min-height: 44px; border: 1px solid #94a3b8; border-radius: 8px; padding: 10px; font: inherit; background: var(--ios-surface-solid, #fff); color: inherit; }
+.cito-api-reference button { cursor: pointer; }
+.cito-api-reference button:disabled { opacity: .55; cursor: default; }
+.cito-api-reference :focus-visible { outline: 3px solid var(--cito-primary, #0066ff); outline-offset: 3px; }
+.cito-api-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+.cito-api-reference label { display: grid; gap: 6px; margin: 12px 0; }
+.cito-api-reference input, .cito-api-reference textarea { width: 100%; min-width: 0; }
+.cito-api-reference textarea { min-height: 110px; font-family: monospace; }
+.cito-api-grid { display: grid; grid-template-columns: minmax(240px, 30%) minmax(0, 1fr); gap: 18px; }
+.cito-api-grid nav { max-height: 78vh; overflow: auto; padding: 4px; }
+.cito-api-grid nav button { display: block; width: 100%; text-align: left; margin-bottom: 8px; overflow-wrap: anywhere; }
+.cito-api-grid small { display: block; margin-top: 6px; }
+.cito-api-grid nav button[aria-current=true], .cito-api-toolbar button[aria-pressed=true] { border-color: var(--cito-primary, #0066ff); background: var(--cito-ice, #e6f2ff); }
+.cito-api-grid article { min-width: 0; border: 1px solid #94a3b8; border-radius: 12px; padding: 16px; overflow-wrap: anywhere; }
+.cito-api-reference pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .875rem; max-height: 65vh; overflow: auto; }
+.cito-api-guide { line-height: 1.6; }
+.cito-api-guide pre { font-family: monospace; max-height: none; }
+.cito-api-reference details { margin: 12px 0; padding: 8px; border: 1px solid #94a3b8; border-radius: 8px; }
+.cito-api-reference summary { cursor: pointer; min-height: 36px; font-weight: 600; }
+.cito-api-table { overflow-x: auto; }
+.cito-api-reference th, .cito-api-reference td { padding: 8px; text-align: left; border-bottom: 1px solid #94a3b8; }
+.cito-api-reference fieldset { border: 1px solid #94a3b8; border-radius: 8px; margin: 16px 0; }
+.cito-api-reference .cito-api-confirm { display: flex; align-items: center; gap: 10px; }
+.cito-api-confirm input { width: 24px; flex-shrink: 0; }
+@media (max-width: 768px) { .cito-api-grid { grid-template-columns: minmax(0, 1fr); } .cito-api-grid nav { max-height: 320px; } .cito-api-reference { padding: 8px; } }

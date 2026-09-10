@@ -133,7 +133,10 @@ public class PaymentsV2Controller {
                 PaymentResult sandboxResult =
                         adapterNativePaymentService.payout(request, merchant, environment);
                 idempotencyService.record(
-                        request.getMerchantNumber(), idempotencyKey, idempotencyBody, sandboxResult);
+                        request.getMerchantNumber(),
+                        idempotencyKey,
+                        idempotencyBody,
+                        sandboxResult);
                 return ResponseEntity.accepted().body(sandboxResult);
             }
 
@@ -170,7 +173,14 @@ public class PaymentsV2Controller {
     }
 
     @GetMapping(path = "/channels")
-    public List<PaymentChannelResponse> channels() {
+    public List<PaymentChannelResponse> channels(
+            @RequestParam("merchantNumber") String merchantNumber, HttpServletRequest request) {
+        try {
+            securityService.verify(request, "", merchantNumber);
+        } catch (V2RequestSecurityException e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "Invalid merchant signature");
+        }
         return paymentOrchestrationService.listChannels();
     }
 
@@ -308,8 +318,7 @@ public class PaymentsV2Controller {
         return value == null || value.trim().isEmpty();
     }
 
-    private ResponseEntity<ApiErrorResponse> error(
-            HttpStatus status, String code, String message) {
+    private ResponseEntity<ApiErrorResponse> error(HttpStatus status, String code, String message) {
         return ResponseEntity.status(status)
                 .body(new ApiErrorResponse(code, message, UUID.randomUUID().toString()));
     }

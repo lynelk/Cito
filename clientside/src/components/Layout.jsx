@@ -1,3 +1,4 @@
+import ApiReference from '../features/ApiReference';
 import React from 'react';
 import Messager from './StableMessager';
 import strings from './locale';
@@ -46,6 +47,7 @@ const menuTitles = {
   'providers-integrations': { title: 'Integrations / API', subtitle: 'Provider credentials, certification, health, incidents and routing.' },
   platform: { title: 'Billing & BaaS', subtitle: 'Service entitlements, metering, billing, monetisation and product access.' },
   administration: { title: 'Administration', subtitle: 'Users, roles, audit and support operations.' },
+  'api-reference': { title: 'API workbench', subtitle: 'Full system reference, commercial APIs and access pricing.' },
   engineering: { title: 'Engineering / Internal', subtitle: 'Production maturity, observability and internal control planes.' },
   search: { title: 'Global Search', subtitle: 'Scoped search across merchants, transactions and support cases.' },
   support: { title: 'Support', subtitle: 'Cases, SLA queues and merchant context.' },
@@ -90,6 +92,7 @@ const adminRoutes = {
   platform: '/bo/admin/platform',
   administration: '/bo/admin/administration',
   engineering: '/bo/admin/engineering',
+  'api-reference': '/bo/admin/api-reference',
   search: '/bo/admin/search',
   support: '/bo/admin/support',
   notifications: '/bo/admin/notifications',
@@ -182,6 +185,7 @@ class LayoutWithOutRouter extends React.Component {
       case 'providers-integrations': return <ModuleCertification {...moduleProps} />;
       case 'platform': return <ModuleCitoPlatform {...moduleProps} />;
       case 'administration': return <ModuleAdmins {...moduleProps} />;
+      case 'api-reference': return <ApiReference admin />;
       case 'engineering': return <ProductionMaturityDashboard {...moduleProps} />;
       case 'search': return <ExperienceWorkspace portal="admin" section="search" />;
       case 'support': return <ExperienceWorkspace portal="admin" section="support" />;

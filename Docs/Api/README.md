@@ -60,3 +60,7 @@ The API contracts are parsed, structurally validated and linted by repository wo
 ## Change rule
 
 If an implementation changes a public request, response, path, authentication requirement, entitlement requirement, asynchronous state, webhook, error condition or security-sensitive behavior, update the owning OpenAPI contract in the same pull request. Compatibility copies must be synchronized or explicitly deprecated. Generated HTML is output, never the source of truth.
+
+## Searchable portal references
+
+Start with [Cito Gateway integration guide](Cito-Gateway-Integration-Guide.md). Merchant Developers provides a private, component-pruned OpenAPI 3.1 projection of the owning contracts. It labels external integration and merchant workspace operations separately. Admin API workbench also provides the full runtime system schema and API access rate controls. The public hero page exposes searchable capability topics only. Generated references never replace the source contracts listed above. See [release notes](API-REFERENCE-RELEASE.md) for migration, authentication compatibility and verification requirements.

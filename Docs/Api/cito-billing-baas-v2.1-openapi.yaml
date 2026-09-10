@@ -30,12 +30,14 @@ paths:
     get:
       tags: [Customers]
       operationId: listBillingCustomers
+      summary: List Billing Customers
       x-sdk-operation-group: billing.customers
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       responses: {'200': {$ref: '#/components/responses/ObjectList'}, '401': {$ref: '#/components/responses/Unauthorized'}}
     post:
       tags: [Customers]
       operationId: createBillingCustomer
+      summary: Create Billing Customer
       x-sdk-operation-group: billing.customers
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -45,6 +47,7 @@ paths:
     post:
       tags: [Customers]
       operationId: createBillingAccount
+      summary: Create Billing Account
       x-sdk-operation-group: billing.accounts
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -54,6 +57,7 @@ paths:
     post:
       tags: [Contracts]
       operationId: createBillingContract
+      summary: Create Billing Contract
       x-sdk-operation-group: billing.contracts
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -63,6 +67,7 @@ paths:
     post:
       tags: [Contracts]
       operationId: submitBillingContract
+      summary: Submit Billing Contract
       x-sdk-operation-group: billing.contracts
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -71,6 +76,7 @@ paths:
     post:
       tags: [Contracts]
       operationId: approveBillingContract
+      summary: Approve Billing Contract
       x-sdk-operation-group: billing.contracts
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -79,6 +85,7 @@ paths:
     post:
       tags: [Contracts]
       operationId: activateBillingContract
+      summary: Activate Billing Contract
       x-sdk-operation-group: billing.contracts
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -87,6 +94,7 @@ paths:
     post:
       tags: [Contracts, Pricing]
       operationId: submitContractPriceOverride
+      summary: Submit Contract Price Override
       x-sdk-operation-group: billing.pricing
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -96,6 +104,7 @@ paths:
     post:
       tags: [Contracts, Pricing]
       operationId: approveContractPriceOverride
+      summary: Approve Contract Price Override
       x-sdk-operation-group: billing.pricing
       parameters:
         - {$ref: '#/components/parameters/CitoEnvironment'}
@@ -107,6 +116,7 @@ paths:
     post:
       tags: [Subscriptions]
       operationId: createBillingSubscription
+      summary: Create Billing Subscription
       x-sdk-operation-group: billing.subscriptions
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -116,6 +126,7 @@ paths:
     post:
       tags: [Subscriptions]
       operationId: activateBillingSubscription
+      summary: Activate Billing Subscription
       x-sdk-operation-group: billing.subscriptions
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -124,6 +135,7 @@ paths:
     post:
       tags: [Subscriptions]
       operationId: pauseBillingSubscription
+      summary: Pause Billing Subscription
       x-sdk-operation-group: billing.subscriptions
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -132,6 +144,7 @@ paths:
     post:
       tags: [Subscriptions]
       operationId: cancelBillingSubscription
+      summary: Cancel Billing Subscription
       x-sdk-operation-group: billing.subscriptions
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -140,6 +153,7 @@ paths:
     post:
       tags: [Subscriptions]
       operationId: grantBillingEntitlement
+      summary: Grant Billing Entitlement
       x-sdk-operation-group: billing.entitlements
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -149,6 +163,7 @@ paths:
     post:
       tags: [Pricing]
       operationId: quoteBillingPrice
+      summary: Quote Billing Price
       description: Resolves effective contract override, customer price, provider cost, tax and FX without reserving funds.
       x-sdk-operation-group: billing.pricing
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
@@ -159,6 +174,7 @@ paths:
     post:
       tags: [Charging]
       operationId: authorizeBillingChargeCompatibility
+      summary: Authorize Billing Charge Compatibility
       description: Compatibility route accepting caller-supplied net amount. New integrations should use rate-and-authorize.
       x-sdk-operation-group: billing.charging
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
@@ -169,6 +185,7 @@ paths:
     post:
       tags: [Charging, Pricing]
       operationId: rateAndAuthorizeBillingCharge
+      summary: Rate And Authorize Billing Charge
       description: Preferred server-side deterministic pricing and online authorization path.
       x-sdk-operation-group: billing.charging
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
@@ -179,6 +196,7 @@ paths:
     get:
       tags: [Charging]
       operationId: getBillingCharge
+      summary: Get Billing Charge
       x-sdk-operation-group: billing.charging
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -187,6 +205,7 @@ paths:
     post:
       tags: [Charging]
       operationId: commitBillingCharge
+      summary: Commit Billing Charge
       x-sdk-operation-group: billing.charging
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -195,6 +214,7 @@ paths:
     post:
       tags: [Charging]
       operationId: releaseBillingCharge
+      summary: Release Billing Charge
       x-sdk-operation-group: billing.charging
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -203,6 +223,7 @@ paths:
     post:
       tags: [Charging, Protected Actions]
       operationId: reverseBillingCharge
+      summary: Reverse Billing Charge
       x-sdk-operation-group: billing.charging
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}, {$ref: '#/components/parameters/Reference'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -211,6 +232,7 @@ paths:
     post:
       tags: [Usage]
       operationId: ingestBillingUsageEvent
+      summary: Ingest Billing Usage Event
       x-sdk-operation-group: billing.usage
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       requestBody:
@@ -220,6 +242,7 @@ paths:
     get:
       tags: [Usage]
       operationId: listBillingUsageEvents
+      summary: List Billing Usage Events
       x-sdk-operation-group: billing.usage
       parameters:
         - {$ref: '#/components/parameters/CitoEnvironment'}
@@ -234,6 +257,7 @@ paths:
     get:
       tags: [Usage]
       operationId: summarizeBillingUsage
+      summary: Summarize Billing Usage
       x-sdk-operation-group: billing.usage
       parameters:
         - {$ref: '#/components/parameters/CitoEnvironment'}
@@ -246,6 +270,7 @@ paths:
     get:
       tags: [Billing Center]
       operationId: listBillingInvoices
+      summary: List Billing Invoices
       x-sdk-operation-group: billing.invoices
       parameters:
         - {$ref: '#/components/parameters/CitoEnvironment'}
@@ -258,6 +283,7 @@ paths:
     get:
       tags: [Billing Center]
       operationId: getBillingInvoice
+      summary: Get Billing Invoice
       description: Returns invoice header, lines, credit notes, payment allocations and retained tax evidence.
       x-sdk-operation-group: billing.invoices
       parameters:
@@ -270,6 +296,7 @@ paths:
     get:
       tags: [Billing Center]
       operationId: getBillingQuotaUsage
+      summary: Get Billing Quota Usage
       x-sdk-operation-group: billing.quotas
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -278,6 +305,7 @@ paths:
     get:
       tags: [Billing Center]
       operationId: listBillingEntitlements
+      summary: List Billing Entitlements
       x-sdk-operation-group: billing.entitlements
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       responses: {'200': {$ref: '#/components/responses/ObjectList'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -286,6 +314,7 @@ paths:
     get:
       tags: [Billing Center]
       operationId: getBillingCatalog
+      summary: Get Billing Catalog
       x-sdk-operation-group: billing.catalog
       parameters:
         - {$ref: '#/components/parameters/CitoEnvironment'}
@@ -297,6 +326,7 @@ paths:
     post:
       tags: [Protected Actions]
       operationId: requestBillingProtectedAction
+      summary: Request Billing Protected Action
       x-sdk-operation-group: billing.protectedActions
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -306,6 +336,7 @@ paths:
     post:
       tags: [Protected Actions]
       operationId: approveBillingProtectedAction
+      summary: Approve Billing Protected Action
       x-sdk-operation-group: billing.protectedActions
       parameters:
         - {$ref: '#/components/parameters/CitoEnvironment'}
@@ -318,6 +349,7 @@ paths:
     get:
       tags: [Webhooks]
       operationId: listBillingWebhookEventTypes
+      summary: List Billing Webhook Event Types
       x-sdk-operation-group: billing.webhooks
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       responses: {'200': {$ref: '#/components/responses/ObjectList'}, '401': {$ref: '#/components/responses/Unauthorized'}}
@@ -326,12 +358,14 @@ paths:
     get:
       tags: [Webhooks]
       operationId: listBillingWebhooks
+      summary: List Billing Webhooks
       x-sdk-operation-group: billing.webhooks
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       responses: {'200': {$ref: '#/components/responses/ObjectList'}, '401': {$ref: '#/components/responses/Unauthorized'}}
     post:
       tags: [Webhooks]
       operationId: createBillingWebhook
+      summary: Create Billing Webhook
       x-sdk-operation-group: billing.webhooks
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -341,6 +375,7 @@ paths:
     post:
       tags: [Webhooks]
       operationId: rotateBillingWebhookSecret
+      summary: Rotate Billing Webhook Secret
       x-sdk-operation-group: billing.webhooks
       parameters:
         - {$ref: '#/components/parameters/CitoEnvironment'}
@@ -352,6 +387,7 @@ paths:
     get:
       tags: [Webhooks]
       operationId: listBillingWebhookDeliveries
+      summary: List Billing Webhook Deliveries
       x-sdk-operation-group: billing.webhooks
       parameters:
         - {$ref: '#/components/parameters/CitoEnvironment'}
@@ -363,6 +399,7 @@ paths:
     post:
       tags: [Webhooks]
       operationId: replayBillingWebhookDelivery
+      summary: Replay Billing Webhook Delivery
       x-sdk-operation-group: billing.webhooks
       parameters:
         - {$ref: '#/components/parameters/CitoEnvironment'}
@@ -374,6 +411,7 @@ paths:
     post:
       tags: [Webhooks]
       operationId: testBillingWebhook
+      summary: Test Billing Webhook
       x-sdk-operation-group: billing.webhooks
       parameters: [{$ref: '#/components/parameters/CitoEnvironment'}, {$ref: '#/components/parameters/RequestId'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -383,6 +421,7 @@ paths:
     get:
       tags: [Exports]
       operationId: exportBillingFocus14CostAndUsage
+      summary: Export Billing Focus14 Cost And Usage
       description: Tenant-scoped FOCUS 1.4 Cost and Usage CSV with separate Cito provider-cost provenance columns.
       x-sdk-operation-group: billing.exports
       parameters:
@@ -406,6 +445,7 @@ paths:
     get:
       tags: [Administration]
       operationId: getBillingBaasTenantReadiness
+      summary: Get Billing Baas Tenant Readiness
       security: [{AdminBasicAuth: []}]
       parameters: [{$ref: '#/components/parameters/TenantId'}]
       responses: {'200': {$ref: '#/components/responses/Object'}}
@@ -414,6 +454,7 @@ paths:
     post:
       tags: [Administration]
       operationId: reviewBillingBaasTenantReadiness
+      summary: Review Billing Baas Tenant Readiness
       security: [{AdminBasicAuth: []}]
       parameters: [{$ref: '#/components/parameters/TenantId'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -423,6 +464,7 @@ paths:
     post:
       tags: [Administration]
       operationId: activateBillingBaasTenant
+      summary: Activate Billing Baas Tenant
       security: [{AdminBasicAuth: []}]
       parameters: [{$ref: '#/components/parameters/TenantId'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}}
@@ -431,6 +473,7 @@ paths:
     post:
       tags: [Administration]
       operationId: provisionBillingBaasCredential
+      summary: Provision Billing Baas Credential
       security: [{AdminBasicAuth: []}]
       parameters: [{$ref: '#/components/parameters/TenantId'}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
@@ -440,6 +483,7 @@ paths:
     post:
       tags: [Administration]
       operationId: setBillingBaasCreditLimit
+      summary: Set Billing Baas Credit Limit
       security: [{AdminBasicAuth: []}]
       parameters:
         - {$ref: '#/components/parameters/TenantId'}
@@ -451,6 +495,7 @@ paths:
     post:
       tags: [Administration]
       operationId: topUpBillingBaasAccount
+      summary: Top Up Billing Baas Account
       security: [{AdminBasicAuth: []}]
       parameters:
         - {$ref: '#/components/parameters/TenantId'}
@@ -462,6 +507,7 @@ paths:
     post:
       tags: [Pricing, Administration]
       operationId: simulateCitoPricingShadow
+      summary: Simulate Cito Pricing Shadow
       security: [{AdminBasicAuth: []}]
       requestBody: {$ref: '#/components/requestBodies/GenericJson'}
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}}
@@ -470,6 +516,7 @@ paths:
     get:
       tags: [Revenue Assurance, Administration]
       operationId: summarizeBillingRevenueAssurance
+      summary: Summarize Billing Revenue Assurance
       security: [{AdminBasicAuth: []}]
       parameters: [{$ref: '#/components/parameters/TenantId'}]
       responses: {'200': {$ref: '#/components/responses/Object'}, '400': {$ref: '#/components/responses/BadRequest'}}

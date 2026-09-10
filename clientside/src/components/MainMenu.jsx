@@ -22,6 +22,7 @@ const navGroups = [
   { title: 'Platform', items: [
     { value: 'providers-integrations', text: 'Integrations / API', Icon: Icons.LightningIcon },
     { value: 'administration', text: 'Administration', Icon: Icons.UsersIcon },
+    { value: 'api-reference', text: 'API workbench', Icon: Icons.CardsIcon },
     { value: 'engineering', text: 'Engineering / Internal', Icon: Icons.SettingsIcon },
   ] },
   { title: 'Account', items: [

@@ -47,7 +47,7 @@ describe('CitoLandingPage', () => {
 
     expect(screen.getAllByRole('link', { name: /cito payments api documentation/i })[0]).toHaveAttribute(
       'href',
-      'https://lynelk.github.io/CPay/',
+      '/fo/developers',
     );
     expect(screen.getByText(/MTN MoMo · Airtel Money · Yo! Payments · Safaricom M-Pesa · FlexiPay/i)).toBeInTheDocument();
   });

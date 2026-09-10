@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class BillingBaasApiKeyService {
+    private final net.citotech.cito.developer.reference.ApiAccessBillingService apiBilling;
     private static final int DEFAULT_REQUESTS_PER_MINUTE = 300;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -21,7 +22,9 @@ public class BillingBaasApiKeyService {
 
     public BillingBaasApiKeyService(
             NamedParameterJdbcTemplate jdbcTemplate,
-            CitoServiceEntitlementService entitlementService) {
+            CitoServiceEntitlementService entitlementService,
+            net.citotech.cito.developer.reference.ApiAccessBillingService apiBilling) {
+        this.apiBilling = apiBilling;
         this.jdbcTemplate = jdbcTemplate;
         this.entitlementService = entitlementService;
     }
@@ -102,6 +105,7 @@ public class BillingBaasApiKeyService {
                         + "WHERE secret_hash=:secret_hash",
                 p);
         recordRequest(context, requestId, httpMethod, routeTemplate);
+        apiBilling.admitted(context.merchantId(), context.billingTenantId(), context.environment());
         return context;
     }
 
