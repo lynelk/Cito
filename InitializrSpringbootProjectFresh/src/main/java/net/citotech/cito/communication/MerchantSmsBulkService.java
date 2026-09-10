@@ -30,7 +30,8 @@ public class MerchantSmsBulkService {
             throw new IllegalArgumentException("recipients is required.");
         }
         if (recipients.size() > 1000) {
-            throw new IllegalArgumentException("A bulk request can contain at most 1,000 recipients.");
+            throw new IllegalArgumentException(
+                    "A bulk request can contain at most 1,000 recipients.");
         }
         List<Map<String, Object>> accepted = new ArrayList<>(recipients.size());
         for (int i = 0; i < recipients.size(); i++) {

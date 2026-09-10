@@ -170,3 +170,6 @@ A balanced ledger is only one finance-close condition. Do not mark a business da
 Application rollback must not roll back already-applied financial history or destructive schema changes. Prefer forward fixes and append-only correcting entries. Before reverting an application release, confirm that the older code understands the current Flyway schema and financial records.
 
 Never delete a production database volume or the verified backup destination as a rollback technique.
+
+
+Communications notification policies, provider configuration, evidence and release checks: [Notification orchestration](Docs/Communications/Notification-Orchestration.md).

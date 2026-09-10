@@ -113,22 +113,34 @@ public class SmsConversationService {
             throw new IllegalArgumentException("providerMessageId is required.");
         String normalizedProvider = chooseProvider(providerCode, sender.providerCode());
         DeliveryStatus status = normalizeDeliveryStatus(providerStatus);
-        String eventKey = eventKey("DLR", normalizedProvider, providerMessageId, status.name(), "");
+        String eventKey =
+                eventKey(
+                        "DLR",
+                        normalizedProvider,
+                        providerMessageId,
+                        status.name(),
+                        String.valueOf(sender.merchantId()));
         Map<String, Object> duplicate = existingWebhook(eventKey);
         if (duplicate != null) return duplicate;
 
         String payloadJson = json(payload == null ? Map.of() : payload);
         if (status == DeliveryStatus.PENDING) {
-            recordWebhook(eventKey, sender, normalizedProvider, "DLR", providerMessageId, payloadJson);
+            recordWebhook(
+                    eventKey, sender, normalizedProvider, "DLR", providerMessageId, payloadJson);
             return Map.of(
-                    "accepted", true,
-                    "ignored", true,
-                    "matchedDeliveries", 0,
-                    "status", status.name());
+                    "accepted",
+                    true,
+                    "ignored",
+                    true,
+                    "matchedDeliveries",
+                    0,
+                    "status",
+                    status.name());
         }
 
         int updated =
                 deliveryLogRepository.updateByProviderMessageId(
+                        sender.merchantId(),
                         normalizedProvider,
                         providerMessageId,
                         status,
@@ -137,6 +149,7 @@ public class SmsConversationService {
         if (updated > 0) {
             MapSqlParameterSource params =
                     new MapSqlParameterSource()
+                            .addValue("merchant", sender.merchantId())
                             .addValue("status", status.name())
                             .addValue("provider", normalizedProvider)
                             .addValue("provider_message_id", providerMessageId.trim());
@@ -144,7 +157,7 @@ public class SmsConversationService {
                     "UPDATE communication_messages m JOIN communication_message_deliveries d"
                             + " ON d.communication_id=m.id SET m.status=:status"
                             + " WHERE d.provider_code=:provider AND d.provider_message_id=:provider_message_id"
-                            + " AND m.status<>'CANCELLED'",
+                            + " AND m.merchant_id=:merchant AND m.status NOT IN ('CANCELLED','DELIVERED')",
                     params);
             jdbcTemplate.update(
                     "UPDATE communication_conversation_messages cm"
@@ -152,7 +165,7 @@ public class SmsConversationService {
                             + " JOIN communication_message_deliveries d ON d.communication_id=m.id"
                             + " SET cm.status=:status,cm.provider_code=:provider,"
                             + " cm.provider_message_id=:provider_message_id"
-                            + " WHERE cm.direction='OUTBOUND' AND d.provider_code=:provider"
+                            + " WHERE cm.direction='OUTBOUND' AND m.merchant_id=:merchant AND cm.status<>'DELIVERED' AND d.provider_code=:provider"
                             + " AND d.provider_message_id=:provider_message_id",
                     params);
         }

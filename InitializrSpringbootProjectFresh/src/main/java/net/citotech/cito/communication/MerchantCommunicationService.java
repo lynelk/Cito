@@ -244,7 +244,8 @@ public class MerchantCommunicationService {
                                 .addValue("reference", publicId.trim()));
         if (rows.isEmpty()) return null;
         String messageStatus = String.valueOf(rows.get(0).get("message_status"));
-        if ("CANCELLED".equalsIgnoreCase(messageStatus)) return findByPublicId(merchantId, publicId);
+        if ("CANCELLED".equalsIgnoreCase(messageStatus))
+            return findByPublicId(merchantId, publicId);
         String outboxStatus =
                 rows.get(0).get("outbox_status") == null
                         ? null
@@ -295,10 +296,11 @@ public class MerchantCommunicationService {
         Timestamp oldExpires = (Timestamp) rows.get(0).get("expires_at");
         long ttl = defaultTtl("TRANSACTIONAL");
         if (oldScheduled != null && oldExpires != null) {
-            ttl = Math.max(
-                    60,
-                    oldExpires.toInstant().getEpochSecond()
-                            - oldScheduled.toInstant().getEpochSecond());
+            ttl =
+                    Math.max(
+                            60,
+                            oldExpires.toInstant().getEpochSecond()
+                                    - oldScheduled.toInstant().getEpochSecond());
         }
         long communicationId = ((Number) rows.get(0).get("communication_id")).longValue();
         String status = newSchedule.isAfter(now.plusSeconds(2)) ? "SCHEDULED" : "RECEIVED";
@@ -366,7 +368,8 @@ public class MerchantCommunicationService {
         if (metadata != null) {
             try {
                 @SuppressWarnings("unchecked")
-                Map<String, Object> parsed = objectMapper.readValue(String.valueOf(metadata), Map.class);
+                Map<String, Object> parsed =
+                        objectMapper.readValue(String.valueOf(metadata), Map.class);
                 view.put("sms", parsed);
             } catch (Exception ignored) {
                 // Historical malformed metadata must not make status unreadable.

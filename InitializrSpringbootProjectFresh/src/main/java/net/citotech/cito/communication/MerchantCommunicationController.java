@@ -72,7 +72,9 @@ public class MerchantCommunicationController {
         }
     }
 
-    /** Submit up to 1,000 recipients atomically while preserving per-recipient delivery evidence. */
+    /**
+     * Submit up to 1,000 recipients atomically while preserving per-recipient delivery evidence.
+     */
     @PostMapping(
             path = "/bulk",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -186,7 +188,8 @@ public class MerchantCommunicationController {
         try {
             CancelRequest input = objectMapper.readValue(body, CancelRequest.class);
             Merchant merchant = verifiedMerchant(request, body, input.merchantNumber());
-            Map<String, Object> result = communicationService.cancelSms(merchant.getId(), reference);
+            Map<String, Object> result =
+                    communicationService.cancelSms(merchant.getId(), reference);
             if (result == null) {
                 return error(
                         HttpStatus.NOT_FOUND,

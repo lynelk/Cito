@@ -3,6 +3,7 @@ package net.citotech.cito.communication.delivery;
 /** Canonical channel-agnostic communication delivery lifecycle. */
 public enum DeliveryStatus {
     PENDING,
+    UNKNOWN,
     CANCELLED,
     SENT,
     DELIVERED,

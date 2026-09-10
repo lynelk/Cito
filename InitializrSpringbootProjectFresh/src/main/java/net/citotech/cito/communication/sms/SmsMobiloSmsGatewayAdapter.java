@@ -1,133 +1,130 @@
 package net.citotech.cito.communication.sms;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import net.citotech.cito.Common;
 import net.citotech.cito.Model.HttpRequestResponse;
-import net.citotech.cito.Model.Setting;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import net.citotech.cito.communication.credentials.CommunicationCredentialStore;
 import org.springframework.stereotype.Component;
 
 /**
- * SMSMobilo REST API adapter.
- *
- * <p>SMSMobilo documents a JSON API rooted at https://smsmobilo.com/api/v1, UTF-8 over HTTPS, with
- * Bearer authentication preferred and X-API-Key supported. Endpoint and payload-field names are
- * intentionally settings-driven because they are provider contract details and must not be guessed
- * in production code. The adapter remains unavailable until those settings and an API key are
- * configured.
+ * SMSMobilo public send contract, https://smsmobilo.com/#api (2026-09-10). Status-query and
+ * callback contracts require the provider's authenticated API documentation.
  */
 @Component
 public class SmsMobiloSmsGatewayAdapter implements SmsGatewayAdapter {
-
-    private static final Logger logger =
-            Logger.getLogger(SmsMobiloSmsGatewayAdapter.class.getName());
-    private static final String DEFAULT_BASE_URL = "https://smsmobilo.com/api/v1";
-
-    private final NamedParameterJdbcTemplate jdbcTemplate;
-    private final ObjectMapper objectMapper;
+    static final String SEND_URL = "https://smsmobilo.com/api/v1/send";
+    private final CommunicationCredentialStore credentials;
+    private final ObjectMapper mapper;
+    private String runtimeApiKey = "";
 
     public SmsMobiloSmsGatewayAdapter(
-            NamedParameterJdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.objectMapper = objectMapper;
+            CommunicationCredentialStore credentials, ObjectMapper mapper) {
+        this.credentials = credentials;
+        this.mapper = mapper;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public SmsMobiloSmsGatewayAdapter(
+            CommunicationCredentialStore credentials,
+            ObjectMapper mapper,
+            @org.springframework.beans.factory.annotation.Value("${SMSMOBILO_API_KEY:}")
+                    String runtimeApiKey) {
+        this(credentials, mapper);
+        this.runtimeApiKey = runtimeApiKey;
+    }
+
+    public boolean isConfigured() {
+        if (runtimeApiKey != null && !runtimeApiKey.isBlank()) return true;
+        try {
+            String key = credentials.credential("SMSMOBILO_SMS", "api_key");
+            return key != null && !key.isBlank();
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
     }
 
     @Override
     public SmsSendResult send(SmsSendRequest request) {
-        String apiKey = settingValue("smsmobilo_sms_api_key");
-        String sendPath = settingValue("smsmobilo_sms_send_path");
-        String recipientField = settingValue("smsmobilo_sms_recipient_field");
-        String messageField = settingValue("smsmobilo_sms_message_field");
-        String senderField = settingValue("smsmobilo_sms_sender_field");
-        if (blank(apiKey)) {
-            return SmsSendResult.failed("smsmobilo_sms_api_key not configured", "");
+        final String key;
+        try {
+            key =
+                    runtimeApiKey == null || runtimeApiKey.isBlank()
+                            ? credentials.credential("SMSMOBILO_SMS", "api_key")
+                            : runtimeApiKey;
+        } catch (RuntimeException unavailable) {
+            return SmsSendResult.rejected("SMSMobilo encrypted API key is unavailable", "");
         }
-        if (blank(sendPath) || blank(recipientField) || blank(messageField)) {
-            return SmsSendResult.failed(
-                    "SMSMobilo send path/recipient/message field mapping not configured", "");
+        if (key == null || key.isBlank()) {
+            return SmsSendResult.rejected("SMSMobilo encrypted API key is unavailable", "");
         }
+        final String body;
+        try {
+            body = mapper.writeValueAsString(payload(request));
+        } catch (Exception invalid) {
+            return SmsSendResult.rejected("Invalid SMSMobilo message", "");
+        }
+        // Never include HttpRequestResponse.toString(): it contains request authentication headers.
+        return normalize(
+                Common.doHttpRequest(
+                        "POST",
+                        SEND_URL,
+                        body,
+                        Map.of(
+                                "X-API-Key",
+                                key,
+                                "Content-Type",
+                                "application/json",
+                                "Accept",
+                                "application/json")));
+    }
 
-        String apiUrl = settingValue("smsmobilo_sms_api_url");
-        if (blank(apiUrl)) apiUrl = DEFAULT_BASE_URL;
-        String targetUrl = resolveUrl(apiUrl, sendPath);
-        if (!targetUrl.toLowerCase().startsWith("https://")) {
-            return SmsSendResult.failed("SMSMobilo production endpoint must use HTTPS", "");
+    static Map<String, Object> payload(SmsSendRequest request) {
+        String phone = request.recipients() == null ? "" : request.recipients().trim();
+        if (!phone.matches("\\+?[0-9]{7,15}")
+                || request.content() == null
+                || request.content().isBlank()) {
+            throw new IllegalArgumentException(
+                    "One international recipient and message are required");
         }
-
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put(recipientField.trim(), stripTrailingComma(request.recipients()));
-        body.put(messageField.trim(), request.content());
-        String senderId =
-                blank(request.senderId())
-                        ? settingValue("smsmobilo_sms_sender_id")
-                        : request.senderId().trim();
-        if (!blank(senderId) && !blank(senderField)) body.put(senderField.trim(), senderId);
-
-        final String payload;
-        try {
-            payload = objectMapper.writeValueAsString(body);
-        } catch (JsonProcessingException ex) {
-            logger.log(Level.WARNING, "Failed to serialize SMSMobilo request", ex);
-            return SmsSendResult.failed("SMSMobilo request could not be serialized", "");
-        }
-
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Content-Type", "application/json; charset=UTF-8");
-        headers.put("Accept", "application/json");
-        String authMode = settingValue("smsmobilo_sms_auth_mode");
-        if ("X_API_KEY".equalsIgnoreCase(authMode)) {
-            headers.put("X-API-Key", apiKey);
-        } else {
-            headers.put("Authorization", "Bearer " + apiKey);
-        }
-        return normalize(Common.doHttpRequest("POST", targetUrl, payload, headers));
+        body.put("to", phone);
+        body.put("message", request.content());
+        if (request.senderId() != null && !request.senderId().isBlank())
+            body.put("from", request.senderId().trim());
+        return body;
     }
 
-    private SmsSendResult normalize(HttpRequestResponse response) {
+    SmsSendResult normalize(HttpRequestResponse response) {
         if (response == null || response.getStatusCode() == 0) {
-            return SmsSendResult.failed(
-                    response == null ? "No gateway response" : response.toString(),
-                    response == null ? "" : response.getResponse());
+            return SmsSendResult.unknown(
+                    "SMSMobilo transport outcome unavailable; reconcile before retry");
         }
-        if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
-            return SmsSendResult.sent(response.toString(), response.getResponse());
+        int code = response.getStatusCode();
+        String trace = "SMSMobilo HTTP " + code;
+        if (code >= 200 && code < 300) {
+            try {
+                var root = mapper.readTree(response.getResponse());
+                var data = root.path("data");
+                String id = data.path("message_id").asText("");
+                String state = data.path("status").asText("");
+                if ("ok".equals(root.path("status").asText())
+                        && !id.isBlank()
+                        && java.util.List.of("queued", "sent", "delivered").contains(state)) {
+                    // API acceptance is SENT; only correlated delivery evidence may set DELIVERED.
+                    return SmsSendResult.sent(trace, "", id);
+                }
+                return SmsSendResult.unknown(
+                        "SMSMobilo did not confirm message acceptance; reconcile before retry");
+            } catch (Exception malformed) {
+                return SmsSendResult.unknown(
+                        "SMSMobilo acceptance could not be verified; reconcile before retry");
+            }
         }
-        if (response.getStatusCode() == 408
-                || response.getStatusCode() == 425
-                || response.getStatusCode() == 429
-                || response.getStatusCode() >= 500) {
-            return SmsSendResult.failed(response.toString(), response.getResponse());
-        }
-        return SmsSendResult.rejected(response.toString(), response.getResponse());
-    }
-
-    private String resolveUrl(String baseUrl, String sendPath) {
-        String trimmed = sendPath.trim();
-        if (trimmed.startsWith("https://")) return trimmed;
-        return baseUrl.replaceAll("/+$", "") + "/" + trimmed.replaceAll("^/+", "");
-    }
-
-    private String settingValue(String name) {
-        try {
-            Setting setting = Common.getSettings(name, jdbcTemplate);
-            return setting == null ? "" : setting.getSetting_value();
-        } catch (Exception ex) {
-            logger.log(Level.WARNING, "Failed to read SMS setting " + name, ex);
-            return "";
-        }
-    }
-
-    private String stripTrailingComma(String value) {
-        return value == null ? "" : value.replaceAll("[,]$", "");
-    }
-
-    private boolean blank(String value) {
-        return value == null || value.trim().isEmpty();
+        if (code == 429) return SmsSendResult.failed(trace, "");
+        if (code == 408 || code >= 500)
+            return SmsSendResult.unknown(trace + "; reconcile before retry");
+        return SmsSendResult.rejected(trace, "");
     }
 }

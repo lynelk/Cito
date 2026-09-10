@@ -22,7 +22,8 @@ public record SmsSendResult(
     }
 
     public static SmsSendResult sent(String trace, String gwResponse, String providerMessageId) {
-        return new SmsSendResult(SmsDeliveryStatus.SENT, trace, gwResponse, trim(providerMessageId));
+        return new SmsSendResult(
+                SmsDeliveryStatus.SENT, trace, gwResponse, trim(providerMessageId));
     }
 
     public static SmsSendResult rejected(String trace, String gwResponse) {
@@ -31,6 +32,10 @@ public record SmsSendResult(
 
     public static SmsSendResult failed(String trace, String gwResponse) {
         return new SmsSendResult(SmsDeliveryStatus.FAILED, trace, gwResponse, null);
+    }
+
+    public static SmsSendResult unknown(String trace) {
+        return new SmsSendResult(SmsDeliveryStatus.UNKNOWN, trace, "", null);
     }
 
     private static String trim(String value) {

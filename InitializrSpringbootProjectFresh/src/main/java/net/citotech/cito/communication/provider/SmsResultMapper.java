@@ -18,9 +18,7 @@ public final class SmsResultMapper {
             return ProviderSendResult.unknown(providerCode, "no SMS result", "");
         }
         return switch (result.status()) {
-            case SENT ->
-                    ProviderSendResult.sent(
-                            providerCode, result.providerMessageId(), "SENT");
+            case SENT -> ProviderSendResult.sent(providerCode, result.providerMessageId(), "SENT");
             case REJECTED ->
                     ProviderSendResult.rejected(
                             providerCode, "REJECTED", result.trace(), result.gwResponse());
@@ -31,7 +29,8 @@ public final class SmsResultMapper {
                             result.trace(),
                             result.gwResponse(),
                             true);
-            default -> ProviderSendResult.unknown(providerCode, result.trace(), result.gwResponse());
+            default ->
+                    ProviderSendResult.unknown(providerCode, result.trace(), result.gwResponse());
         };
     }
 

@@ -139,6 +139,10 @@ public class CommunicationDeliveryDispatcher {
                         referenceId,
                         recipient);
 
+        Object communicationId = safeMetadata.get("communicationId");
+        if (communicationId instanceof Number id)
+            deliveryLogRepository.linkCommunication(deliveryId, id.longValue());
+
         if ("SMS".equals(normalizedChannel) && resolvedProviderCode == null) {
             String trace =
                     routeExplanation == null || routeExplanation.isBlank()
@@ -220,7 +224,8 @@ public class CommunicationDeliveryDispatcher {
             case ACCEPTED, SENT -> DeliveryStatus.SENT;
             case DELIVERED -> DeliveryStatus.DELIVERED;
             case REJECTED -> DeliveryStatus.REJECTED;
-            case FAILED, UNKNOWN -> DeliveryStatus.FAILED;
+            case FAILED -> DeliveryStatus.FAILED;
+            case UNKNOWN -> DeliveryStatus.UNKNOWN;
         };
     }
 

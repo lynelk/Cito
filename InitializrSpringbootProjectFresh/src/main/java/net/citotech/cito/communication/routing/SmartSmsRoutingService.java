@@ -167,7 +167,8 @@ public class SmartSmsRoutingService {
                                                 candidate ->
                                                         candidate.providerCostPerSegment() == null
                                                                 ? new BigDecimal("999999999")
-                                                                : candidate.providerCostPerSegment())
+                                                                : candidate
+                                                                        .providerCostPerSegment())
                                         .thenComparingInt(Candidate::priority)
                                         .thenComparing(Candidate::providerCode))
                         .toList();
@@ -241,13 +242,36 @@ public class SmartSmsRoutingService {
             return Candidate.ineligible(code, provider.providerName(), "Provider circuit is open");
         }
 
+        if (context.communicationId() != null && constrainedProvider == null) {
+            Integer failed =
+                    jdbcTemplate.queryForObject(
+                            "SELECT COUNT(*) FROM communication_message_deliveries WHERE communication_id=:id"
+                                    + " AND merchant_id=:merchant AND provider_code=:provider AND status='FAILED'",
+                            new MapSqlParameterSource()
+                                    .addValue("id", context.communicationId())
+                                    .addValue("merchant", context.merchantId())
+                                    .addValue("provider", code),
+                            Integer.class);
+            if (failed != null && failed > 0)
+                return Candidate.ineligible(
+                        code,
+                        provider.providerName(),
+                        "Provider already failed this message; evaluating fallback");
+        }
         CommunicationProviderAdapter adapter = adapterOptional.get();
         ProviderCapabilities runtime = adapter.capabilities();
         CapabilityOverride override = capabilityOverride(code, context.countryCode());
         boolean canSend = runtime.send();
         boolean supportsDlr =
-                override == null ? runtime.deliveryReceipts() : override.deliveryReceipts();
-        boolean supportsInbound = override == null ? runtime.inbound() : override.inbound();
+                "SMSMOBILO_SMS".equals(code)
+                        ? runtime.deliveryReceipts()
+                        : override == null
+                                ? runtime.deliveryReceipts()
+                                : override.deliveryReceipts();
+        boolean supportsInbound =
+                "SMSMOBILO_SMS".equals(code)
+                        ? runtime.inbound()
+                        : override == null ? runtime.inbound() : override.inbound();
         if (!canSend)
             return Candidate.ineligible(code, provider.providerName(), "Provider cannot send SMS");
         if (requireDlr && !supportsDlr) {
