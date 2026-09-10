@@ -2,20 +2,14 @@ package net.citotech.cito.communication.provider;
 
 import net.citotech.cito.communication.sms.AfricasTalkingSmsGatewayAdapter;
 import net.citotech.cito.communication.sms.LegacySettingsSmsGatewayAdapter;
+import net.citotech.cito.communication.sms.SmsMobiloSmsGatewayAdapter;
 import net.citotech.cito.communication.sms.TwilioSmsGatewayAdapter;
 import net.citotech.cito.communication.sms.YoSmsGatewayAdapter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 
-/**
- * Registers each legacy SMS adapter into the channel-neutral provider SPI as an individual bean
- * (ISO domain mapping: communication/provider). Because each wrapper is its own
- * {@code CommunicationProviderAdapter} bean, Spring auto-collects all of them into the {@link
- * ProviderRegistry}'s injected list. The provider codes match {@code communication_routing_rules}
- * (V50) so the generic dispatcher and future router send SMS through the exact same providers
- * without changing the existing adapters.
- */
+/** Registers SMS gateway adapters into the channel-neutral provider SPI. */
 @Configuration
 public class CommunicationProviderConfig {
 
@@ -45,5 +39,12 @@ public class CommunicationProviderConfig {
             @Lazy TwilioSmsGatewayAdapter delegate) {
         return new SmsCommunicationProviderAdapter(
                 delegate, CommunicationSmsProviderCodes.TWILIO_SMS);
+    }
+
+    @Bean
+    public CommunicationProviderAdapter smsMobiloCommunicationProvider(
+            @Lazy SmsMobiloSmsGatewayAdapter delegate) {
+        return new SmsCommunicationProviderAdapter(
+                delegate, CommunicationSmsProviderCodes.SMSMOBILO_SMS);
     }
 }

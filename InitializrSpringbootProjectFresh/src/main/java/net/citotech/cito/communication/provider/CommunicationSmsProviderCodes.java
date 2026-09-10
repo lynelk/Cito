@@ -12,6 +12,7 @@ public final class CommunicationSmsProviderCodes {
     public static final String YO_SMS = "YO_SMS";
     public static final String AFRICAS_TALKING = "AFRICAS_TALKING";
     public static final String TWILIO_SMS = "TWILIO_SMS";
+    public static final String SMSMOBILO_SMS = "SMSMOBILO_SMS";
 
     private CommunicationSmsProviderCodes() {}
 }
