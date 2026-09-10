@@ -9,6 +9,414 @@ servers:
 security:
 - CPayV2Signature: []
 paths:
+  /api/doMobileMoneyPayIn:
+    post:
+      summary: Collect a legacy mobile money payment
+      operationId: legacyDoMobileMoneyPayIn
+      description: 'Legacy compatibility endpoint. Authentication is required in the
+        JSON body: Base64 RSA-SHA256 or HMAC-SHA256 signature over the UTF-8 concatenation
+        merchant_number + payer_number + amount + reference + description (no separators).
+        Preserve each field exactly, including amount formatting. OpenAPI cannot express
+        a body-carried signature as a standard security scheme; security: [] does not
+        mean anonymous access. This endpoint operates on production state; X-CPay-Environment
+        does not select a sandbox. Each authenticated admission is billable at the current
+        endpoint rate, including a new retry. Prefer the v2 API for new integrations.
+        Business errors may be returned in a JSON error envelope with HTTP 200; inspect
+        the response body.'
+      security: []
+      x-cito-body-signature:
+        field: signature
+        signedFields:
+        - merchant_number
+        - payer_number
+        - amount
+        - reference
+        - description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - amount
+              - description
+              - reference
+              - merchant_number
+              - payer_number
+              - callback_url
+              - signature
+              properties:
+                amount:
+                  type: string
+                  description: Decimal amount as text; signed exactly as supplied.
+                description:
+                  type: string
+                  description: Description
+                reference:
+                  type: string
+                  description: Reference
+                merchant_number:
+                  type: string
+                  description: Merchant number
+                payer_number:
+                  type: string
+                  description: Payer number
+                callback_url:
+                  type: string
+                  description: HTTPS URL for asynchronous outcome notifications.
+                signature:
+                  type: string
+                  description: Base64 request signature; never expose signing secrets.
+      responses:
+        '200':
+          description: Legacy result or business error envelope; inspect status/error
+            fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '429':
+          description: Merchant request rate limit exceeded.
+  /api/doMobileMoneyPayOut:
+    post:
+      summary: Send a legacy mobile money payout
+      operationId: legacyDoMobileMoneyPayOut
+      description: 'Legacy compatibility endpoint. Authentication is required in the
+        JSON body: Base64 RSA-SHA256 or HMAC-SHA256 signature over the UTF-8 concatenation
+        merchant_number + payee_number + amount + reference + description (no separators).
+        Preserve each field exactly, including amount formatting. OpenAPI cannot express
+        a body-carried signature as a standard security scheme; security: [] does not
+        mean anonymous access. This endpoint operates on production state; X-CPay-Environment
+        does not select a sandbox. Each authenticated admission is billable at the current
+        endpoint rate, including a new retry. Prefer the v2 API for new integrations.
+        Business errors may be returned in a JSON error envelope with HTTP 200; inspect
+        the response body.'
+      security: []
+      x-cito-body-signature:
+        field: signature
+        signedFields:
+        - merchant_number
+        - payee_number
+        - amount
+        - reference
+        - description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - amount
+              - description
+              - reference
+              - merchant_number
+              - payee_number
+              - callback_url
+              - signature
+              properties:
+                amount:
+                  type: string
+                  description: Decimal amount as text; signed exactly as supplied.
+                description:
+                  type: string
+                  description: Description
+                reference:
+                  type: string
+                  description: Reference
+                merchant_number:
+                  type: string
+                  description: Merchant number
+                payee_number:
+                  type: string
+                  description: Payee number
+                callback_url:
+                  type: string
+                  description: HTTPS URL for asynchronous outcome notifications.
+                signature:
+                  type: string
+                  description: Base64 request signature; never expose signing secrets.
+      responses:
+        '200':
+          description: Legacy result or business error envelope; inspect status/error
+            fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '429':
+          description: Merchant request rate limit exceeded.
+  /api/doTransactionCheckStatus:
+    post:
+      summary: Check a legacy transaction
+      operationId: legacyDoTransactionCheckStatus
+      description: 'Legacy compatibility endpoint. Authentication is required in the
+        JSON body: Base64 RSA-SHA256 or HMAC-SHA256 signature over the UTF-8 concatenation
+        merchant_number + reference (no separators). Preserve each field exactly, including
+        amount formatting. OpenAPI cannot express a body-carried signature as a standard
+        security scheme; security: [] does not mean anonymous access. This endpoint
+        operates on production state; X-CPay-Environment does not select a sandbox.
+        Each authenticated admission is billable at the current endpoint rate, including
+        a new retry. Prefer the v2 API for new integrations. Business errors may be
+        returned in a JSON error envelope with HTTP 200; inspect the response body.'
+      security: []
+      x-cito-body-signature:
+        field: signature
+        signedFields:
+        - merchant_number
+        - reference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - merchant_number
+              - reference
+              - signature
+              properties:
+                merchant_number:
+                  type: string
+                  description: Merchant number
+                reference:
+                  type: string
+                  description: Reference
+                signature:
+                  type: string
+                  description: Base64 request signature; never expose signing secrets.
+      responses:
+        '200':
+          description: Legacy result or business error envelope; inspect status/error
+            fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '429':
+          description: Merchant request rate limit exceeded.
+  /api/doGetAccountInfo:
+    post:
+      summary: Look up legacy account information
+      operationId: legacyDoGetAccountInfo
+      description: 'Legacy compatibility endpoint. Authentication is required in the
+        JSON body: Base64 RSA-SHA256 or HMAC-SHA256 signature over the UTF-8 concatenation
+        merchant_number (no separators). Preserve each field exactly, including amount
+        formatting. OpenAPI cannot express a body-carried signature as a standard security
+        scheme; security: [] does not mean anonymous access. This endpoint operates
+        on production state; X-CPay-Environment does not select a sandbox. Each authenticated
+        admission is billable at the current endpoint rate, including a new retry. Prefer
+        the v2 API for new integrations. Business errors may be returned in a JSON error
+        envelope with HTTP 200; inspect the response body.'
+      security: []
+      x-cito-body-signature:
+        field: signature
+        signedFields:
+        - merchant_number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - merchant_number
+              - signature
+              - msisdn
+              properties:
+                merchant_number:
+                  type: string
+                  description: Merchant number
+                signature:
+                  type: string
+                  description: Base64 request signature; never expose signing secrets.
+                msisdn:
+                  type: string
+                  description: Msisdn
+      responses:
+        '200':
+          description: Legacy result or business error envelope; inspect status/error
+            fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '429':
+          description: Merchant request rate limit exceeded.
+  /api/doGetBalances:
+    post:
+      summary: Read legacy merchant balances
+      operationId: legacyDoGetBalances
+      description: 'Legacy compatibility endpoint. Authentication is required in the
+        JSON body: Base64 RSA-SHA256 or HMAC-SHA256 signature over the UTF-8 concatenation
+        merchant_number (no separators). Preserve each field exactly, including amount
+        formatting. OpenAPI cannot express a body-carried signature as a standard security
+        scheme; security: [] does not mean anonymous access. This endpoint operates
+        on production state; X-CPay-Environment does not select a sandbox. Each authenticated
+        admission is billable at the current endpoint rate, including a new retry. Prefer
+        the v2 API for new integrations. Business errors may be returned in a JSON error
+        envelope with HTTP 200; inspect the response body.'
+      security: []
+      x-cito-body-signature:
+        field: signature
+        signedFields:
+        - merchant_number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - merchant_number
+              - signature
+              properties:
+                merchant_number:
+                  type: string
+                  description: Merchant number
+                signature:
+                  type: string
+                  description: Base64 request signature; never expose signing secrets.
+      responses:
+        '200':
+          description: Legacy result or business error envelope; inspect status/error
+            fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '429':
+          description: Merchant request rate limit exceeded.
+  /api/doSendSms:
+    post:
+      summary: Send a legacy SMS
+      operationId: legacyDoSendSms
+      description: 'Legacy compatibility endpoint. Authentication is required in the
+        JSON body: Base64 RSA-SHA256 or HMAC-SHA256 signature over the UTF-8 concatenation
+        merchant_number + content + recipients (no separators). Preserve each field
+        exactly, including amount formatting. OpenAPI cannot express a body-carried
+        signature as a standard security scheme; security: [] does not mean anonymous
+        access. This endpoint operates on production state; X-CPay-Environment does
+        not select a sandbox. Each authenticated admission is billable at the current
+        endpoint rate, including a new retry. Prefer the v2 API for new integrations.
+        Business errors may be returned in a JSON error envelope with HTTP 200; inspect
+        the response body.'
+      security: []
+      x-cito-body-signature:
+        field: signature
+        signedFields:
+        - merchant_number
+        - content
+        - recipients
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - merchant_number
+              - recipients
+              - content
+              - signature
+              properties:
+                merchant_number:
+                  type: string
+                  description: Merchant number
+                recipients:
+                  type: string
+                  description: Recipient string in the legacy SMS format; signed exactly
+                    as supplied.
+                content:
+                  type: string
+                  description: Content
+                signature:
+                  type: string
+                  description: Base64 request signature; never expose signing secrets.
+      responses:
+        '200':
+          description: Legacy result or business error envelope; inspect status/error
+            fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '429':
+          description: Merchant request rate limit exceeded.
+  /api/doMobileMoneyRefund:
+    post:
+      summary: Refund a successful legacy mobile money collection
+      operationId: legacyDoMobileMoneyRefund
+      description: 'Legacy compatibility endpoint. Authentication is required in the
+        JSON body: Base64 RSA-SHA256 or HMAC-SHA256 signature over the UTF-8 concatenation
+        merchant_number + original_reference + reference + description (no separators).
+        Preserve each field exactly, including amount formatting. OpenAPI cannot express
+        a body-carried signature as a standard security scheme; security: [] does not
+        mean anonymous access. This endpoint operates on production state; X-CPay-Environment
+        does not select a sandbox. Each authenticated admission is billable at the current
+        endpoint rate, including a new retry. Prefer the v2 API for new integrations.
+        Business errors may be returned in a JSON error envelope with HTTP 200; inspect
+        the response body. Refunds the full original successful PAYIN to its original
+        payer using the original gateway. Provide a new unique refund reference; verify
+        status before retrying.'
+      security: []
+      x-cito-body-signature:
+        field: signature
+        signedFields:
+        - merchant_number
+        - original_reference
+        - reference
+        - description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - merchant_number
+              - original_reference
+              - reference
+              - description
+              - callback_url
+              - signature
+              properties:
+                merchant_number:
+                  type: string
+                  description: Merchant number
+                original_reference:
+                  type: string
+                  description: Original reference
+                reference:
+                  type: string
+                  description: Reference
+                description:
+                  type: string
+                  description: Description
+                callback_url:
+                  type: string
+                  description: HTTPS URL for asynchronous outcome notifications.
+                signature:
+                  type: string
+                  description: Base64 request signature; never expose signing secrets.
+      responses:
+        '200':
+          description: Legacy result or business error envelope; inspect status/error
+            fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '429':
+          description: Merchant request rate limit exceeded.
   /api/v2/native/payments/collect:
     post:
       summary: Submit an adapter-native mobile money collection request

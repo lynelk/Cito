@@ -32,7 +32,7 @@ Confirm runtime Flyway version, zero initial rates, deployed commit, invoice sta
 ## Local verification evidence (10 September 2026)
 
 - Java 21 compilation, Maven Spotless and full Maven verification passed. The environment requires loading Mockito as a Java agent; no production configuration was changed for this.
-- Merchant OpenAPI 3.1 validation: 188 operations across 157 paths. Three generation/audience tests passed.
+- Merchant OpenAPI 3.1 validation: 195 operations across 164 paths. Three generation/audience tests passed.
 - Frontend typecheck, focused API/landing-page tests (11) and production build passed. Markdown tables and code blocks render through a safe Markdown renderer.
 - Brand mirror checks passed. Browser visual verification remains pending because the browser blocked the local preview URL.
 - No live provider call, monetary transaction, database migration, staging deployment or production promotion was performed. MySQL concurrency and invoice-flow runtime checks remain required before release.

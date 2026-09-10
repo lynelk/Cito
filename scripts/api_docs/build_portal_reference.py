@@ -38,7 +38,8 @@ def build():
                 if method not in METHODS: continue
                 security=operation.get('security',spec.get('security',[]))
                 names={n for s in security for n in s}
-                if not names or not names <= AUTH: continue
+                body_signature=operation.get('x-cito-body-signature')
+                if not body_signature and (not names or not names <= AUTH): continue
                 op=copy.deepcopy(operation); op['security']=security
                 if 'parameters' in item: op['parameters']=copy.deepcopy(item['parameters'])+op.get('parameters',[])
                 op['x-cito-audience']='MERCHANT_WORKSPACE' if names & {'MerchantSession','merchantSession'} else 'THIRD_PARTY'

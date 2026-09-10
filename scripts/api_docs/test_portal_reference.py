@@ -9,7 +9,7 @@ class PortalReferenceTest(unittest.TestCase):
             self.assertNotIn('callback',path.lower())
             self.assertNotIn('/api-reference',path)
             for operation in item.values():
-                self.assertTrue(operation['security'])
+                self.assertTrue(operation['security'] or operation.get('x-cito-body-signature'))
                 self.assertEqual(operation['x-cito-billing']['defaultRate'],'0.0000')
         for name in doc['components'].get('securitySchemes',{}):
             self.assertNotIn('AdminBasicAuth',name)
