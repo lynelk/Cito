@@ -53,14 +53,14 @@ class MerchantOnboardingReadinessServiceTest {
 
         verify(lifecycleService).ensure(42L);
         verify(entitlementService).ensureMerchantOrganization(42L);
-        assertThat((Map<?, ?>) result.get("progress"))
-                .containsEntry("requiredSteps", 2L)
-                .containsEntry("completedRequiredSteps", 1L);
+        Map<?, ?> progress = (Map<?, ?>) result.get("progress");
+        assertThat(progress.get("requiredSteps")).isEqualTo(2L);
+        assertThat(progress.get("completedRequiredSteps")).isEqualTo(1L);
         assertThat((List<?>) result.get("blockers")).hasSize(1);
         assertThat(result.get("readyForProduction")).isEqualTo(false);
         assertThat(result.get("nextAction")).isEqualTo("Resolve the risk review blocker.");
-        assertThat((Map<?, ?>) result.get("goLive"))
-                .containsEntry("requestStatus", "NOT_REQUESTED");
+        Map<?, ?> goLive = (Map<?, ?>) result.get("goLive");
+        assertThat(goLive.get("requestStatus")).isEqualTo("NOT_REQUESTED");
     }
 
     @Test
