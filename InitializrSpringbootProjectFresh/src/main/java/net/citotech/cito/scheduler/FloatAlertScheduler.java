@@ -1,5 +1,7 @@
 package net.citotech.cito.scheduler;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -7,6 +9,7 @@ import net.citotech.cito.Common;
 import net.citotech.cito.Model.Balance;
 import net.citotech.cito.Model.Setting;
 import net.citotech.cito.SendMail;
+import net.citotech.cito.communication.notification.NotificationOrchestrator;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -34,16 +37,15 @@ public class FloatAlertScheduler {
 
     @Autowired private SendMail emailService;
 
+    @Autowired private NotificationOrchestrator notifications;
+
     @Scheduled(fixedDelay = 1800000) // every 30 minutes
     @SchedulerLock(name = "floatAlert", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
     public void checkFloatBalances() {
         try {
             Setting alertEmailSetting = Common.getSettings("float_alert_email", jdbcTemplate);
-            if (alertEmailSetting == null
-                    || alertEmailSetting.getSetting_value().trim().isEmpty()) {
-                return;
-            }
-            String alertEmail = alertEmailSetting.getSetting_value().trim();
+            String alertEmail =
+                    alertEmailSetting == null ? "" : alertEmailSetting.getSetting_value().trim();
 
             Setting stockAccountSetting = Common.getSettings("float_stock_account", jdbcTemplate);
             if (stockAccountSetting == null) return;
@@ -67,14 +69,14 @@ public class FloatAlertScheduler {
                 if (thresholdSetting == null
                         || thresholdSetting.getSetting_value().trim().isEmpty()) continue;
 
-                double threshold;
+                BigDecimal threshold;
                 try {
-                    threshold = Double.parseDouble(thresholdSetting.getSetting_value().trim());
+                    threshold = new BigDecimal(thresholdSetting.getSetting_value().trim());
                 } catch (NumberFormatException e) {
                     continue;
                 }
 
-                if (b.getAmount() != null && b.getAmount() < threshold) {
+                if (b.getAmountDecimal().compareTo(threshold) < 0) {
                     alertBody.append(
                             String.format(
                                     "%s balance is %.2f %s (threshold: %.2f)\n",
@@ -83,7 +85,14 @@ public class FloatAlertScheduler {
             }
 
             if (alertBody.length() > 0) {
-                String subject = "[CPay] Float balance alert";
+                long bucket = Instant.now().getEpochSecond() / 1800;
+                notifications.record(
+                        0,
+                        "float-threshold:" + bucket,
+                        "balance.threshold",
+                        "float-monitor-" + bucket);
+                if (alertEmail.isBlank()) return;
+                String subject = "[Cito] Float balance alert";
                 String body =
                         "The following gateway float balances are below their minimum thresholds:\n\n"
                                 + alertBody.toString()

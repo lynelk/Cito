@@ -13,6 +13,7 @@ import net.citotech.cito.communication.delivery.CommunicationDeliveryDispatcher;
 import net.citotech.cito.communication.delivery.DeliveryLogRepository;
 import net.citotech.cito.communication.domain.CommunicationChannel;
 import net.citotech.cito.communication.email.EmailDeliveryService;
+import net.citotech.cito.communication.notification.NotificationAlertMonitor;
 import net.citotech.cito.communication.notification.NotificationOrchestrator;
 import net.citotech.cito.communication.preference.PreferenceService;
 import net.citotech.cito.communication.provider.*;
@@ -55,6 +56,8 @@ public final class NotificationMysqlScenario {
                         new TemplateService(jdbc),
                         encoding,
                         mapper);
+        // Exercise every monitor query against the actual migrated schema.
+        new NotificationAlertMonitor(jdbc, orchestrator).monitor();
         var merchantService = new MerchantCommunicationService(jdbc, mapper, encoding, router);
         long merchant = jdbc.queryForObject("SELECT MIN(id) FROM merchants", Map.of(), Long.class);
         jdbc.update(
