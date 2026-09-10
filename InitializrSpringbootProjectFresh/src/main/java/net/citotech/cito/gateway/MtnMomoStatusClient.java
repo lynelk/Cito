@@ -1,10 +1,7 @@
 package net.citotech.cito.gateway;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.Instant;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -33,13 +30,14 @@ public class MtnMomoStatusClient {
             String currency,
             Map<String, Object> credentialValues) {
         Map<String, String> credentials = strings(credentialValues);
-        MtnMomoCredentialSchema.validate(credentials, environment, country, currency);
+        MtnMomoCredentialSchema.validateForOperation(
+                credentials, environment, country, currency, operation);
 
         String prefix = MtnMomoCredentialSchema.productPrefix(operation);
         String apiUser = required(credentials.get(prefix + "ApiUser"), prefix + "ApiUser");
         String subscriptionKey =
                 required(credentials.get(prefix + "SubscriptionKey"), prefix + "SubscriptionKey");
-        String segment = tokenSegment(prefix, apiUser, subscriptionKey);
+        String segment = MtnMomoCredentialSchema.tokenSegment(credentials, operation);
         String token = accessToken(operation, environment, credentials, segment, false);
 
         HttpRequestResponse statusResponse =
@@ -136,30 +134,14 @@ public class MtnMomoStatusClient {
             throw new PaymentGatewayException(
                     "MTN status verification token response omitted access_token");
         }
-        long expiresIn = Math.max(60L, tokenJson.optLong("expires_in", 3600L));
+        long expiresIn = tokenJson.optLong("expires_in", 3600L);
         tokenStoreService.save(
                 MtnMomoCredentialSchema.CHANNEL_CODE,
                 segment,
                 environment,
                 token,
-                Instant.now().plusSeconds(Math.max(30L, expiresIn - 60L)));
+                ProviderTokenScope.expiresAt(expiresIn));
         return token;
-    }
-
-    private String tokenSegment(String prefix, String apiUser, String subscriptionKey) {
-        String fingerprint = sha256(apiUser + "|" + subscriptionKey);
-        return prefix.toUpperCase(Locale.ROOT)
-                + ":"
-                + fingerprint.substring(0, Math.min(16, fingerprint.length()));
-    }
-
-    private String sha256(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (Exception e) {
-            throw new PaymentGatewayException("Unable to derive MTN token cache key");
-        }
     }
 
     private Map<String, String> strings(Map<String, Object> values) {

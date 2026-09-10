@@ -27,10 +27,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Default timeout: 30 minutes, overridable per gateway via a {@code
  * transaction_timeout_minutes_<gateway_id>} row in the settings table.
  *
- * <p>MTN MoMo is deliberately excluded from generic timeout-to-FAILED handling. RequestToPay and
- * Transfer are asynchronous and MTN sends callbacks only once, so an absent callback is not
- * evidence of failure. MTN transactions are reconciled by {@link MtnMomoStatusPollScheduler}
- * against the provider's GET status endpoint instead.
+ * <p>MTN MoMo and Airtel OpenAPI are excluded from generic timeout-to-FAILED handling. An absent
+ * asynchronous callback is not evidence of failure. MTN transactions are reconciled by {@link
+ * MtnMomoStatusPollScheduler}. Airtel requires authenticated status reconciliation; its pending
+ * balance holds must not be released solely because elapsed time exceeded a limit.
  */
 @Component
 public class TransactionTimeoutScheduler {
@@ -64,7 +64,8 @@ public class TransactionTimeoutScheduler {
 
             Map<String, Integer> resolvedTimeouts = new HashMap<>();
             for (String gatewayId : gatewayIds) {
-                if (LegacyGatewayIds.MTN_MOMO.equals(gatewayId)) {
+                if (LegacyGatewayIds.MTN_MOMO.equals(gatewayId)
+                        || LegacyGatewayIds.AIRTEL_OPEN_API.equals(gatewayId)) {
                     continue;
                 }
                 int timeoutMinutes = timeoutMinutesForGateway(gatewayId, resolvedTimeouts);
