@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import CommunicationProviderActivation from './CommunicationProviderActivation';
 import ModuleNotificationPolicies from './ModuleNotificationPolicies';
 import {
   Table,
@@ -27,8 +28,7 @@ import type { CommunicationProviderRow, CommunicationRuleRow } from '../../share
 import { ApiError } from '../../shared/api/httpClient';
 
 /**
- * Admin communications routing surface. Business behavior and API contracts are
- * unchanged; the screen is organised around status, routing rules, one focused
+ * Admin communications routing surface. Provider activation is explicit and audited; the screen is organised around status, routing rules, one focused
  * configuration panel, and progressive disclosure for the provider catalog.
  */
 
@@ -169,7 +169,11 @@ function ModuleCommunicationRouting({
     { key: 'provider_code', header: 'Code', accessor: (row) => row.providerCode ?? '' },
     { key: 'channel', header: 'Channel', accessor: (row) => row.channel ?? '' },
     { key: 'enabled_flag', header: 'Enabled', accessor: (row) => row.enabledFlag ?? '' },
-    { key: 'adapter_class', header: 'Adapter', accessor: (row) => row.adapterClass ?? '' },
+    { key: 'activation', header: 'Activation', render: (row) => row.providerCode ? <CommunicationProviderActivation
+      providerCode={row.providerCode} providerName={row.providerName ?? row.providerCode}
+      enabled={row.enabledFlag === 'YES'}
+      onSaved={() => Promise.all([providersQuery.refetch(), effectiveQuery.refetch()])}
+    /> : null },
   ];
 
   return (
@@ -236,6 +240,7 @@ function ModuleCommunicationRouting({
       </WorkspaceGrid>
 
       <WorkspaceDisclosure summary={`Provider catalog · ${providers.length} registered`}>
+        <p>Enable a provider to make it eligible for configured SMS routes. Activation does not confirm provider acceptance or handset delivery.</p>
         <Table
           columns={providerColumns}
           rows={providers}

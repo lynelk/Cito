@@ -44,9 +44,9 @@ paths:
       - Portal Workspace
       operationId: portalDashboardSummary
       summary: Read the portal dashboard summary
-      description: Returns production financial totals, current environment preference, channel balances
-        and activity. Merchant sessions receive their own financial data and callback count; platform operations
-        alerts are administrator-only.
+      description: Returns financial totals and activity for the selected environment. Merchant sessions
+        receive only their own data. Sandbox excludes production balances and callback counts;
+        platform operations alerts are administrator-only.
       responses:
         '200':
           description: Portal response
@@ -260,6 +260,45 @@ paths:
           description: Provider authentication verified for the current revision
         '400':
           description: Provider authentication unavailable, unsupported provider or concurrent credential edit
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/admin/communication/routing/providers/{providerCode}/activation:
+    post:
+      tags: [Admin Communication Routing]
+      operationId: setSmsProviderActivation
+      summary: Enable or disable an SMS provider
+      description: Requires ADMIN session and CSRF protection. Checks send configuration when enabling and audits state changes. Routing rules remain separate; activation does not certify live delivery.
+      parameters:
+      - in: path
+        name: providerCode
+        required: true
+        schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: {type: boolean}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Provider activation saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: {type: string}
+                  providerCode: {type: string}
+                  enabledFlag: {type: string, enum: ['YES', 'NO']}
+        '400': {description: Explicit enabled state required.}
+        '404': {description: SMS provider not found.}
+        '409': {description: Provider adapter or send configuration unavailable.}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
   /api/v2/admin/communication/notifications/catalogue:
