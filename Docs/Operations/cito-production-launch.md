@@ -4,6 +4,21 @@
 
 This checklist covers the Cito public gateway and account-access launch. It distinguishes controls implemented in software from decisions and certifications that must be completed by authorized people or external providers.
 
+## Canonical Railway target
+
+All Cito Railway operations, diagnostics, deployments, verification, domain work, logs, configuration reviews and incident response **must use this target unless this section is deliberately changed through a reviewed repository change**:
+
+- Railway project: `Cito`
+- Project ID: `8d361df2-d17e-4d15-984e-435735f22f6c`
+- Production environment ID: `bec50941-04c7-426d-8bc3-883cbdece892`
+- Canonical backend service: `cito-backend` (`ba6fd4b7-e61d-48d1-987d-7f6dc56c1e84`)
+- Canonical frontend service: `cito-frontend` (`fc3dae0c-f602-4242-b66f-9ba7e1491f1f`)
+- Canonical database service: `MySQL` (`26c20665-9b31-47b6-ac2c-a984c9b0c6d4`)
+- Public custom domain: `cito.coresynergi.es`, attached to `cito-frontend` on port 8080
+- Backend network posture: private Railway service; public API traffic reaches it through the frontend/reverse-proxy path
+
+Operational rule: never infer or reuse a Cito Railway target from an old ticket, chat, branch, deployment note or historical incident. Resolve the project by name, confirm the project ID above, and then use the canonical environment/service IDs above. Any other Cito Railway project ID is invalid until this document is formally updated.
+
 ## Implemented application controls
 
 - `/login` is the single public Cito sign-in gateway.
@@ -24,13 +39,14 @@ This checklist covers the Cito public gateway and account-access launch. It dist
 
 ## Deployment sequence
 
-1. Merge the reviewed change set only after automated build, typecheck, unit-test, and security/dependency gates are green.
-2. Deploy the database migration before or together with the backend release. Flyway migration `V83__cito_access_requests.sql` is additive.
-3. Deploy backend services and verify `/api/public/access-requests` returns HTTP 202 for a valid request and HTTP 429 after the configured shared rate limit is exhausted.
-4. Deploy the client and verify `/`, `/login`, `/signup`, `/portal`, `/verify-email`, `/dashboard`, and `/dashboardMerchant` routing through the production reverse proxy.
-5. Verify merchant login, platform login, MFA paths, password-reset paths, email verification, logout, and session expiry using non-production test accounts in the target environment.
-6. Verify a privileged access request appears as `PENDING` in the production database and does not create an account or role.
-7. Complete the human and external launch gates below before public production activation.
+1. Confirm the Railway project, environment and service IDs against the canonical target section above before any operational action.
+2. Merge the reviewed change set only after automated build, typecheck, unit-test, and security/dependency gates are green.
+3. Deploy the database migration before or together with the backend release. Flyway migration `V83__cito_access_requests.sql` is additive.
+4. Deploy backend services and verify `/api/public/access-requests` returns HTTP 202 for a valid request and HTTP 429 after the configured shared rate limit is exhausted.
+5. Deploy the client and verify `/`, `/login`, `/signup`, `/portal`, `/verify-email`, `/dashboard`, and `/dashboardMerchant` routing through the production reverse proxy.
+6. Verify merchant login, platform login, MFA paths, password-reset paths, email verification, logout, and session expiry using non-production test accounts in the target environment.
+7. Verify a privileged access request appears as `PENDING` in the production database and does not create an account or role.
+8. Complete the human and external launch gates below before public production activation.
 
 ## Human or external launch gates
 
