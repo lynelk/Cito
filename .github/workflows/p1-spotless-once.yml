@@ -1,0 +1,39 @@
+name: P1 Spotless One Shot
+
+on:
+  push:
+    branches:
+      - feature/growth-authoritative-telemetry-160
+    paths:
+      - .github/workflows/p1-spotless-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/growth-authoritative-telemetry-160
+          fetch-depth: 0
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Apply canonical Spotless formatting
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B spotless:apply --no-transfer-progress
+      - name: Commit formatter output and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/p1-spotless-once.yml
+          git add InitializrSpringbootProjectFresh
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore(p1): apply canonical spotless formatting"
+          git push origin HEAD:feature/growth-authoritative-telemetry-160
