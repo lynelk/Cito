@@ -1,9 +1,5 @@
--- Close merchant SMS workspace gaps and make delivery-receipt correlation durable.
-
-ALTER TABLE communication_message_deliveries
-  ADD COLUMN provider_message_id VARCHAR(160) NULL AFTER provider_code,
-  ADD COLUMN delivered_at DATETIME NULL AFTER billed_flag,
-  ADD KEY idx_cmd_provider_message (provider_code, provider_message_id);
+-- Close merchant SMS workspace gaps without duplicating delivery correlation fields.
+-- provider_message_id, delivered_at and idx_cmd_provider_message are already introduced by V77.
 
 ALTER TABLE communication_campaign_items
   ADD COLUMN message_reference VARCHAR(80) NULL AFTER recipient,
