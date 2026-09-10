@@ -1,13 +1,10 @@
 package net.citotech.cito.Model;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,6 +13,7 @@ import java.util.regex.Pattern;
 import net.citotech.cito.Common;
 import net.citotech.cito.SettingsController;
 import net.citotech.cito.gateway.ProviderToken;
+import net.citotech.cito.gateway.ProviderTokenScope;
 import net.citotech.cito.gateway.ProviderTokenStoreRegistry;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -597,7 +595,8 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
         // ProviderTokenStoreService) -
         // no plaintext on-disk cache.
         Optional<ProviderToken> databaseToken =
-                ProviderTokenStoreRegistry.findValid(gateway_id, this.segment, tokenEnvironment());
+                ProviderTokenStoreRegistry.findValid(
+                        gateway_id, tokenSegment(), tokenEnvironment());
         if (databaseToken.isPresent()) {
             return new Token(databaseToken.get().getTokenValue(), LocalDateTime.now());
         }
@@ -643,31 +642,30 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
             JSONObject jsToken = new JSONObject(rs.getResponse());
             String accessToken = jsToken.getString("access_token");
             LocalDateTime d = LocalDateTime.now();
-            long expiresIn = Math.max(60L, jsToken.optLong("expires_in", 3600L));
+            long expiresIn = jsToken.optLong("expires_in", 3600L);
             ProviderTokenStoreRegistry.save(
                     gateway_id,
-                    this.segment,
+                    tokenSegment(),
                     tokenEnvironment(),
                     accessToken,
-                    Instant.now().plus(Math.max(30L, expiresIn - 60L), ChronoUnit.SECONDS));
+                    ProviderTokenScope.expiresAt(expiresIn));
             return new Token(accessToken, d);
         }
     }
 
-    // Audit C2: single-flight token-refresh lock table. Instances of this gateway are constructed
-    // per merchant channel config rather than managed as Spring singletons (mirroring how
-    // ProviderTokenStoreRegistry itself is only ever reached through static methods, never an
-    // injected instance) - so concurrent 401s for the same gateway/segment/environment can easily
-    // land on separate instances, and a plain instance field would not coordinate them. The lock
-    // table is static and keyed by gateway id + segment + environment, a small, fixed set of
-    // combinations, so it cannot grow unbounded.
-    private static final ConcurrentHashMap<String, ReentrantLock> TOKEN_REFRESH_LOCKS =
-            new ConcurrentHashMap<>();
+    // Credential scopes grow with tenants and rotations. Fixed stripes bound lock memory;
+    // colliding scopes serialize refresh only and never share a cache entry or token.
+    private static final ReentrantLock[] TOKEN_REFRESH_LOCKS = new ReentrantLock[64];
+
+    static {
+        for (int i = 0; i < TOKEN_REFRESH_LOCKS.length; i++)
+            TOKEN_REFRESH_LOCKS[i] = new ReentrantLock();
+    }
 
     private static ReentrantLock tokenRefreshLock(
             String gatewayId, String segment, String environment) {
-        return TOKEN_REFRESH_LOCKS.computeIfAbsent(
-                gatewayId + "|" + segment + "|" + environment, key -> new ReentrantLock());
+        int hash = (gatewayId + "|" + segment + "|" + environment).hashCode();
+        return TOKEN_REFRESH_LOCKS[Math.floorMod(hash, TOKEN_REFRESH_LOCKS.length)];
     }
 
     /**
@@ -700,12 +698,12 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
      * itself.
      */
     private Token forceRefreshToken(String failedTokenValue) throws JSONException {
-        ReentrantLock lock = tokenRefreshLock(gateway_id, this.segment, tokenEnvironment());
+        ReentrantLock lock = tokenRefreshLock(gateway_id, tokenSegment(), tokenEnvironment());
         lock.lock();
         try {
             Optional<ProviderToken> current =
                     ProviderTokenStoreRegistry.findValid(
-                            gateway_id, this.segment, tokenEnvironment());
+                            gateway_id, tokenSegment(), tokenEnvironment());
             if (current.isPresent() && !current.get().getTokenValue().equals(failedTokenValue)) {
                 return new Token(current.get().getTokenValue(), LocalDateTime.now());
             }
@@ -713,6 +711,18 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
         } finally {
             lock.unlock();
         }
+    }
+
+    private String tokenSegment() {
+        boolean collection = "collection".equals(this.segment);
+        return ProviderTokenScope.segment(
+                this.segment,
+                this.global_url,
+                this.env,
+                this.base_currency,
+                collection ? api_collections_user : api_disbursements_user,
+                collection ? api_collections_key : api_disbursements_key,
+                collection ? api_collections_subscription : api_disbursements_subscription);
     }
 
     private String tokenEnvironment() {

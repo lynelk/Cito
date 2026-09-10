@@ -5,9 +5,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -19,6 +17,7 @@ import javax.crypto.NoSuchPaddingException;
 import net.citotech.cito.Common;
 import net.citotech.cito.gateway.ProviderErrorTranslator;
 import net.citotech.cito.gateway.ProviderToken;
+import net.citotech.cito.gateway.ProviderTokenScope;
 import net.citotech.cito.gateway.ProviderTokenStoreRegistry;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -145,7 +144,11 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
 
     public void setPublicKey(String publicKey) {
         if (publicKey != null && !publicKey.isEmpty()) {
-            this.publicKey = publicKey;
+            this.publicKey =
+                    publicKey
+                            .replace("-----BEGIN PUBLIC KEY-----", "")
+                            .replace("-----END PUBLIC KEY-----", "")
+                            .replaceAll("\\s+", "");
         }
     }
 
@@ -321,9 +324,14 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
             return null;
         }
         JSONObject tokenJson = new JSONObject(response.getResponse());
-        String accessToken = tokenJson.getString("access_token");
+        String accessToken = tokenJson.optString("access_token", "").trim();
+        if (accessToken.isEmpty()) {
+            logger.error("Airtel OAuth response omitted access_token");
+            return null;
+        }
+        long expiresIn = tokenJson.optLong("expires_in", TOKEN_TTL_MINUTES * 60L);
         LocalDateTime createdAt = LocalDateTime.now();
-        saveToken(accessToken, createdAt);
+        saveToken(accessToken, expiresIn);
         return new Token(accessToken, createdAt);
     }
 
@@ -331,7 +339,10 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
         try {
             Token token = getToken();
             if (token == null) {
-                return gatewayError("Failed to obtain Airtel OpenAPI token", "UNDETERMINED", "");
+                GateWayResponse unresolved =
+                        gatewayError("Failed to obtain Airtel OpenAPI token", "UNDETERMINED", "");
+                unresolved.setOurUniqueTxId(ref);
+                return unresolved;
             }
             HttpRequestResponse response =
                     Common.doHttpRequest(method, url, data, standardHeaders(token));
@@ -346,17 +357,31 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
                 }
             }
             if (response == null) {
-                return gatewayError("No response from Airtel OpenAPI", "UNDETERMINED", url + data);
+                GateWayResponse unresolved =
+                        gatewayError(
+                                "Payment outcome is not yet confirmed; check status before retrying.",
+                                "UNDETERMINED",
+                                "AIRTEL_NO_RESPONSE");
+                unresolved.setOurUniqueTxId(ref);
+                return unresolved;
             }
             GateWayResponse gatewayResponse = new GateWayResponse();
             gatewayResponse.setHttpStatus(String.valueOf(response.getStatusCode()));
             gatewayResponse.setRequestTrace(response.toString());
             gatewayResponse.setOurUniqueTxId(ref);
-            if (response.getStatusCode() == 200) {
+            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
                 applySuccessResponse(gatewayResponse, response);
             } else {
                 gatewayResponse.setStatus("ERROR");
-                gatewayResponse.setTransactionStatus("FAILED");
+                int statusCode = response.getStatusCode();
+                boolean uncertain =
+                        "GET".equalsIgnoreCase(method)
+                                || statusCode == 0
+                                || statusCode == 408
+                                || statusCode == 409
+                                || statusCode == 429
+                                || statusCode >= 500;
+                gatewayResponse.setTransactionStatus(uncertain ? "UNDETERMINED" : "FAILED");
                 // Audit C6: response.getResponse() is the RAW, unfiltered Airtel OpenAPI response
                 // body -
                 // it must never be handed to a merchant directly. Translate it into a merchant-safe
@@ -368,7 +393,10 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
                                 response.getStatusCode(),
                                 response.getResponse(),
                                 extractResultCode(response.getResponse()));
-                gatewayResponse.setMessage(translation.merchantMessage());
+                gatewayResponse.setMessage(
+                        uncertain
+                                ? "Payment outcome is not yet confirmed; check status before retrying."
+                                : translation.merchantMessage());
             }
             return gatewayResponse;
         } catch (Exception e) {
@@ -383,10 +411,12 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
             ProviderErrorTranslator.Translation translation =
                     ProviderErrorTranslator.translateInternalFailure(e);
             GateWayResponse errorResponse = new GateWayResponse();
+            errorResponse.setOurUniqueTxId(ref);
             errorResponse.setHttpStatus("0");
             errorResponse.setStatus("ERROR");
             errorResponse.setTransactionStatus("UNDETERMINED");
-            errorResponse.setMessage(translation.merchantMessage());
+            errorResponse.setMessage(
+                    "Payment outcome is not yet confirmed; check status before retrying.");
             errorResponse.setRequestTrace(
                     translation.stableCode()
                             + ": "
@@ -434,11 +464,8 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
         if (!json.isNull("data") && !json.getJSONObject("data").isNull("transaction")) {
             JSONObject transaction = json.getJSONObject("data").getJSONObject("transaction");
             String status = transaction.isNull("status") ? "" : transaction.getString("status");
-            String networkId =
-                    transaction.isNull("airtel_money_id")
-                            ? ""
-                            : transaction.optString(
-                                    "airtel_money_id", transaction.optString("reference_id", ""));
+            String networkId = transaction.optString("airtel_money_id", "");
+            if (networkId.isBlank()) networkId = transaction.optString("reference_id", "");
             gatewayResponse.setNetworkId(networkId);
             if ("TS".equalsIgnoreCase(status)) {
                 gatewayResponse.setTransactionStatus("SUCCESSFUL");
@@ -449,28 +476,25 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
             }
         }
         String resultCode = "";
-        String providerMessage = gatewayResponse.getMessage();
         if (!json.isNull("status")) {
             JSONObject status = json.getJSONObject("status");
             resultCode = status.isNull("result_code") ? "" : status.getString("result_code");
-            providerMessage =
-                    status.isNull("message") ? providerMessage : status.getString("message");
             if (isFailedErrorList(resultCode)) {
                 gatewayResponse.setStatus("ERROR");
-                gatewayResponse.setTransactionStatus("FAILED");
+                gatewayResponse.setTransactionStatus(
+                        "SUCCESSFUL".equals(gatewayResponse.getTransactionStatus())
+                                ? "UNDETERMINED"
+                                : "FAILED");
             }
         }
-        // Audit C6: `providerMessage` here is Airtel's own wording (status.message / transaction
-        // status). It is safe to surface verbatim when the transaction actually succeeded (a benign
-        // confirmation string), but once anything above has classified this as a failure - whether
-        // via
-        // the resultCode allow-list or the transaction.status "TF"/"TA" mapping earlier in this
-        // method -
-        // translate it into a merchant-safe message instead of forwarding Airtel's decline wording
-        // as-is. The raw resultCode/message are preserved in requestTrace (set in submit(), from
-        // response.toString(), before this method runs).
+        // Merchant messages are controlled copy, never raw provider wording. An uncertain
+        // outcome must not imply that retrying a financial request is safe. Internal traces
+        // retain the provider evidence for authorised reconciliation.
         String transactionStatus = gatewayResponse.getTransactionStatus();
-        if ("FAILED".equals(transactionStatus) || "UNDETERMINED".equals(transactionStatus)) {
+        if ("UNDETERMINED".equals(transactionStatus)) {
+            gatewayResponse.setMessage(
+                    "Payment outcome is not yet confirmed; check status before retrying.");
+        } else if ("FAILED".equals(transactionStatus)) {
             ProviderErrorTranslator.Translation translation =
                     ProviderErrorTranslator.translateProviderResponse(
                             response.getStatusCode(),
@@ -478,7 +502,10 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
                             resultCode.isEmpty() ? null : resultCode);
             gatewayResponse.setMessage(translation.merchantMessage());
         } else {
-            gatewayResponse.setMessage(providerMessage);
+            gatewayResponse.setMessage(
+                    "SUCCESSFUL".equals(transactionStatus)
+                            ? "Payment completed successfully."
+                            : "Payment is pending provider confirmation.");
         }
     }
 
@@ -487,20 +514,31 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
         // ProviderTokenStoreService) -
         // no plaintext on-disk cache.
         Optional<ProviderToken> databaseToken =
-                ProviderTokenStoreRegistry.findValid(gateway_id, this.segment, tokenEnvironment());
+                ProviderTokenStoreRegistry.findValid(
+                        gateway_id, tokenSegment(), tokenEnvironment());
         if (databaseToken.isPresent()) {
             return new Token(databaseToken.get().getTokenValue(), LocalDateTime.now());
         }
         return null;
     }
 
-    private void saveToken(String accessToken, LocalDateTime createdAt) {
+    private void saveToken(String accessToken, long expiresIn) {
         ProviderTokenStoreRegistry.save(
                 gateway_id,
-                this.segment,
+                tokenSegment(),
                 tokenEnvironment(),
                 accessToken,
-                Instant.now().plus(TOKEN_TTL_MINUTES, ChronoUnit.MINUTES));
+                ProviderTokenScope.expiresAt(expiresIn));
+    }
+
+    private String tokenSegment() {
+        return ProviderTokenScope.segment(
+                this.segment,
+                tokenUrl(),
+                this.country,
+                this.base_currency,
+                this.api_username,
+                this.api_password);
     }
 
     private Map<String, String> standardHeaders(Token token) {

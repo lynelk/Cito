@@ -20,14 +20,7 @@ public final class AirtelOpenApiCredentialSchema {
             String countryCode,
             String currencyCode) {
         List<String> required =
-                List.of(
-                        "baseUrl",
-                        "clientId",
-                        "clientSecret",
-                        "country",
-                        "currency",
-                        "apiPin",
-                        "publicKey");
+                List.of("baseUrl", "clientId", "clientSecret", "country", "currency");
         List<String> missing = new ArrayList<>();
         for (String field : required) {
             if (blank(value(credentials, field))) missing.add(field);
@@ -59,9 +52,32 @@ public final class AirtelOpenApiCredentialSchema {
             throw new PaymentGatewayException(
                     "Airtel currency must match the credential scope currency");
         }
-        if (!value(credentials, "publicKey").contains("BEGIN PUBLIC KEY")) {
+        boolean hasPin = !blank(value(credentials, "apiPin"));
+        boolean hasKey = !blank(value(credentials, "publicKey"));
+        if (hasPin != hasKey) {
+            throw new PaymentGatewayException(
+                    "Airtel payout credentials require both apiPin and publicKey");
+        }
+        if (hasKey && !value(credentials, "publicKey").contains("BEGIN PUBLIC KEY")) {
             throw new PaymentGatewayException(
                     "Airtel publicKey must be the RSA public key issued for PIN encryption");
+        }
+    }
+
+    public static void validateForOperation(
+            Map<String, ?> credentials,
+            String environment,
+            String countryCode,
+            String currencyCode,
+            String operation) {
+        validate(credentials, environment, countryCode, currencyCode);
+        if (!"COLLECT".equalsIgnoreCase(operation) && !"PAYOUT".equalsIgnoreCase(operation)) {
+            throw new PaymentGatewayException("Unsupported Airtel operation");
+        }
+        if ("PAYOUT".equalsIgnoreCase(operation)
+                && (blank(value(credentials, "apiPin"))
+                        || blank(value(credentials, "publicKey")))) {
+            throw new PaymentGatewayException("Airtel payout requires apiPin and publicKey");
         }
     }
 

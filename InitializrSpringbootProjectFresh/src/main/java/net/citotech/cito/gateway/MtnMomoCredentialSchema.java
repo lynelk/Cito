@@ -43,6 +43,18 @@ public final class MtnMomoCredentialSchema {
         requireProductCredentials(credentials, productPrefix(operation));
     }
 
+    public static String tokenSegment(Map<String, String> credentials, String operation) {
+        String prefix = productPrefix(operation);
+        return ProviderTokenScope.segment(
+                prefix,
+                tokenEndpoint(credentials, operation),
+                value(credentials, "targetEnvironment"),
+                value(credentials, "baseCurrency"),
+                value(credentials, prefix + "ApiUser"),
+                value(credentials, prefix + "ApiKey"),
+                value(credentials, prefix + "SubscriptionKey"));
+    }
+
     private static void validateCommon(
             Map<String, ?> credentials,
             String environment,

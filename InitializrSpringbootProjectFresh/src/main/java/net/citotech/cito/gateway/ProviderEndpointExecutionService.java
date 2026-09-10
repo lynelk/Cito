@@ -3,7 +3,6 @@ package net.citotech.cito.gateway;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -447,8 +446,12 @@ public class ProviderEndpointExecutionService {
             String displayName, String operation, PaymentGatewayRequest request) {
         Map<String, String> credentials = request.getMetadata();
         String environment = credentials.getOrDefault("gatewayState", "SANDBOX");
-        AirtelOpenApiCredentialSchema.validate(
-                credentials, environment, credentials.get("country"), credentials.get("currency"));
+        AirtelOpenApiCredentialSchema.validateForOperation(
+                credentials,
+                environment,
+                credentials.get("country"),
+                credentials.get("currency"),
+                operation);
         if (!circuitBreaker.allowRequest(AirtelOpenApiCredentialSchema.CHANNEL_CODE)) {
             String message = "Airtel OpenAPI provider calls are temporarily suspended";
             record(
@@ -474,7 +477,7 @@ public class ProviderEndpointExecutionService {
                     credentials.get("baseUrl"),
                     requiredAirtel(credentials.get("clientId"), "clientId"),
                     requiredAirtel(credentials.get("clientSecret"), "clientSecret"),
-                    requiredAirtel(credentials.get("apiPin"), "apiPin"));
+                    credentials.getOrDefault("apiPin", ""));
             gateway.setTransactionContext(
                     environment, credentials.get("country"), credentials.get("currency"));
             gateway.setEndpointDetails(
@@ -484,7 +487,7 @@ public class ProviderEndpointExecutionService {
                     credentials.get("balancePath"),
                     credentials.get("collectionStatusPath"),
                     credentials.get("payoutStatusPath"));
-            gateway.setPublicKey(requiredAirtel(credentials.get("publicKey"), "publicKey"));
+            gateway.setPublicKey(credentials.get("publicKey"));
             GateWayResponse result =
                     "PAYOUT".equalsIgnoreCase(operation)
                             ? gateway.doPayOut(
@@ -497,6 +500,12 @@ public class ProviderEndpointExecutionService {
                                     request.getAccountIdentifier(),
                                     request.getReference(),
                                     request.getDescription());
+            if (result != null
+                    && isBlank(result.getNetworkId())
+                    && ("PENDING".equalsIgnoreCase(result.getTransactionStatus())
+                            || "UNDETERMINED".equalsIgnoreCase(result.getTransactionStatus()))) {
+                result.setNetworkId(request.getReference());
+            }
             int httpStatus = parseStatus(result == null ? null : result.getHttpStatus());
             String transactionStatus =
                     result == null || result.getTransactionStatus() == null
@@ -588,11 +597,7 @@ public class ProviderEndpointExecutionService {
         String apiKey = required(credentials.get(prefix + "ApiKey"), prefix + "ApiKey");
         String subscriptionKey =
                 required(credentials.get(prefix + "SubscriptionKey"), prefix + "SubscriptionKey");
-        String fingerprint = safeHash(apiUser + "|" + subscriptionKey);
-        String segment =
-                prefix.toUpperCase()
-                        + ":"
-                        + fingerprint.substring(0, Math.min(16, fingerprint.length()));
+        String segment = MtnMomoCredentialSchema.tokenSegment(credentials, operation);
         if (!forceRefresh) {
             Optional<ProviderToken> cached =
                     tokenStoreService.findValid(
@@ -612,10 +617,12 @@ public class ProviderEndpointExecutionService {
                         MtnMomoCredentialSchema.tokenEndpoint(credentials, operation),
                         "",
                         headers);
-        if (tokenResponse.getStatusCode() < 200 || tokenResponse.getStatusCode() >= 300) {
+        if (tokenResponse == null
+                || tokenResponse.getStatusCode() < 200
+                || tokenResponse.getStatusCode() >= 300) {
             throw new PaymentGatewayException(
                     "MTN MoMo OAuth token request failed with HTTP "
-                            + tokenResponse.getStatusCode());
+                            + (tokenResponse == null ? 0 : tokenResponse.getStatusCode()));
         }
         JSONObject json = new JSONObject(tokenResponse.getResponse());
         String accessToken = json.optString("access_token", "").trim();
@@ -623,13 +630,13 @@ public class ProviderEndpointExecutionService {
             throw new PaymentGatewayException(
                     "MTN MoMo OAuth response did not include access_token");
         }
-        long expiresIn = Math.max(60L, json.optLong("expires_in", 3600L));
+        long expiresIn = json.optLong("expires_in", 3600L);
         tokenStoreService.save(
                 MtnMomoCredentialSchema.CHANNEL_CODE,
                 segment,
                 environment,
                 accessToken,
-                Instant.now().plusSeconds(Math.max(30L, expiresIn - 60L)));
+                ProviderTokenScope.expiresAt(expiresIn));
         return accessToken;
     }
 
