@@ -2,7 +2,6 @@ package net.citotech.cito.communication;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import net.citotech.cito.Model.Merchant;
@@ -25,14 +24,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class MerchantCommunicationController {
 
     private final MerchantCommunicationService communicationService;
+    private final MerchantSmsBulkService bulkService;
     private final V2RequestSecurityService securityService;
     private final ObjectMapper objectMapper;
 
     public MerchantCommunicationController(
             MerchantCommunicationService communicationService,
+            MerchantSmsBulkService bulkService,
             V2RequestSecurityService securityService,
             ObjectMapper objectMapper) {
         this.communicationService = communicationService;
+        this.bulkService = bulkService;
         this.securityService = securityService;
         this.objectMapper = objectMapper;
     }
@@ -70,10 +72,7 @@ public class MerchantCommunicationController {
         }
     }
 
-    /**
-     * Submit up to 1,000 recipients under one API request while preserving per-recipient delivery
-     * evidence.
-     */
+    /** Submit up to 1,000 recipients atomically while preserving per-recipient delivery evidence. */
     @PostMapping(
             path = "/bulk",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -82,32 +81,17 @@ public class MerchantCommunicationController {
         try {
             BulkRequest input = objectMapper.readValue(body, BulkRequest.class);
             Merchant merchant = verifiedMerchant(request, body, input.merchantNumber());
-            if (input.recipients() == null || input.recipients().isEmpty()) {
-                throw new IllegalArgumentException("recipients is required.");
-            }
-            if (input.recipients().size() > 1000) {
-                throw new IllegalArgumentException(
-                        "A bulk request can contain at most 1,000 recipients.");
-            }
             String baseKey = request.getHeader("X-CPay-Idempotency-Key");
-            List<Map<String, Object>> accepted = new ArrayList<>();
-            for (int i = 0; i < input.recipients().size(); i++) {
-                String key = blank(baseKey) ? null : truncate(baseKey + ":" + i, 128);
-                String external =
-                        blank(input.externalReference())
-                                ? null
-                                : truncate(input.externalReference() + ":" + i, 128);
-                accepted.add(
-                        communicationService.enqueueSms(
-                                merchant.getId(),
-                                input.recipients().get(i),
-                                input.content(),
-                                input.purpose(),
-                                external,
-                                key,
-                                input.expiresInSeconds(),
-                                options(input)));
-            }
+            List<Map<String, Object>> accepted =
+                    bulkService.enqueue(
+                            merchant.getId(),
+                            input.recipients(),
+                            input.content(),
+                            input.purpose(),
+                            input.externalReference(),
+                            baseKey,
+                            input.expiresInSeconds(),
+                            options(input));
             return ResponseEntity.accepted()
                     .body(Map.of("accepted", accepted.size(), "messages", accepted));
         } catch (V2RequestSecurityException e) {
@@ -123,7 +107,7 @@ public class MerchantCommunicationController {
         }
     }
 
-    /** Returns encoding/segment/cost/routing information without sending the message. */
+    /** Returns encoding/segment/customer-charge/routing information without sending the message. */
     @PostMapping(
             path = "/preview",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -191,6 +175,72 @@ public class MerchantCommunicationController {
         }
     }
 
+    @PostMapping(
+            path = "/{reference}/cancel",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> cancel(
+            @PathVariable("reference") String reference,
+            @RequestBody String body,
+            HttpServletRequest request) {
+        try {
+            CancelRequest input = objectMapper.readValue(body, CancelRequest.class);
+            Merchant merchant = verifiedMerchant(request, body, input.merchantNumber());
+            Map<String, Object> result = communicationService.cancelSms(merchant.getId(), reference);
+            if (result == null) {
+                return error(
+                        HttpStatus.NOT_FOUND,
+                        "COMMUNICATION_NOT_FOUND",
+                        "Communication was not found.");
+            }
+            return ResponseEntity.ok(result);
+        } catch (V2RequestSecurityException e) {
+            return error(
+                    HttpStatus.UNAUTHORIZED, "INVALID_SIGNATURE", "Request authentication failed.");
+        } catch (IllegalArgumentException e) {
+            return error(HttpStatus.CONFLICT, "COMMUNICATION_NOT_CANCELLABLE", e.getMessage());
+        } catch (Exception e) {
+            return error(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "COMMUNICATION_UNAVAILABLE",
+                    "Communication could not be cancelled.");
+        }
+    }
+
+    @PostMapping(
+            path = "/{reference}/reschedule",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> reschedule(
+            @PathVariable("reference") String reference,
+            @RequestBody String body,
+            HttpServletRequest request) {
+        try {
+            RescheduleRequest input = objectMapper.readValue(body, RescheduleRequest.class);
+            Merchant merchant = verifiedMerchant(request, body, input.merchantNumber());
+            Map<String, Object> result =
+                    communicationService.rescheduleSms(
+                            merchant.getId(), reference, input.scheduledAt());
+            if (result == null) {
+                return error(
+                        HttpStatus.NOT_FOUND,
+                        "COMMUNICATION_NOT_FOUND",
+                        "Communication was not found.");
+            }
+            return ResponseEntity.ok(result);
+        } catch (V2RequestSecurityException e) {
+            return error(
+                    HttpStatus.UNAUTHORIZED, "INVALID_SIGNATURE", "Request authentication failed.");
+        } catch (IllegalArgumentException e) {
+            return error(HttpStatus.CONFLICT, "COMMUNICATION_NOT_RESCHEDULABLE", e.getMessage());
+        } catch (Exception e) {
+            return error(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "COMMUNICATION_UNAVAILABLE",
+                    "Communication could not be rescheduled.");
+        }
+    }
+
     private Merchant verifiedMerchant(
             HttpServletRequest request, String body, String merchantNumber) {
         if (blank(merchantNumber))
@@ -222,10 +272,6 @@ public class MerchantCommunicationController {
 
     private boolean truth(Boolean value) {
         return Boolean.TRUE.equals(value);
-    }
-
-    private String truncate(String value, int max) {
-        return value == null || value.length() <= max ? value : value.substring(0, max);
     }
 
     private boolean blank(String value) {
@@ -307,4 +353,8 @@ public class MerchantCommunicationController {
             Boolean requireInbound) {}
 
     public record AnalyzeRequest(String content) {}
+
+    public record CancelRequest(String merchantNumber) {}
+
+    public record RescheduleRequest(String merchantNumber, String scheduledAt) {}
 }
