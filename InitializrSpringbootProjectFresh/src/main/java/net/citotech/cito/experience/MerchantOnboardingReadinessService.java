@@ -3,7 +3,6 @@ package net.citotech.cito.experience;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,7 +77,8 @@ public class MerchantOnboardingReadinessService {
     }
 
     private Map<String, Object> progress(List<Map<String, Object>> steps) {
-        long required = steps.stream().filter(step -> truthy(step.get("requiredForActivation"))).count();
+        long required =
+                steps.stream().filter(step -> truthy(step.get("requiredForActivation"))).count();
         long completed =
                 steps.stream()
                         .filter(step -> truthy(step.get("requiredForActivation")))
