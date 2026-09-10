@@ -144,11 +144,34 @@ jobs:
               raise SystemExit('Public health checks failed; see sanitized evidence artifact.')
           PY
 
+      - name: Inspect published Communications API catalogue
+        run: |
+          python3 - <<'PYAPI'
+          import urllib.request, urllib.error, json
+          url = 'https://cito.coresynergi.es/api/v3/api-docs'
+          result = {'url': url, 'authenticated_uat': False}
+          try:
+              with urllib.request.urlopen(urllib.request.Request(url, headers={'Accept':'application/json'}), timeout=15) as response:
+                  result['http_status'] = response.status
+                  data = json.loads(response.read(10000000))
+                  routes = sorted(path for path in data.get('paths', {}) if 'communication' in path)
+                  result['communications_routes'] = routes
+                  result['catalogue_available'] = any('notifications/catalogue' in path for path in routes)
+          except urllib.error.HTTPError as error:
+              result.update(http_status=error.code, catalogue_available=False, restriction='Authentication required' if error.code in (401,403) else 'HTTP error')
+          except Exception as error:
+              result.update(catalogue_available=False, restriction=type(error).__name__)
+          print(json.dumps(result))
+          open('cito-communications-api.json','w').write(json.dumps(result,indent=2)+'\n')
+          PYAPI
+
       - name: Retain sanitized public health evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: cito-public-health-${{ github.run_id }}
-          path: cito-public-health.json
+          path: |
+            cito-public-health.json
+            cito-communications-api.json
           retention-days: 14
           if-no-files-found: error
