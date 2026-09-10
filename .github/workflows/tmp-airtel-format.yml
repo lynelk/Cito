@@ -22,7 +22,7 @@ jobs:
           java-version: '21'
       - name: Apply canonical Java formatting
         working-directory: InitializrSpringbootProjectFresh
-        run: ./mvnw -q spotless:apply
+        run: mvn -q spotless:apply
       - name: Commit formatter output
         run: |
           if git diff --quiet; then
