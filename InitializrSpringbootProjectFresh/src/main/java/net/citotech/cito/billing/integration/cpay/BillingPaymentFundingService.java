@@ -38,7 +38,7 @@ public class BillingPaymentFundingService {
         List<PaymentProof> proofs =
                 jdbcTemplate.query(
                         "SELECT t.id,t.merchant_id,t.tx_unique_id,t.status,t.tx_type,t.original_amount,t.currency "
-                                + "FROM merchant_transactions_log t JOIN billing_tenants bt ON bt.merchant_id=t.merchant_id "
+                                + "FROM merchant_production_transactions t JOIN billing_tenants bt ON bt.merchant_id=t.merchant_id "
                                 + "WHERE bt.id=:tenant AND (t.tx_unique_id=:reference OR t.tx_merchant_ref=:reference "
                                 + "OR t.tx_gateway_ref=:reference) ORDER BY t.id DESC LIMIT 2 FOR UPDATE",
                         new MapSqlParameterSource()

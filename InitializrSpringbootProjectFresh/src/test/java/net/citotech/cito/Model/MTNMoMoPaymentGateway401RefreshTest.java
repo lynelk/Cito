@@ -46,6 +46,7 @@ class MTNMoMoPaymentGateway401RefreshTest {
 
     @AfterEach
     void resetTokenRegistry() {
+        net.citotech.cito.gateway.ProviderHttpTestTransport.reset();
         new ProviderTokenStoreRegistry(null);
     }
 
@@ -203,8 +204,10 @@ class MTNMoMoPaymentGateway401RefreshTest {
 
     private static MTNMoMoPaymentGateway newGateway(String baseUrl) {
         MTNMoMoPaymentGateway gateway = new MTNMoMoPaymentGateway();
+        net.citotech.cito.gateway.ProviderHttpTestTransport.route(
+                "https://sandbox.momodeveloper.mtn.com", baseUrl);
         gateway.setApiDetails(
-                baseUrl,
+                "https://sandbox.momodeveloper.mtn.com",
                 "collections-user",
                 "collections-key",
                 "collections-subscription",

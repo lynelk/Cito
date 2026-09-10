@@ -137,6 +137,8 @@ public class MerchantWebhookService {
         // not send SMS.
         if (notifications != null
                 && !new JSONObject(envelopedPayload).optBoolean("test", false)
+                && !"SANDBOX"
+                        .equalsIgnoreCase(new JSONObject(envelopedPayload).optString("environment"))
                 && eventReference != null
                 && !eventReference.startsWith("test-")) {
             String identity =

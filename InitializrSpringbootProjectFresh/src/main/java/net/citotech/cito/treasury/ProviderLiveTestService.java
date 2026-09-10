@@ -91,12 +91,6 @@ public class ProviderLiveTestService {
         String environment = upper(body.get("environment"), "environment");
         requireProductionControls(environment, body, who);
         String idempotency = required(body.get("idempotencyKey"), "idempotencyKey");
-        List<Map<String, Object>> prior =
-                jdbc.queryForList(
-                        "SELECT id FROM provider_live_tests WHERE idempotency_key=:key LIMIT 1",
-                        new MapSqlParameterSource("key", idempotency));
-        if (!prior.isEmpty()) return byId(number(prior.get(0).get("id")));
-
         long merchantId = number(body.get("merchantId"));
         Merchant merchant = merchant(merchantId);
         String channel = upper(body.get("channelCode"), "channelCode").toLowerCase(Locale.ROOT);
@@ -113,6 +107,25 @@ public class ProviderLiveTestService {
                             + maximum.toPlainString());
         }
         String party = normalizeParty(body.get("party"));
+        List<Map<String, Object>> prior =
+                jdbc.queryForList(
+                        "SELECT * FROM provider_live_tests WHERE idempotency_key=:key",
+                        new MapSqlParameterSource("key", idempotency));
+        if (!prior.isEmpty()) {
+            Map<String, Object> old = prior.get(0);
+            if (number(old.get("merchant_id")) != merchantId
+                    || !channel.equals(old.get("channel_code"))
+                    || !environment.equals(old.get("environment"))
+                    || !country.equals(old.get("country_code"))
+                    || !currency.equals(old.get("currency_code"))
+                    || !operation.equals(old.get("operation"))
+                    || amount.compareTo(new BigDecimal(String.valueOf(old.get("amount")))) != 0
+                    || !party.equals(crypto.decrypt(String.valueOf(old.get("party_payload")))))
+                throw new PaymentGatewayException(
+                        "Live-test idempotency key conflicts with the original test");
+            return byId(number(old.get("id")));
+        }
+
         String reference = "LIVE-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
         String initial = "PAYOUT".equals(operation) ? "PENDING_APPROVAL" : "QUEUED";
         MapSqlParameterSource parameters =
@@ -208,14 +221,36 @@ public class ProviderLiveTestService {
                             .addValue("terminal", "PENDING_PROVIDER".equals(status) ? 0 : 1));
             event(id, "PROVIDER_RESPONSE", status, safeMessage(result), actor);
         } catch (RuntimeException e) {
+            boolean awaitingProvider = true;
+            if (net.citotech.cito.gateway.MobileMoneyExecutionService.managed(
+                    String.valueOf(row.get("channel_code")))) {
+                java.util.List<String> claims =
+                        jdbc.queryForList(
+                                "SELECT transaction_id FROM mobile_money_executions WHERE merchant_id=:merchant AND merchant_reference=:reference FOR UPDATE",
+                                new MapSqlParameterSource("merchant", merchant.getId())
+                                        .addValue("reference", row.get("test_reference")),
+                                String.class);
+                awaitingProvider = !claims.isEmpty();
+            }
+            String status = awaitingProvider ? "PENDING_PROVIDER" : "FAILED";
+            String message =
+                    awaitingProvider
+                            ? "Execution outcome awaits canonical recovery"
+                            : "Payment rejected before provider submission; check credential readiness, limits and funds";
             jdbc.update(
-                    "UPDATE provider_live_tests SET status='FAILED', result_message=:message,"
-                            + " completed_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
+                    "UPDATE provider_live_tests SET status=:status, result_message=:message,"
+                            + " completed_at=CASE WHEN :pending=1 THEN NULL ELSE CURRENT_TIMESTAMP(6) END WHERE id=:id",
                     new MapSqlParameterSource()
                             .addValue("id", id)
-                            .addValue("message", safeError(e)));
-            event(id, "EXECUTION_FAILED", "FAILED", safeError(e), actor);
-            throw e;
+                            .addValue("status", status)
+                            .addValue("message", message)
+                            .addValue("pending", awaitingProvider ? 1 : 0));
+            event(
+                    id,
+                    awaitingProvider ? "VERIFICATION_DEFERRED" : "EXECUTION_REJECTED",
+                    status,
+                    message,
+                    actor);
         }
     }
 
@@ -282,6 +317,36 @@ public class ProviderLiveTestService {
                         new MapSqlParameterSource("id", id));
         if (rows.isEmpty()) throw new PaymentGatewayException("Live provider test was not found");
         return rows.get(0);
+    }
+
+    @org.springframework.scheduling.annotation.Scheduled(
+            fixedDelayString = "${cpay.provider-live-test.sync-ms:30000}")
+    @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(
+            name = "providerLiveTestOutcomes",
+            lockAtMostFor = "PT2M")
+    @Transactional
+    public void synchronizeOutcomes() {
+        List<Map<String, Object>> rows =
+                jdbc.queryForList(
+                        "SELECT l.id,t.status FROM provider_live_tests l JOIN mobile_money_executions e ON e.merchant_id=l.merchant_id AND CAST(e.merchant_reference AS BINARY)=CAST(l.test_reference AS BINARY) JOIN merchant_transactions_log t ON t.tx_unique_id=e.transaction_id WHERE l.status IN ('PENDING_PROVIDER','PROCESSING') AND t.status IN ('SUCCESSFUL','FAILED') ORDER BY l.id LIMIT 100 FOR UPDATE",
+                        Map.of());
+        rows.addAll(
+                jdbc.queryForList(
+                        "SELECT l.id,'FAILED' AS status FROM provider_live_tests l JOIN payout_approval_queue q ON q.merchant_id=l.merchant_id AND CAST(q.payout_reference AS BINARY)=CAST(l.test_reference AS BINARY) WHERE l.status IN ('PENDING_PROVIDER','PROCESSING') AND q.queue_status IN ('REJECTED','CANCELLED') AND NOT EXISTS (SELECT 1 FROM mobile_money_executions e WHERE e.merchant_id=l.merchant_id AND CAST(e.merchant_reference AS BINARY)=CAST(l.test_reference AS BINARY)) ORDER BY l.id LIMIT 100 FOR UPDATE",
+                        Map.of()));
+        for (Map<String, Object> row : rows) {
+            long id = number(row.get("id"));
+            String status = "SUCCESSFUL".equals(row.get("status")) ? "SUCCEEDED" : "FAILED";
+            jdbc.update(
+                    "UPDATE provider_live_tests SET status=:status,completed_at=CURRENT_TIMESTAMP,result_message='Outcome resolved through payment or approval evidence' WHERE id=:id",
+                    new MapSqlParameterSource("status", status).addValue("id", id));
+            event(
+                    id,
+                    "OUTCOME_VERIFIED",
+                    status,
+                    "Canonical payment or approval evidence resolved",
+                    "SYSTEM");
+        }
     }
 
     private void event(long id, String type, String status, String message, String actor) {
@@ -361,13 +426,6 @@ public class ProviderLiveTestService {
         return message == null || message.isBlank()
                 ? "Provider status: " + result.getStatus()
                 : message;
-    }
-
-    private String safeError(RuntimeException error) {
-        String message = error.getMessage();
-        return message == null || message.isBlank()
-                ? "Provider execution failed"
-                : message.substring(0, Math.min(1000, message.length()));
     }
 
     private long number(Object value) {

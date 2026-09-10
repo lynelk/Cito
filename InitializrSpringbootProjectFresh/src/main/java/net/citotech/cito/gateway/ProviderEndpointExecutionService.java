@@ -300,7 +300,7 @@ public class ProviderEndpointExecutionService {
             circuitBreaker.recordFailure(channelCode);
             record(channelCode, operation, request, endpointUrl, 0, "FAILED", e.getMessage());
             throw new PaymentGatewayException(
-                    "Provider endpoint execution failed: " + e.getMessage());
+                    "Provider endpoint execution failed; check transaction status before retrying");
         }
     }
 
@@ -308,6 +308,12 @@ public class ProviderEndpointExecutionService {
             String displayName, String operation, PaymentGatewayRequest request) {
         Map<String, String> credentials = request.getMetadata();
         String gatewayState = credentials.getOrDefault("gatewayState", "SANDBOX");
+        MtnMomoCredentialSchema.validateForOperation(
+                credentials,
+                gatewayState,
+                credentials.get("country"),
+                credentials.get("currency"),
+                operation);
         String baseUrl = credentials.get("baseUrl");
         String endpoint = MtnMomoCredentialSchema.endpoint(credentials, operation);
         if (isBlank(baseUrl)) {
@@ -355,7 +361,8 @@ public class ProviderEndpointExecutionService {
                     message);
         }
 
-        String providerReference = UUID.randomUUID().toString();
+        String providerReference =
+                credentials.getOrDefault("providerReference", UUID.randomUUID().toString());
         String requestBody = mtnBody(operation, request);
         try {
             String token = mtnAccessToken(operation, credentials, gatewayState, false);
@@ -384,7 +391,10 @@ public class ProviderEndpointExecutionService {
             String responseBody =
                     providerResponse.getResponse() == null ? "" : providerResponse.getResponse();
             boolean accepted = httpStatus == 202;
-            String runStatus = accepted ? "PENDING" : "FAILED";
+            String runStatus =
+                    accepted || ProviderEndpointPolicy.ambiguousSubmission(httpStatus)
+                            ? "PENDING"
+                            : "FAILED";
             if (accepted) {
                 circuitBreaker.recordSuccess(MtnMomoCredentialSchema.CHANNEL_CODE);
                 saveProviderReference(providerReference, request.getReference());
@@ -491,12 +501,12 @@ public class ProviderEndpointExecutionService {
             GateWayResponse result =
                     "PAYOUT".equalsIgnoreCase(operation)
                             ? gateway.doPayOut(
-                                    request.getAmount(),
+                                    request.getAmountDecimal(),
                                     request.getAccountIdentifier(),
                                     request.getReference(),
                                     request.getDescription())
                             : gateway.doPayIn(
-                                    request.getAmount(),
+                                    request.getAmountDecimal(),
                                     request.getAccountIdentifier(),
                                     request.getReference(),
                                     request.getDescription());
@@ -505,6 +515,16 @@ public class ProviderEndpointExecutionService {
                     && ("PENDING".equalsIgnoreCase(result.getTransactionStatus())
                             || "UNDETERMINED".equalsIgnoreCase(result.getTransactionStatus()))) {
                 result.setNetworkId(request.getReference());
+            }
+            if (result != null
+                    && "200".equals(result.getHttpStatus())
+                    && ("SUCCESSFUL".equals(result.getTransactionStatus())
+                            || "FAILED".equals(result.getTransactionStatus()))) {
+                if (!request.getReference().equals(gateway.getVerifiedTransactionId()))
+                    result.setTransactionStatus("UNDETERMINED");
+                else
+                    gateway.requireMatchingCommercialAttributes(
+                            request.getAmountDecimal(), request.getMetadata().get("currency"));
             }
             int httpStatus = parseStatus(result == null ? null : result.getHttpStatus());
             String transactionStatus =
@@ -592,6 +612,11 @@ public class ProviderEndpointExecutionService {
             Map<String, String> credentials,
             String environment,
             boolean forceRefresh) {
+        ProviderEndpointPolicy.requireOrigin(
+                credentials.get("baseUrl"),
+                "SANDBOX".equalsIgnoreCase(environment)
+                        ? MtnMomoCredentialSchema.SANDBOX_BASE_URL
+                        : MtnMomoCredentialSchema.PRODUCTION_BASE_URL);
         String prefix = MtnMomoCredentialSchema.productPrefix(operation);
         String apiUser = required(credentials.get(prefix + "ApiUser"), prefix + "ApiUser");
         String apiKey = required(credentials.get(prefix + "ApiKey"), prefix + "ApiKey");
@@ -644,7 +669,7 @@ public class ProviderEndpointExecutionService {
         String description = truncate(request.getDescription(), 160);
         JSONObject body =
                 new JSONObject()
-                        .put("amount", String.valueOf(request.getAmount()))
+                        .put("amount", request.getAmountDecimal().toPlainString())
                         .put(
                                 "currency",
                                 required(request.getMetadata().get("currency"), "currency"))

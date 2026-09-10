@@ -1,3 +1,5 @@
+import { request } from '../shared/api/httpClient';
+import MerchantCredentialReviews from './MerchantCredentialReviews';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button, Card, Section, Table, Toolbar } from '../ui';
@@ -30,7 +32,11 @@ import {
 } from '../shared/api/providerTreasury';
 
 const fieldStyle: React.CSSProperties = {
-  minWidth: 150,
+  display: 'block',
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   padding: '10px 12px',
   border: '1px solid var(--ios-separator)',
   borderRadius: 10,
@@ -39,7 +45,7 @@ const fieldStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))',
   gap: 12,
   alignItems: 'end',
 };
@@ -205,6 +211,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
       countryCode: credential.countryCode,
       currencyCode: credential.currencyCode,
       credentials: providerCredentials,
+      revision: credentials.data?.find(row => row.channelCode === credential.channelCode && row.environment === credential.environment && row.countryCode === credential.countryCode && row.currencyCode === credential.currencyCode)?.revision ?? 0,
     }, { onSuccess: () => setNotice('Platform credential saved in encrypted form. A different operator must approve it.'), onError: (e) => setNotice((e as Error).message) });
   };
 
@@ -295,7 +302,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
     { key: 'masked', header: 'Credential material', render: (row: PlatformCredential) => Object.entries(row.credentials ?? {}).map(([k, v]) => `${k}=${v}`).join(' · ') || '—' },
     { key: 'maker', header: 'Editor', accessor: (row: PlatformCredential) => row.updatedBy ?? '—' },
     { key: 'checker', header: 'Approver', accessor: (row: PlatformCredential) => row.approvedBy ?? '—' },
-    { key: 'action', header: 'Action', render: (row: PlatformCredential) => row.status === 'CONFIGURED' ? <Button variant="primary" className="ios-btn--sm" onClick={() => approveCredential.mutate(row.id, { onError: (e) => setNotice((e as Error).message) })}>Approve</Button> : '—' },
+    { key: 'action', header: 'Action', render: (row: PlatformCredential) => row.status === 'CONFIGURED' ? <><Button variant="ghost" onClick={async () => { try { await request(`/api/v2/admin/shared-provider/credentials/${row.id}/verify`, { method: 'POST' }); await credentials.refetch(); setNotice('Provider authentication verified. Payment acceptance still requires UAT.'); } catch (error) { setNotice((error as Error).message); } }}>Verify connection</Button><Button disabled={['mtn_momo', 'airtel_open_api'].includes(row.channelCode) && row.lastTestStatus !== 'CONNECTIVITY_VERIFIED'} variant="primary" className="ios-btn--sm" onClick={() => approveCredential.mutate(row.id, { onError: (e) => setNotice((e as Error).message) })}>Approve</Button></> : '—' },
   ];
 
   const liveTestColumns = [
@@ -315,7 +322,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
   ];
 
   return (
-    <div style={{ padding: 'var(--ios-space-6)' }}>
+    <div className="cito-provider-console" style={{ padding: 'var(--ios-space-6)' }}>
       <Toolbar>
         <div>
           <h2 style={{ margin: 0 }}>Provider Treasury & Shared Channels</h2>
@@ -367,7 +374,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
             </> : null}
             <Button variant="primary" type="submit" disabled={createLiveTest.isPending}>{liveTest.operation === 'PAYOUT' ? 'Request payout test' : 'Run collection test'}</Button>
           </form>
-          <label style={{ display: 'block', marginTop: 16 }}>Checker MFA code for pending payouts<input type="password" inputMode="numeric" autoComplete="one-time-code" style={{ ...fieldStyle, marginLeft: 8 }} value={approvalMfaCode} onChange={(e) => setApprovalMfaCode(e.target.value)} /></label>
+          <label style={{ display: 'block', marginTop: 16 }}>Checker MFA code for pending payouts<input type="password" inputMode="numeric" autoComplete="one-time-code" style={fieldStyle} value={approvalMfaCode} onChange={(e) => setApprovalMfaCode(e.target.value)} /></label>
         </Card>
         <Card flush><Table<ProviderLiveTest> columns={liveTestColumns} rows={liveTests.data ?? []} rowKey={(row) => row.id} emptyText="No provider transaction tests have been run." /></Card>
       </Section>
@@ -467,6 +474,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
       </Section>
 
       {pendingAdjustments.length ? <p style={{ color: 'var(--ios-secondary)' }}>{pendingAdjustments.length} treasury adjustment(s) await an independent checker.</p> : null}
+      <MerchantCredentialReviews />
     </div>
   );
 }

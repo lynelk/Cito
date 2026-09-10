@@ -29,7 +29,7 @@ public class UsagePaymentReconciliationService {
 
         List<String> missingFromUsageEvents =
                 jdbcTemplate.query(
-                        "SELECT tl.tx_unique_id FROM merchant_transactions_log tl "
+                        "SELECT tl.tx_unique_id FROM merchant_production_transactions tl "
                                 + "WHERE tl.tx_type = 'PAYIN' AND tl.created_on >= :window_start "
                                 + "AND tl.created_on < :window_end "
                                 + "AND NOT EXISTS (SELECT 1 FROM billing_usage_events ue "
@@ -42,7 +42,7 @@ public class UsagePaymentReconciliationService {
                         "SELECT ue.source_reference FROM billing_usage_events ue "
                                 + "WHERE ue.service_code = 'PAYMENT' AND ue.event_time >= :window_start "
                                 + "AND ue.event_time < :window_end "
-                                + "AND NOT EXISTS (SELECT 1 FROM merchant_transactions_log tl "
+                                + "AND NOT EXISTS (SELECT 1 FROM merchant_production_transactions tl "
                                 + "WHERE tl.tx_type = 'PAYIN' AND tl.tx_unique_id = ue.source_reference)",
                         p,
                         (rs, rowNum) -> rs.getString("source_reference"));
@@ -59,7 +59,7 @@ public class UsagePaymentReconciliationService {
     private long countTransactionLog(Instant from, Instant to) {
         Long count =
                 jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM merchant_transactions_log WHERE tx_type = 'PAYIN' "
+                        "SELECT COUNT(*) FROM merchant_production_transactions WHERE tx_type = 'PAYIN' "
                                 + "AND created_on >= :window_start AND created_on < :window_end",
                         windowParams(from, to),
                         Long.class);

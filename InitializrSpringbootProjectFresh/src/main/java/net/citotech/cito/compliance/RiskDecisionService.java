@@ -138,7 +138,7 @@ public class RiskDecisionService {
         p.addValue("hour_ago", Timestamp.valueOf(LocalDateTime.now().minusHours(1)));
         Integer count =
                 jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM merchant_transactions_log "
+                        "SELECT COUNT(*) FROM merchant_production_transactions "
                                 + "WHERE merchant_id=:merchant_id AND payer_number=:payer AND tx_type=:tx_type "
                                 + "AND status IN ('PENDING','SUBMITTED','SUCCESSFUL') AND created_on >= :hour_ago",
                         p,

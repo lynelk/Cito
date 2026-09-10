@@ -30,19 +30,18 @@ public final class AirtelOpenApiCredentialSchema {
                     "Missing required Airtel OpenAPI credential field(s): "
                             + String.join(", ", missing));
         }
-        URI base = httpsUri(value(credentials, "baseUrl"));
-        if (base.getQuery() != null || base.getFragment() != null) {
-            throw new PaymentGatewayException("Airtel baseUrl cannot contain a query or fragment");
-        }
-        String environmentValue = normalize(environment);
-        String host = base.getHost().toLowerCase(Locale.ROOT);
-        if ("PRODUCTION".equals(environmentValue) && host.contains("openapiuat")) {
-            throw new PaymentGatewayException(
-                    "Airtel production credentials cannot use the UAT base URL");
-        }
-        if ("SANDBOX".equals(environmentValue) && !host.contains("openapiuat")) {
-            throw new PaymentGatewayException(
-                    "Airtel sandbox credentials must use the UAT base URL");
+        ProviderEndpointPolicy.requireOrigin(
+                value(credentials, "baseUrl"),
+                "SANDBOX".equals(normalize(environment)) ? SANDBOX_BASE_URL : PRODUCTION_BASE_URL);
+        for (String key :
+                List.of(
+                        "tokenPath",
+                        "collectionPath",
+                        "payoutPath",
+                        "balancePath",
+                        "collectionStatusPath",
+                        "payoutStatusPath")) {
+            ProviderEndpointPolicy.requireRelativePath(value(credentials, key));
         }
         if (!normalize(countryCode).equals(normalize(value(credentials, "country")))) {
             throw new PaymentGatewayException(

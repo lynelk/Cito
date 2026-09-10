@@ -281,7 +281,7 @@ public class DoubleEntryLedgerService {
                 "UPDATE ledger_reservations SET reservation_status='RELEASED' WHERE"
                         + " merchant_id=:merchant_id AND reservation_status='RESERVED' AND"
                         + " LEFT(source_reference, CHAR_LENGTH(:source_reference_prefix))="
-                        + " :source_reference_prefix",
+                        + " :source_reference_prefix AND NOT EXISTS (SELECT 1 FROM mobile_money_executions e JOIN merchant_transactions_log t ON t.tx_unique_id=e.transaction_id WHERE e.merchant_id=ledger_reservations.merchant_id AND e.merchant_reference=ledger_reservations.source_reference AND t.status IN ('PENDING','UNDETERMINED'))",
                 p);
     }
 

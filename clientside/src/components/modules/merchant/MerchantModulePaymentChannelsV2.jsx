@@ -47,8 +47,12 @@ const SECRET_FIELDS = new Set([
   'disbursementApiUser', 'disbursementApiKey', 'disbursementSubscriptionKey', 'disbursementSecondarySubscriptionKey',
 ]);
 
+function editableCredentials(credentials = {}) {
+  return Object.fromEntries(Object.entries(credentials).map(([key, value]) => [key, String(value).includes('****') ? '' : value]));
+}
+
 const ENVIRONMENTS = [
-  { id: 'SANDBOX', label: 'Sandbox', copy: 'Use guided credentials and deterministic test numbers.' },
+  { id: 'SANDBOX', label: 'Sandbox', copy: 'Use provider-issued sandbox credentials and test accounts.' },
   { id: 'PRODUCTION', label: 'Production', copy: 'Use live credentials after approval. Daily limit applies.' },
 ];
 
@@ -142,7 +146,7 @@ class MerchantModulePaymentChannelsV2 extends React.Component {
       this.setState({
         channels,
         selected,
-        values: selected?.credentials || {},
+        values: editableCredentials(selected?.credentials),
         loading: false,
       });
     } catch (error) {
@@ -191,7 +195,7 @@ class MerchantModulePaymentChannelsV2 extends React.Component {
 
   select(channel) {
     const selected = environmentRecord(channel, this.state.environment);
-    this.setState({ selected, values: selected.credentials || {}, message: '' });
+    this.setState({ selected, values: editableCredentials(selected.credentials), message: '' });
   }
 
   selectChannelCode(channelCode) {
@@ -222,15 +226,17 @@ class MerchantModulePaymentChannelsV2 extends React.Component {
       channelCode: this.state.selected.channelCode,
       environment: this.state.environment,
       credentials: this.state.values,
+      revision: this.state.selected.revision ?? 0,
     }, `${this.state.environment} channel details saved.`);
   }
 
   async test() {
     if (!this.state.selected) return;
     await this.call('/api/v2/merchant-self-service/channels/test', {
+      connectivity: ['mtn_momo', 'airtel_open_api'].includes(this.state.selected.channelCode),
       channelCode: this.state.selected.channelCode,
       environment: this.state.environment,
-    }, `${this.state.environment} readiness check completed.`);
+    }, `${this.state.environment} connection check completed.`);
   }
 
   async submitForApproval() {
@@ -401,12 +407,19 @@ class MerchantModulePaymentChannelsV2 extends React.Component {
             <Button variant="ghost" className="ios-btn--sm" onClick={() => this.applySandboxCredentials()}>Load sandbox template</Button>
           </div>
         ) : null}
+        <p>Blank secret fields preserve stored values. Saving changes requires a new connection check and approval.</p>
+        {selected.lastTestMessage ? <p role="status">{selected.lastTestMessage}</p> : null}
+        {selected.decisionReason ? <p>Review decision: {selected.decisionReason}</p> : null}
         <div className="ios-channel-form">
-          {this.fieldsFor(selected.channelCode).map((field) => (
+          {this.fieldsFor(selected.channelCode).map((field) => field === 'publicKey' ? (
+            <label key={field} htmlFor="airtel-public-key">Airtel RSA public key
+              <textarea style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }} id="airtel-public-key" rows={6} value={this.state.values[field] || ''} onChange={(event) => this.update(field, event.target.value)} />
+            </label>
+          ) : (
             <TextField
               key={field}
               id={`channel-${this.state.environment}-${field}`}
-              label={FIELD_LABELS[field] || field}
+              label={`${FIELD_LABELS[field] || field}${String(selected.credentials?.[field] || '').includes('****') ? ' (stored; leave blank to keep)' : ''}`}
               value={this.state.values[field] || ''}
               onValueChange={(value) => this.update(field, value)}
               type={SECRET_FIELDS.has(field) ? 'password' : 'text'}
@@ -416,9 +429,9 @@ class MerchantModulePaymentChannelsV2 extends React.Component {
         </div>
         <Toolbar>
           <Button variant="primary" className="ios-btn--sm" loading={this.state.loading} onClick={() => this.save()}>Save</Button>
-          <Button variant="ghost" className="ios-btn--sm" loading={this.state.loading} onClick={() => this.test()}>Test</Button>
+          <Button variant="ghost" className="ios-btn--sm" loading={this.state.loading} onClick={() => this.test()}>Verify connection</Button>
           <Button variant="secondary" className="ios-btn--sm" loading={this.state.loading} onClick={() => this.submitForApproval()}>
-            {this.state.environment === 'PRODUCTION' ? 'Submit approval' : 'Mark ready'}
+            Submit for review
           </Button>
         </Toolbar>
       </Card>

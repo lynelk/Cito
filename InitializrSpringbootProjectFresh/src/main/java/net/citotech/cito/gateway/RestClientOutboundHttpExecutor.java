@@ -37,7 +37,16 @@ public class RestClientOutboundHttpExecutor implements Common.OutboundHttpExecut
             ObjectProvider<MeterRegistry> meterRegistry,
             @Value("${cpay.http.connect-timeout-ms:30000}") int connectTimeoutMs,
             @Value("${cpay.http.read-timeout-ms:60000}") int readTimeoutMs) {
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory requestFactory =
+                new SimpleClientHttpRequestFactory() {
+                    @Override
+                    protected void prepareConnection(
+                            java.net.HttpURLConnection connection, String method)
+                            throws java.io.IOException {
+                        super.prepareConnection(connection, method);
+                        connection.setInstanceFollowRedirects(false);
+                    }
+                };
         requestFactory.setConnectTimeout(Duration.ofMillis(Math.max(1, connectTimeoutMs)));
         requestFactory.setReadTimeout(Duration.ofMillis(Math.max(1, readTimeoutMs)));
         this.restClient = RestClient.builder().requestFactory(requestFactory).build();

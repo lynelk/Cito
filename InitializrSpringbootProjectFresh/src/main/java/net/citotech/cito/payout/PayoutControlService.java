@@ -78,6 +78,49 @@ public class PayoutControlService {
             throw new PaymentGatewayException(
                     "Payment request and merchant are required for payout control evaluation");
         }
+        List<Map<String, Object>> previous =
+                jdbcTemplate.queryForList(
+                        "SELECT * FROM payout_approval_queue WHERE merchant_id=:merchant AND payout_reference=:reference FOR UPDATE",
+                        new MapSqlParameterSource("merchant", merchant.getId())
+                                .addValue("reference", request.getReference()));
+        if (!previous.isEmpty()) {
+            Map<String, Object> queued = previous.get(0);
+            try {
+                PaymentRequest original =
+                        objectMapper.readValue(
+                                String.valueOf(queued.get("payload_json")), PaymentRequest.class);
+                String environment =
+                        request.getMetadata().getOrDefault("environment", "PRODUCTION");
+                String originalEnvironment =
+                        original.getMetadata().getOrDefault("environment", "PRODUCTION");
+                if (!net.citotech.cito.gateway.MobileMoneyExecutionService.fingerprint(
+                                request,
+                                "PAYOUT",
+                                environment,
+                                String.valueOf(request.getChannel()))
+                        .equals(
+                                net.citotech.cito.gateway.MobileMoneyExecutionService.fingerprint(
+                                        original,
+                                        "PAYOUT",
+                                        originalEnvironment,
+                                        String.valueOf(original.getChannel()))))
+                    throw new PaymentGatewayException(
+                            "Payout approval reference conflicts with its approved request");
+                if ("APPROVED".equals(queued.get("queue_status")))
+                    return PayoutEvaluation.execute();
+                if ("PENDING_APPROVAL".equals(queued.get("queue_status")))
+                    return PayoutEvaluation.approvalRequired(
+                            String.valueOf(queued.get("trigger_reason")),
+                            "Payout awaits independent approval",
+                            ((Number) queued.get("id")).longValue());
+                return PayoutEvaluation.blocked(
+                        "APPROVAL_CLOSED", "Payout approval was rejected or cancelled");
+            } catch (PaymentGatewayException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new PaymentGatewayException("Payout approval evidence is unavailable");
+            }
+        }
         String channelCode = normalized(request.getChannel(), "UNKNOWN");
         String currency = normalized(request.getCurrency(), "UGX");
         String country = normalized(request.getCountry(), "UG");
@@ -229,8 +272,9 @@ public class PayoutControlService {
                 p);
         Long id =
                 jdbcTemplate.queryForObject(
-                        "SELECT id FROM payout_approval_queue WHERE payout_reference=:reference",
-                        new MapSqlParameterSource("reference", request.getReference()),
+                        "SELECT id FROM payout_approval_queue WHERE merchant_id=:merchant_id AND payout_reference=:reference",
+                        new MapSqlParameterSource("reference", request.getReference())
+                                .addValue("merchant_id", merchant.getId()),
                         Long.class);
         return id == null ? 0L : id;
     }
@@ -313,10 +357,13 @@ public class PayoutControlService {
         p.addValue("id", queueId);
         p.addValue("rejected_by", rejectedBy);
         p.addValue("reason", blank(reason) ? "Rejected by checker" : reason.trim());
-        return jdbcTemplate.update(
-                "UPDATE payout_approval_queue SET queue_status='REJECTED', approved_by=:rejected_by, approved_at=CURRENT_TIMESTAMP, rejection_reason=:reason "
-                        + "WHERE id=:id AND queue_status='PENDING_APPROVAL' AND requested_by IS NOT NULL AND requested_by<>:rejected_by",
-                p);
+        int updated =
+                jdbcTemplate.update(
+                        "UPDATE payout_approval_queue SET queue_status='REJECTED', approved_by=:rejected_by, approved_at=CURRENT_TIMESTAMP, rejection_reason=:reason "
+                                + "WHERE id=:id AND queue_status='PENDING_APPROVAL' AND requested_by IS NOT NULL AND requested_by<>:rejected_by",
+                        p);
+        if (updated > 0) releaseUnsubmittedBatch(queueId);
+        return updated;
     }
 
     @Transactional
@@ -324,9 +371,41 @@ public class PayoutControlService {
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("id", queueId);
         p.addValue("cancelled_by", cancelledBy);
-        return jdbcTemplate.update(
-                "UPDATE payout_approval_queue SET queue_status='CANCELLED', approved_by=:cancelled_by, approved_at=CURRENT_TIMESTAMP "
-                        + "WHERE id=:id AND queue_status='PENDING_APPROVAL'",
+        int updated =
+                jdbcTemplate.update(
+                        "UPDATE payout_approval_queue SET queue_status='CANCELLED', approved_by=:cancelled_by, approved_at=CURRENT_TIMESTAMP "
+                                + "WHERE id=:id AND queue_status='PENDING_APPROVAL'",
+                        p);
+        if (updated > 0) releaseUnsubmittedBatch(queueId);
+        return updated;
+    }
+
+    private void releaseUnsubmittedBatch(long queueId) {
+        List<Map<String, Object>> rows =
+                jdbcTemplate.queryForList(
+                        "SELECT merchant_id,payout_reference FROM payout_approval_queue WHERE id=:id",
+                        new MapSqlParameterSource("id", queueId));
+        if (rows.isEmpty()) return;
+        Map<String, Object> row = rows.get(0);
+        String reference = String.valueOf(row.get("payout_reference"));
+        if (!reference.matches("batch-payout:[0-9]+:[0-9]+(:retry:[0-9a-f-]{36})?")) return;
+        String[] parts = reference.split(":");
+        MapSqlParameterSource p =
+                new MapSqlParameterSource("merchant", row.get("merchant_id"))
+                        .addValue("reference", reference)
+                        .addValue("batch", Long.parseLong(parts[1]))
+                        .addValue("beneficiary", Long.parseLong(parts[2]));
+        Integer submitted =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM mobile_money_executions WHERE merchant_id=:merchant AND merchant_reference=:reference",
+                        p,
+                        Integer.class);
+        if (submitted == null || submitted > 0) return;
+        jdbcTemplate.update(
+                "UPDATE ledger_reservations SET reservation_status='RELEASED' WHERE merchant_id=:merchant AND source_reference=:reference AND reservation_status='RESERVED'",
+                p);
+        jdbcTemplate.update(
+                "UPDATE beneficiaries SET status='FAILED',reason='Payout approval rejected or cancelled' WHERE id=:beneficiary AND batch_id=:batch AND (active_payment_reference IS NULL OR active_payment_reference=:reference) AND EXISTS (SELECT 1 FROM merchant_batch_transactions_log b WHERE b.id=:batch AND b.merchant_id=:merchant)",
                 p);
     }
 
@@ -371,7 +450,7 @@ public class PayoutControlService {
         p.addValue("tx_type", Transaction.TX_TYPE_PAYOUT);
         BigDecimal value =
                 jdbcTemplate.queryForObject(
-                        "SELECT COALESCE(SUM(original_amount), 0) FROM merchant_transactions_log "
+                        "SELECT COALESCE(SUM(original_amount), 0) FROM merchant_production_transactions "
                                 + "WHERE merchant_id=:merchant_id AND currency=:currency "
                                 + "AND tx_type=:tx_type AND status IN ('PENDING','SUBMITTED','SUCCESSFUL') "
                                 + "AND created_on >= :from AND (:to IS NULL OR created_on < :to)",
@@ -393,7 +472,7 @@ public class PayoutControlService {
         p.addValue("tx_type", Transaction.TX_TYPE_PAYOUT);
         Integer count =
                 jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM merchant_transactions_log "
+                        "SELECT COUNT(*) FROM merchant_production_transactions "
                                 + "WHERE merchant_id=:merchant_id AND tx_type=:tx_type "
                                 + "AND payer_number=:beneficiary AND status IN ('PENDING','SUBMITTED','SUCCESSFUL')",
                         p,

@@ -37,6 +37,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(path = "/api/v2/admin/payout-approvals")
 @PreAuthorize("hasRole('ADMIN')")
 public class PayoutApprovalController {
+    private String authenticatedActor() {
+        var auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext()
+                        .getAuthentication();
+        if (auth == null || !auth.isAuthenticated())
+            throw new PaymentGatewayException("Authenticated checker is required");
+        return auth.getName();
+    }
+
     private final PayoutControlService payoutControlService;
     private final PaymentOrchestrationService paymentOrchestrationService;
     private final AdminAuditService auditService;
@@ -69,7 +78,9 @@ public class PayoutApprovalController {
      */
     @PostMapping(path = "/{queueId}/approve")
     public ResponseEntity<?> approve(
-            @PathVariable long queueId, @RequestParam("approvedBy") String approvedBy) {
+            @PathVariable long queueId,
+            @RequestParam(value = "approvedBy", required = false) String approvedBy) {
+        approvedBy = authenticatedActor();
         QueuedPayout queued = payoutControlService.approve(queueId, approvedBy);
         auditService.record(
                 "PAYOUT_APPROVAL",
@@ -91,8 +102,9 @@ public class PayoutApprovalController {
     @PostMapping(path = "/{queueId}/reject")
     public ResponseEntity<?> reject(
             @PathVariable long queueId,
-            @RequestParam("rejectedBy") String rejectedBy,
+            @RequestParam(value = "rejectedBy", required = false) String rejectedBy,
             @RequestParam(value = "reason", required = false) String reason) {
+        rejectedBy = authenticatedActor();
         int updated = payoutControlService.reject(queueId, rejectedBy, reason);
         if (updated == 0) {
             throw new PaymentGatewayException(
@@ -104,7 +116,9 @@ public class PayoutApprovalController {
 
     @PostMapping(path = "/{queueId}/cancel")
     public ResponseEntity<?> cancel(
-            @PathVariable long queueId, @RequestParam("cancelledBy") String cancelledBy) {
+            @PathVariable long queueId,
+            @RequestParam(value = "cancelledBy", required = false) String cancelledBy) {
+        cancelledBy = authenticatedActor();
         int updated = payoutControlService.cancel(queueId, cancelledBy);
         if (updated == 0) {
             throw new PaymentGatewayException(

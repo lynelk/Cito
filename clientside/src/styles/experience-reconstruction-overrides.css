@@ -236,3 +236,37 @@
     width: 100%;
   }
 }
+
+/* Provider forms must fit the nested cards even on a 320 px viewport. */
+.cito-provider-console form > label,
+.cito-provider-console form > button {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Nested treasury cards leave too little space for side-by-side table fields
+ * on phones. Stack labels and values so status codes and keyboard actions stay
+ * within the card, including after a credential decision changes the row. */
+@media (max-width: 640px) {
+  .cito-provider-console .ios-table-card__body {
+    min-width: 0;
+    padding-right: 0;
+  }
+
+  .cito-provider-console .ios-table-card__row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .cito-provider-console .ios-table-card__label,
+  .cito-provider-console .ios-table-card__value {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+}
+.cito-provider-console form > button {
+  white-space: normal;
+}

@@ -133,12 +133,23 @@ public class PaymentsV2Controller {
                 PaymentResult sandboxResult =
                         adapterNativePaymentService.payout(request, merchant, environment);
                 idempotencyService.record(
-                        request.getMerchantNumber(), idempotencyKey, idempotencyBody, sandboxResult);
+                        request.getMerchantNumber(),
+                        idempotencyKey,
+                        idempotencyBody,
+                        sandboxResult);
                 return ResponseEntity.accepted().body(sandboxResult);
             }
 
             productionGuard.reserveProductionExecution(
                     merchant, environment, "PAYOUT", request.getReference());
+            if (paymentOrchestrationService.usesManagedMobileMoney(request, false)) {
+                PaymentResult managed =
+                        paymentOrchestrationService.payout(
+                                request, merchant, servletRequest.getRemoteAddr());
+                idempotencyService.record(
+                        request.getMerchantNumber(), idempotencyKey, idempotencyBody, managed);
+                return ResponseEntity.accepted().body(managed);
+            }
             PayoutEvaluation control = payoutControlService.evaluate(request, merchant, "system");
             if (control.isApprovalRequired()) {
                 PaymentResult pending = new PaymentResult();
@@ -308,8 +319,7 @@ public class PaymentsV2Controller {
         return value == null || value.trim().isEmpty();
     }
 
-    private ResponseEntity<ApiErrorResponse> error(
-            HttpStatus status, String code, String message) {
+    private ResponseEntity<ApiErrorResponse> error(HttpStatus status, String code, String message) {
         return ResponseEntity.status(status)
                 .body(new ApiErrorResponse(code, message, UUID.randomUUID().toString()));
     }

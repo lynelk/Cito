@@ -30,7 +30,7 @@ class UsagePaymentReconciliationServiceTest {
                         any(String.class), any(SqlParameterSource.class), any(RowMapper.class)))
                 .thenReturn(List.of());
         when(jdbcTemplate.queryForObject(
-                        contains("merchant_transactions_log"),
+                        contains("merchant_production_transactions"),
                         any(SqlParameterSource.class),
                         org.mockito.ArgumentMatchers.eq(Long.class)))
                 .thenReturn(5L);

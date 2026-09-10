@@ -3,7 +3,6 @@ package net.citotech.cito.refund;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -13,7 +12,6 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.util.List;
-import net.citotech.cito.Common;
 import net.citotech.cito.Model.Merchant;
 import net.citotech.cito.gateway.PaymentGatewayException;
 import net.citotech.cito.ledger.DoubleEntryLedgerService;
@@ -25,9 +23,9 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
- * Covers audit B6: refunds support partial amounts tracked cumulatively against the original
- * payin (so the total refunded can never exceed what was collected), and a retried request with
- * the same reference is idempotent rather than double-refunding.
+ * Covers audit B6: refunds support partial amounts tracked cumulatively against the original payin
+ * (so the total refunded can never exceed what was collected), and a retried request with the same
+ * reference is idempotent rather than double-refunding.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 class RefundServiceTest {
@@ -66,10 +64,7 @@ class RefundServiceTest {
                 .hasMessageContaining("exceeds the unrefunded balance");
 
         verify(jdbcTemplate, never())
-                .update(
-                        contains("INSERT INTO refunds"),
-                        any(MapSqlParameterSource.class),
-                        any());
+                .update(contains("INSERT INTO refunds"), any(MapSqlParameterSource.class), any());
     }
 
     @Test
@@ -82,7 +77,7 @@ class RefundServiceTest {
                 mock(MerchantNotificationPreferenceService.class);
         stubNoExistingRefund(jdbcTemplate);
         when(jdbcTemplate.query(
-                        contains("merchant_transactions_log"),
+                        contains("merchant_production_transactions"),
                         any(MapSqlParameterSource.class),
                         any(RowMapper.class)))
                 .thenReturn(List.of());
@@ -117,8 +112,7 @@ class RefundServiceTest {
             when(refundRow.getLong("original_transaction_id")).thenReturn(1L);
             when(refundRow.getString("original_merchant_ref")).thenReturn("PAY-1");
             when(refundRow.getObject("payout_transaction_id")).thenReturn(null);
-            when(refundRow.getBigDecimal("requested_amount"))
-                    .thenReturn(new BigDecimal("500"));
+            when(refundRow.getBigDecimal("requested_amount")).thenReturn(new BigDecimal("500"));
             when(refundRow.getString("refund_status")).thenReturn("COMPLETED");
             when(refundRow.getString("reason")).thenReturn("reason");
             when(refundRow.getString("failure_message")).thenReturn(null);
@@ -149,11 +143,28 @@ class RefundServiceTest {
                         merchant(), "PAY-1", "REF-1", new BigDecimal("500"), "reason");
 
         assertThat(result.status()).isEqualTo(RefundStatus.COMPLETED);
+        assertThatThrownBy(
+                        () ->
+                                service.requestRefund(
+                                        merchant(),
+                                        "OTHER-PAYMENT",
+                                        "REF-1",
+                                        new BigDecimal("500"),
+                                        "reason"))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("bound to another request");
+        assertThatThrownBy(
+                        () ->
+                                service.requestRefund(
+                                        merchant(),
+                                        "PAY-1",
+                                        "REF-1",
+                                        new BigDecimal("501"),
+                                        "reason"))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("bound to another request");
         verify(jdbcTemplate, never())
-                .update(
-                        contains("INSERT INTO refunds"),
-                        any(MapSqlParameterSource.class),
-                        any());
+                .update(contains("INSERT INTO refunds"), any(MapSqlParameterSource.class), any());
     }
 
     private void stubNoExistingRefund(NamedParameterJdbcTemplate jdbcTemplate) {
@@ -171,7 +182,7 @@ class RefundServiceTest {
             when(row.getLong("id")).thenReturn(txId);
             when(row.getString("charging_method")).thenReturn("percentage");
             when(row.getDouble("charges")).thenReturn(0.0);
-            when(row.getDouble("original_amount")).thenReturn(amount);
+            when(row.getBigDecimal("original_amount")).thenReturn(BigDecimal.valueOf(amount));
             when(row.getString("created_on")).thenReturn("2026-01-01 00:00:00");
             when(row.getString("updated_on")).thenReturn("2026-01-01 00:00:00");
             when(row.getString("gateway_id")).thenReturn("MTNMoMoPaymentGateway");
@@ -197,7 +208,7 @@ class RefundServiceTest {
             throw new IllegalStateException(e);
         }
         when(jdbcTemplate.query(
-                        contains("merchant_transactions_log"),
+                        contains("merchant_production_transactions"),
                         any(MapSqlParameterSource.class),
                         any(RowMapper.class)))
                 .thenAnswer(
@@ -207,13 +218,12 @@ class RefundServiceTest {
                         });
     }
 
-    private void stubRefundedSoFar(
-            NamedParameterJdbcTemplate jdbcTemplate, BigDecimal amount) {
-        when(jdbcTemplate.queryForObject(
-                        contains("SUM(requested_amount)"),
+    private void stubRefundedSoFar(NamedParameterJdbcTemplate jdbcTemplate, BigDecimal amount) {
+        when(jdbcTemplate.queryForList(
+                        contains("SELECT requested_amount FROM refunds"),
                         any(MapSqlParameterSource.class),
                         org.mockito.ArgumentMatchers.eq(BigDecimal.class)))
-                .thenReturn(amount);
+                .thenReturn(List.of(amount));
     }
 
     private Merchant merchant() {

@@ -1,7 +1,5 @@
 package net.citotech.cito;
 
-import static net.citotech.cito.Common.recordStatementTx;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -15,17 +13,11 @@ import java.math.RoundingMode;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.Signature;
-import java.security.SignatureException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +27,6 @@ import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import net.citotech.cito.Model.*;
-import net.citotech.cito.async.ManagedAsyncTasks;
 import net.citotech.cito.security.ColumnAllowlist;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.apache.poi.ss.usermodel.Cell;
@@ -130,7 +121,7 @@ public class TransactionsLogController {
             String currentPage = Common.jsonText(sObject, "currentPage", "");
             JSONObject searchValue = sObject.getJSONObject("searchingValue");
 
-            String sqlSelect = "SELECT *  FROM " + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG + " ";
+            String sqlSelect = "SELECT *  FROM " + Common.transactionReadTable(request) + " ";
 
             // HANDLE SEARCH PARAMETERS
             if (!searchValue.isNull("category") && !searchValue.isNull("value")) {
@@ -240,14 +231,14 @@ public class TransactionsLogController {
             parameters.addValue("merchant_id", sessionUser.getMerchant_id());
             String sqlSelect =
                     "SELECT *  FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + " WHERE merchant_id = :merchant_id";
 
             String sqlSelectTotal =
                     "SELECT count(*) as total  "
                             + " FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + " WHERE merchant_id = :merchant_id";
 
@@ -548,8 +539,8 @@ public class TransactionsLogController {
                     u_p_.put("charging_method", us == null ? "" : us.getCharging_method());
                     u_p_.put("created_on", us == null ? "" : us.getCreated_on());
                     u_p_.put("updaed_on", us == null ? "" : us.getUpdated_on());
-                    u_p_.put("tx_request_trace", us == null ? "" : us.getTx_request_trace());
-                    u_p_.put("tx_update_trace", us == null ? "" : us.getTx_update_trace());
+                    u_p_.put("tx_request_trace", "");
+                    u_p_.put("tx_update_trace", "");
                     u_p_.put("tx_description", us == null ? "" : us.getTx_description());
                     u_p_.put(
                             "tx_merchant_description",
@@ -804,21 +795,21 @@ public class TransactionsLogController {
                     "SELECT "
                             + " (SELECT COUNT(*) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE "
                             + "         tx_type='"
                             + Transaction.TX_TYPE_PAYIN
                             + "' AND              created_on BETWEEN :start_date AND :end_date) AS"
                             + " payins, (SELECT COUNT(*)      FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE "
                             + "         tx_type='"
                             + Transaction.TX_TYPE_PAYOUT
                             + "' AND              created_on BETWEEN :start_date AND :end_date) AS"
                             + " payouts FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " ";
 
             RowMapper<JSONObject> rm =
@@ -944,7 +935,7 @@ public class TransactionsLogController {
                     "SELECT "
                             + " (SELECT COUNT(*) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
@@ -953,7 +944,7 @@ public class TransactionsLogController {
                             + Transaction.TX_TYPE_PAYIN
                             + "'          AND              created_on BETWEEN :start_date AND"
                             + " :end_date) AS payins, (SELECT COUNT(*)      FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
@@ -962,7 +953,7 @@ public class TransactionsLogController {
                             + Transaction.TX_TYPE_PAYOUT
                             + "' AND              created_on BETWEEN :start_date AND :end_date) AS"
                             + " payouts FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " ";
 
             RowMapper<JSONObject> rm =
@@ -1088,18 +1079,18 @@ public class TransactionsLogController {
                     "SELECT "
                             + " (SELECT COUNT(*) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE "
                             + "         gateway_id='MTNMoMoPaymentGateway' AND "
                             + "             created_on BETWEEN :start_date AND :end_date) AS mtnmm,"
                             + " (SELECT COUNT(*) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + "      WHERE          gateway_id='AirtelMMPaymentGateway' AND        "
                             + "      created_on BETWEEN :start_date AND :end_date) AS airtelmm FROM"
                             + " "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " ";
 
             RowMapper<JSONObject> rm =
@@ -1308,7 +1299,7 @@ public class TransactionsLogController {
                     "SELECT "
                             + " (SELECT COUNT(*) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
@@ -1317,13 +1308,13 @@ public class TransactionsLogController {
                             + "             created_on BETWEEN :start_date AND :end_date) AS mtnmm,"
                             + " (SELECT COUNT(*) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
                             + "' AND          gateway_id='AirtelMMPaymentGateway' AND             "
                             + " created_on BETWEEN :start_date AND :end_date) AS airtelmm FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " ";
 
             RowMapper<JSONObject> rm =
@@ -1449,22 +1440,22 @@ public class TransactionsLogController {
                     "SELECT "
                             + " (SELECT COUNT(*) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + "      WHERE          status='SUCCESSFUL' AND              created_on"
                             + " BETWEEN :start_date AND :end_date) AS successful, (SELECT COUNT(*) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + "      WHERE          status='FAILED' AND              created_on"
                             + " BETWEEN :start_date AND :end_date) AS failed, (SELECT COUNT(*)     "
                             + " FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + "      WHERE          status='PENDING' AND              created_on"
                             + " BETWEEN :start_date AND :end_date) AS pending, (SELECT COUNT(*)    "
                             + "  FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + "      WHERE          status='UNDETERMINED' AND             "
                             + " created_on BETWEEN :start_date AND :end_date) AS undetermined FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " ";
 
             RowMapper<JSONObject> rm =
@@ -1596,32 +1587,32 @@ public class TransactionsLogController {
                     "SELECT "
                             + " (SELECT COUNT(*) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
                             + "' AND          status='SUCCESSFUL' AND              created_on"
                             + " BETWEEN :start_date AND :end_date) AS successful, (SELECT COUNT(*) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
                             + "' AND          status='FAILED' AND              created_on BETWEEN"
                             + " :start_date AND :end_date) AS failed, (SELECT COUNT(*)      FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
                             + "' AND          status='PENDING' AND              created_on BETWEEN"
                             + " :start_date AND :end_date) AS pending, (SELECT COUNT(*)      FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
                             + "' AND          status='UNDETERMINED' AND              created_on"
                             + " BETWEEN :start_date AND :end_date) AS undetermined FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " ";
 
             RowMapper<JSONObject> rm =
@@ -1753,22 +1744,22 @@ public class TransactionsLogController {
                     "SELECT "
                             + " (SELECT SUM(original_amount) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + "      WHERE          status='SUCCESSFUL' AND              created_on"
                             + " BETWEEN :start_date AND :end_date) AS successful, (SELECT"
                             + " SUM(original_amount)      FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + "      WHERE          status='FAILED' AND              created_on"
                             + " BETWEEN :start_date AND :end_date) AS failed, (SELECT"
                             + " SUM(original_amount)      FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + "      WHERE          status='PENDING' AND              created_on"
                             + " BETWEEN :start_date AND :end_date) AS pending, (SELECT"
                             + " SUM(original_amount)      FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + "      WHERE          status='UNDETERMINED' AND             "
                             + " created_on BETWEEN :start_date AND :end_date) AS undetermined FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " ";
 
             RowMapper<JSONObject> rm =
@@ -1901,34 +1892,34 @@ public class TransactionsLogController {
                     "SELECT "
                             + " (SELECT SUM(original_amount) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
                             + "' AND          status='SUCCESSFUL' AND              created_on"
                             + " BETWEEN :start_date AND :end_date) AS successful, (SELECT"
                             + " SUM(original_amount)      FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
                             + "' AND          status='FAILED' AND              created_on BETWEEN"
                             + " :start_date AND :end_date) AS failed, (SELECT SUM(original_amount) "
                             + "     FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE merchant_id='"
                             + sessionUser.getMerchant_id()
                             + "' AND          status='PENDING' AND              created_on BETWEEN"
                             + " :start_date AND :end_date) AS pending, (SELECT SUM(original_amount)"
                             + "      FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " "
                             + "     WHERE  merchant_id='"
                             + sessionUser.getMerchant_id()
                             + "' AND          status='UNDETERMINED' AND              created_on"
                             + " BETWEEN :start_date AND :end_date) AS undetermined FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
+                            + Common.transactionReadTable(request)
                             + " ";
 
             RowMapper<JSONObject> rm =
@@ -2037,639 +2028,31 @@ public class TransactionsLogController {
     // for no real benefit, so it stays as-is.
     @Scheduled(fixedDelay = 60000, initialDelay = 1000)
     @SchedulerLock(name = "testCheckstatusCron", lockAtMostFor = "PT15M", lockAtLeastFor = "PT1M")
-    public String testCheckstatusCron(/*@RequestBody String requestBody,
-            HttpServletRequest request, HttpServletResponse response*/ ) {
-        // Set the response header
-
-        String filePath = lockfiledirectory + Common.CLASS_PATH_CHECK_TX_LOCK;
-        Logger.getLogger(TransactionsLogController.class.getName())
-                .log(Level.FINE, "LockFile " + filePath);
-
-        try {
-
-            RandomAccessFile writer = new RandomAccessFile(filePath, "rw");
-
-            File lfile = new File(filePath);
-            if (lfile.createNewFile()) {
+    public String testCheckstatusCron() {
+        List<Transaction> pending =
+                jdbcTemplate.query(
+                        "SELECT * FROM merchant_transactions_log t WHERE status IN ('PENDING','UNDETERMINED') AND gateway_id<>'MTNMoMoPaymentGateway' AND NOT EXISTS (SELECT 1 FROM mobile_money_executions e WHERE e.transaction_id=t.tx_unique_id) ORDER BY updated_on,id LIMIT 100",
+                        new MapSqlParameterSource(),
+                        Common.getTransactionRowMapper());
+        for (Transaction tx : pending) {
+            if (SafariComPaymentGateway.gateway_id.equals(tx.getGateway_id())
+                    && Transaction.TX_TYPE_PAYOUT.equals(tx.getTx_type())) continue;
+            // Touch on every attempt, including provider errors, so old failures do not starve
+            // work.
+            jdbcTemplate.update(
+                    "UPDATE merchant_transactions_log SET updated_on=CURRENT_TIMESTAMP WHERE id=:id",
+                    new MapSqlParameterSource("id", tx.getId()));
+            try {
+                Common.updateTx(tx, jdbcTemplate, transactionManager);
+            } catch (RuntimeException e) {
                 Logger.getLogger(TransactionsLogController.class.getName())
-                        .log(Level.FINE, "File " + filePath + " has been created.");
-            }
-
-            FileLock lock = writer.getChannel().lock();
-            writer.write("Am handling lock!".getBytes());
-
-            // First check if stock|revenew|suspense accounts were configured transaction
-            Setting getStockAccount = Common.getSettings("float_stock_account", jdbcTemplate);
-            if (getStockAccount == null || getStockAccount.getSetting_value().isEmpty()) {
-                // release lock
-                lock.release();
-                writer.close();
-                return GeneralException.getError("112", GeneralException.ERRORS_112);
-            }
-
-            Setting getRevenueAccount = Common.getSettings("revenue_account", jdbcTemplate);
-            if (getRevenueAccount == null || getStockAccount.getSetting_value().isEmpty()) {
-                // release lock
-                lock.release();
-                writer.close();
-                return GeneralException.getError("117", GeneralException.ERRORS_117);
-            }
-
-            Setting getSuspenseAccount = Common.getSettings("suspense_account", jdbcTemplate);
-            if (getSuspenseAccount == null || getStockAccount.getSetting_value().isEmpty()) {
-                // release lock
-                lock.release();
-                writer.close();
-                return GeneralException.getError("127", GeneralException.ERRORS_127);
-            }
-
-            // Now get Stock account
-            String stock_account_number = getStockAccount.getSetting_value().trim();
-            Merchant float_stock_account =
-                    Common.getMerchantByAccountNumber(stock_account_number, jdbcTemplate);
-
-            // Now get Revenue account
-            String revenue_account_number = getRevenueAccount.getSetting_value().trim();
-            Merchant revenue_stock_account =
-                    Common.getMerchantByAccountNumber(revenue_account_number, jdbcTemplate);
-
-            // suspense_account
-            String suspense_account_number = getSuspenseAccount.getSetting_value().trim();
-            Merchant suspense_stock_account =
-                    Common.getMerchantByAccountNumber(suspense_account_number, jdbcTemplate);
-
-            MapSqlParameterSource parameters = new MapSqlParameterSource();
-            String sqlSelect =
-                    "SELECT *  FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + " WHERE status IN ('PENDING','UNDETERMINED') LIMIT 100 FOR UPDATE";
-
-            String sql_update =
-                    " UPDATE "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " "
-                            + " SET status=:status, tx_update_trace=:tx_update_trace, "
-                            + " tx_gateway_ref=:tx_gateway_ref ";
-            RowMapper<Transaction> rm = Common.getTransactionRowMapper();
-            // ResultSet rs;
-            List<Transaction> pendingTransactions = jdbcTemplate.query(sqlSelect, parameters, rm);
-
-            Logger.getLogger(TransactionsLogController.class.getName())
-                    .log(Level.FINE, "Checking status for " + pendingTransactions.size() + " TXs");
-
-            for (Transaction tx : pendingTransactions) {
-                // First check for the status of this transaction
-
-                DoPayGateway gwChargingDetails = new DoPayGateway();
-
-                String tx_type = "";
-                if (tx.getTx_type().equals(Transaction.TX_TYPE_PAYIN)) {
-                    tx_type = "collection";
-                } else {
-                    tx_type = "disbursement";
-                }
-
-                String txRef =
-                        tx.getGateway_id().equals(SafariComPaymentGateway.getGatewayId())
-                                ? tx.getTx_gateway_ref()
-                                : tx.getTx_unique_id();
-
-                if (tx.getGateway_id().equals(SafariComPaymentGateway.getGatewayId())
-                        && tx.getTx_type().equals("PAYOUT")) {
-                    txRef = tx.getSafaricomRequestReference();
-                    // For now let's not check Tx status for Safaricom PAYOUT
-                    continue;
-                }
-
-                Logger.getLogger(AuthenticationController.class.getName())
                         .log(
-                                Level.SEVERE,
-                                "SAFARICOM REFERENCE ID: " + tx.getSafaricomRequestReference(),
-                                "");
-
-                GateWayResponse txUpdatedDetails =
-                        gwChargingDetails.runPayGatewayDoCheckStatus(
-                                jdbcTemplate,
-                                tx.getGateway_id(),
-                                txRef,
-                                tx_type,
-                                Long.parseLong(tx.getMerchant_id()));
-
-                if (txUpdatedDetails != null) {
-
-                    if (txUpdatedDetails.getTransactionStatus().isEmpty()) {
-                        Logger.getLogger(TransactionsLogController.class.getName())
-                                .log(
-                                        Level.SEVERE,
-                                        "Empty Tx Status: " + txUpdatedDetails.getRequestTrace(),
-                                        "");
-                        continue;
-                    }
-
-                    MapSqlParameterSource parameters_ = new MapSqlParameterSource();
-                    tx.setTx_update_trace(txUpdatedDetails.getRequestTrace());
-                    tx.setStatus(txUpdatedDetails.getTransactionStatus());
-                    tx.setTx_gateway_ref(txUpdatedDetails.getNetworkId());
-
-                    final String sql_update_final = sql_update + " WHERE id=:id";
-                    parameters_.addValue("id", tx.getId());
-                    parameters_.addValue("tx_update_trace", tx.getTx_update_trace());
-                    parameters_.addValue("status", tx.getStatus());
-                    parameters_.addValue("tx_gateway_ref", tx.getTx_gateway_ref());
-
-                    TransactionTemplate template = new TransactionTemplate(transactionManager);
-                    String result =
-                            template.execute(
-                                    new TransactionCallback<String>() {
-                                        @Override
-                                        public String doInTransaction(TransactionStatus status) {
-                                            try {
-                                                jdbcTemplate.update(sql_update_final, parameters_);
-                                                return "success";
-                                            } catch (Exception e) {
-                                                // transactionManager.rollback(status);
-                                                status.setRollbackOnly();
-                                                Logger.getLogger(
-                                                                AuthenticationController.class
-                                                                        .getName())
-                                                        .log(
-                                                                Level.SEVERE,
-                                                                "INTERNAL ERROR: " + e.getMessage(),
-                                                                "");
-                                                return GeneralException.getError(
-                                                        "102", GeneralException.ERRORS_102);
-                                            }
-                                        }
-                                    });
-
-                    if (result.equals("success")) {
-                        Merchant merchant =
-                                Common.getMerchantById(tx.getMerchant_id(), jdbcTemplate);
-
-                        // If the transaction SUCCEEDED, then CREDIT THE CUSTOMER'S ACCOUNT
-                        if (txUpdatedDetails.getTransactionStatus().equals("SUCCESSFUL")) {
-
-                            // Send callback request on another thread
-                            if (!tx.getCallback_url().isEmpty()) {
-
-                                TxCallback txCallback = new TxCallback(tx, merchant);
-                                txCallback.start(jdbcTemplate, transactionManager);
-                            }
-
-                            // Record this transaction
-                            String[] bType = Balance.getBalanceTypeByGatewayId(tx.getGateway_id());
-                            String balance_type = bType[0];
-
-                            Statement newTx = new Statement();
-
-                            // Record the charge and update stock and revenue account
-                            if (tx.getTx_type().equals(Transaction.TX_TYPE_PAYIN)) {
-                                // Credit this customer's account.
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setAmount(tx.getOriginal_amount());
-                                newTx.setGateway_id(tx.getGateway_id());
-                                newTx.setNarritive(tx.getTx_type());
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(Long.parseLong(tx.getMerchant_id()));
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("CR");
-
-                                result = recordStatementTx(newTx, balance_type);
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-
-                                newTx = new Statement();
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setAmount(tx.getCharges());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYIN_CHARGE);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(merchant.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("DR");
-
-                                result = recordStatementTx(newTx, balance_type);
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-
-                                // Now record this revenue account.
-                                newTx = new Statement();
-                                newTx.setAmount(tx.getCharges());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYIN_REVENUE);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(revenue_stock_account.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("CR");
-                                result = recordStatementTx(newTx, balance_type);
-
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-
-                                // Now increase stock account.
-                                newTx = new Statement();
-                                newTx.setAmount(tx.getOriginal_amount());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYIN);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(float_stock_account.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("CR");
-                                result = recordStatementTx(newTx, balance_type);
-
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-                            } else if (tx.getTx_type().equals(Transaction.TX_TYPE_PAYOUT)) {
-                                // Record a settlement transaction for Payout
-                                newTx = new Statement();
-                                newTx.setAmount(tx.getOriginal_amount());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYOUT_SETTLEMENT);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(suspense_stock_account.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("DR");
-                                result = recordStatementTx(newTx, balance_type);
-
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-
-                                // Record a settlement transaction for Payout charge
-                                newTx = new Statement();
-                                newTx.setAmount(tx.getCharges());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYOUT_CHARGE_SETTLEMENT);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(suspense_stock_account.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("DR");
-                                result = recordStatementTx(newTx, balance_type);
-
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-
-                                // Record Revenue to revenue account
-                                newTx = new Statement();
-                                newTx.setAmount(tx.getCharges());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYOUT_REVENUE);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(revenue_stock_account.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("CR");
-                                result = recordStatementTx(newTx, balance_type);
-
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-                            }
-                        } else if (txUpdatedDetails.getTransactionStatus().equals("FAILED")) {
-
-                            // Send callback request asynchronously
-                            if (!tx.getCallback_url().isEmpty()) {
-                                ManagedAsyncTasks.run(
-                                        "txController-failed-callback-" + tx.getId(),
-                                        () -> {
-                                            String amountToSign = tx.getOriginal_amount() + "";
-                                            String signedData =
-                                                    tx.getPayer_number()
-                                                            + amountToSign
-                                                            + tx.getCreated_on()
-                                                            + tx.getTx_merchant_ref()
-                                                            + tx.getStatus()
-                                                            + tx.getTx_merchant_description()
-                                                            + tx.getTx_gateway_ref();
-
-                                            /*
-                                            String signedData = tx.getPayer_number()+tx.getOriginal_amount()
-                                                    +tx.getCreated_on()+tx.getTx_merchant_ref()+tx.getStatus()
-                                                    +tx.getTx_merchant_description()+tx.getTx_gateway_ref();
-                                            */
-
-                                            if (merchant.getPublic_key() == null
-                                                    || merchant.getPublic_key().isEmpty()) {
-                                                return;
-                                            }
-                                            try {
-                                                // Now verify signature.
-                                                Signature sign =
-                                                        Signature.getInstance("SHA256withRSA");
-                                                String base64_private_key =
-                                                        merchant.getPrivate_key();
-                                                base64_private_key =
-                                                        base64_private_key.replace(
-                                                                "-----BEGIN PRIVATE KEY-----\n",
-                                                                "");
-                                                String base64_cleaned =
-                                                        base64_private_key.replace(
-                                                                "\n-----END PRIVATE KEY-----\n",
-                                                                "");
-
-                                                PrivateKey privateKey =
-                                                        Common.getPrivateKeyFromBase64String(
-                                                                base64_cleaned);
-                                                sign.initSign(privateKey);
-                                                sign.update(signedData.getBytes());
-                                                byte[] digitalSignature = sign.sign();
-                                                JSONObject jObject = new JSONObject();
-                                                jObject.put("amount", amountToSign);
-                                                jObject.put("payer_number", tx.getPayer_number());
-                                                jObject.put("reference", tx.getTx_merchant_ref());
-                                                jObject.put("network_ref", tx.getTx_gateway_ref());
-                                                jObject.put("status", tx.getStatus());
-                                                jObject.put(
-                                                        "description",
-                                                        tx.getTx_merchant_description());
-                                                jObject.put("completed_on", tx.getUpdated_on());
-                                                jObject.put("created_on", tx.getCreated_on());
-                                                jObject.put(
-                                                        "signature",
-                                                        Base64.getEncoder()
-                                                                .encodeToString(digitalSignature));
-                                                String requestData = jObject.toString();
-                                                String url = tx.getCallback_url();
-                                                // Now make the callback request.
-                                                Map<String, String> headers = new HashMap<>();
-                                                headers.put("Content-Type", "application/json");
-
-                                                HttpRequestResponse rs =
-                                                        Common.doHttpRequest(
-                                                                "POST", url, requestData, headers);
-                                                if (rs != null) {
-                                                    String failedCbTraceSql =
-                                                            sql_update
-                                                                    + ", callback_trace=:callback_trace"
-                                                                    + "  WHERE id=:id";
-                                                    MapSqlParameterSource failedCbTraceParams =
-                                                            new MapSqlParameterSource();
-                                                    failedCbTraceParams.addValue("id", tx.getId());
-                                                    failedCbTraceParams.addValue(
-                                                            "tx_update_trace",
-                                                            tx.getTx_update_trace());
-                                                    failedCbTraceParams.addValue(
-                                                            "status", tx.getStatus());
-                                                    failedCbTraceParams.addValue(
-                                                            "tx_gateway_ref",
-                                                            tx.getTx_gateway_ref());
-                                                    failedCbTraceParams.addValue(
-                                                            "callback_trace", rs.toString());
-
-                                                    // Now update the trace of this transaction.
-                                                    String failedCbTraceResult =
-                                                            template.execute(
-                                                                    new TransactionCallback<
-                                                                            String>() {
-                                                                        @Override
-                                                                        public String
-                                                                                doInTransaction(
-                                                                                        TransactionStatus
-                                                                                                status) {
-                                                                            try {
-                                                                                jdbcTemplate.update(
-                                                                                        failedCbTraceSql,
-                                                                                        failedCbTraceParams);
-                                                                                return "success";
-                                                                            } catch (Exception e) {
-                                                                                // transactionManager.rollback(status);
-                                                                                status
-                                                                                        .setRollbackOnly();
-                                                                                Logger.getLogger(
-                                                                                                AuthenticationController
-                                                                                                        .class
-                                                                                                        .getName())
-                                                                                        .log(
-                                                                                                Level
-                                                                                                        .SEVERE,
-                                                                                                "INTERNAL"
-                                                                                                        + " ERROR:"
-                                                                                                        + " "
-                                                                                                        + e
-                                                                                                                .getMessage(),
-                                                                                                "");
-                                                                                return GeneralException
-                                                                                        .getError(
-                                                                                                "102",
-                                                                                                GeneralException
-                                                                                                        .ERRORS_102);
-                                                                            }
-                                                                        }
-                                                                    });
-                                                    Logger.getLogger(
-                                                                    TransactionsLogController.class
-                                                                            .getName())
-                                                            .log(
-                                                                    Level.SEVERE,
-                                                                    "Callback Results: "
-                                                                            + failedCbTraceResult,
-                                                                    "");
-                                                }
-
-                                            } catch (NoSuchAlgorithmException ex) {
-                                                Logger.getLogger(
-                                                                TransactionsLogController.class
-                                                                        .getName())
-                                                        .log(Level.SEVERE, null, ex);
-                                            } catch (InvalidKeyException ex) {
-                                                Logger.getLogger(
-                                                                TransactionsLogController.class
-                                                                        .getName())
-                                                        .log(Level.SEVERE, null, ex);
-                                            } catch (SignatureException ex) {
-                                                Logger.getLogger(
-                                                                TransactionsLogController.class
-                                                                        .getName())
-                                                        .log(Level.SEVERE, null, ex);
-                                            } catch (JSONException ex) {
-                                                Logger.getLogger(
-                                                                TransactionsLogController.class
-                                                                        .getName())
-                                                        .log(Level.SEVERE, null, ex);
-                                            }
-                                        });
-                            }
-
-                            // If it's a payout, reverse the money.
-                            Statement newTx = new Statement();
-                            String[] bType = Balance.getBalanceTypeByGatewayId(tx.getGateway_id());
-                            String balance_type = bType[0];
-                            if (tx.getTx_type().equals(Transaction.TX_TYPE_PAYOUT)) {
-                                // Dr the amount
-                                newTx = new Statement();
-                                newTx.setAmount(tx.getOriginal_amount());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYOUT_REVERSAL);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(suspense_stock_account.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("DR");
-                                result = recordStatementTx(newTx, balance_type);
-
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-
-                                // DR the charge reversal
-                                newTx = new Statement();
-                                newTx.setAmount(tx.getCharges());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYOUT_CHARGE_REVERSAL);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(suspense_stock_account.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("DR");
-                                result = recordStatementTx(newTx, balance_type);
-
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-
-                                // CR the amount back to customer's account
-                                newTx = new Statement();
-                                newTx.setAmount(tx.getOriginal_amount());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYOUT_REVERSAL);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(merchant.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("CR");
-                                result = recordStatementTx(newTx, balance_type);
-
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-
-                                // CR the charge back on customer's account
-                                newTx = new Statement();
-                                newTx.setAmount(tx.getCharges());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYOUT_CHARGE_REVERSAL);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(merchant.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("CR");
-                                result = recordStatementTx(newTx, balance_type);
-
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-
-                                // Restore the float account
-                                newTx = new Statement();
-                                newTx.setAmount(tx.getOriginal_amount());
-                                newTx.setGateway_id(tx.getGateway_id());
-
-                                newTx.setNarritive(Transaction.TX_TYPE_PAYOUT_REVERSAL);
-                                newTx.setTransactions_log_id(tx.getId());
-                                newTx.setMerchant_id(float_stock_account.getId());
-                                newTx.setDescription(tx.getTx_description());
-                                newTx.setRecorded_by("SYSTEM");
-                                newTx.setTx_type("CR");
-                                result = recordStatementTx(newTx, balance_type);
-
-                                if (!result.equals("success")) {
-                                    // release lock
-                                    lock.release();
-                                    writer.close();
-                                    return result;
-                                }
-                            }
-                        }
-                        continue;
-                    } else {
-                        // release lock
-                        lock.release();
-                        // close the file
-                        writer.close();
-                        return result;
-                    }
-                }
+                                Level.WARNING,
+                                "Provider status verification deferred for transaction "
+                                        + tx.getId());
             }
-
-            // release lock
-            lock.release();
-            // close the file
-            writer.close();
-        } catch (IOException ex) {
-            Logger.getLogger(TransactionsLogController.class.getName())
-                    .log(
-                            Level.SEVERE,
-                            "HANDLING_INITIAL_PROCESS IOException:" + ex.getMessage(),
-                            ex);
-            return GeneralException.getError("107", GeneralException.ERRORS_107);
-        } catch (java.nio.channels.OverlappingFileLockException ex) {
-            Logger.getLogger(AuthenticationController.class.getName())
-                    .log(
-                            Level.SEVERE,
-                            "HANDLING_INITIAL_PROCESS OverlappingFileLockException: "
-                                    + ex.getMessage(),
-                            "");
-
-            return "OverlappingFileLockException";
         }
-
-        // Execution successfully.
-        return GeneralSuccessResponse.getMessage("000", GeneralSuccessResponse.SUCCESS_000);
+        return "success";
     }
 
     public String recordAfterTx() {
@@ -3627,80 +3010,15 @@ public class TransactionsLogController {
         }
     }
 
-    @PostMapping(path = "/testMtnTokens")
-    public String testMtnTokens(
+    @PostMapping(path = {"/testMtnTokens", "/testMtnPayIn", "/testMtnPayOut"})
+    public String retiredUnaccountedProviderTests(
             @RequestBody String requestBody,
             HttpServletRequest request,
-            HttpServletResponse response)
-            throws IOException {
-
-        MTNMoMoPaymentGateway gw = new MTNMoMoPaymentGateway();
-        MTNMoMoPaymentGateway.Token t = gw.getToken();
-
-        if (t != null) {
-            return t.toString();
-        } else {
-            return "No Token returned. See the logs";
-        }
-    }
-
-    @PostMapping(path = "/testMtnPayIn")
-    public String testMtnPayIn(
-            @RequestBody String requestBody,
-            HttpServletRequest request,
-            HttpServletResponse response)
-            throws IOException, JSONException {
-
-        JSONObject sO = new JSONObject(requestBody);
-        DoPayGateway gw = new DoPayGateway();
-
-        String ref = Common.generateUuid();
-        String narrative = sO.getString("narrative");
-        String msisdn = sO.getString("payer");
-
-        GateWayResponse pResponse =
-                gw.runPayGatewayDoPayIn(
-                        jdbcTemplate, msisdn, sO.getDouble("amount"), ref, narrative, null);
-
-        if (pResponse != null) {
-            String res = pResponse.getRequestTrace();
-
-            return res;
-        } else {
-            return "No gateway for " + msisdn;
-        }
-        // String ref = Common.generateUuid();
-    }
-
-    @PostMapping(path = "/testMtnPayOut")
-    public String testMtnPayOut(
-            @RequestBody String requestBody,
-            HttpServletRequest request,
-            HttpServletResponse response)
-            throws IOException, JSONException {
-
-        JSONObject sO = new JSONObject(requestBody);
-        DoPayGateway gw = new DoPayGateway();
-
-        String ref = Common.generateUuid();
-        String narrative = sO.getString("narrative");
-
-        GateWayResponse pResponse =
-                gw.runPayGatewayDoPayOut(
-                        jdbcTemplate,
-                        sO.getString("payer"),
-                        sO.getDouble("amount"),
-                        ref,
-                        narrative,
-                        null);
-
-        if (pResponse != null) {
-            String res = pResponse.getRequestTrace();
-            return res;
-        } else {
-            return "Gateway request failed";
-        }
-        // String ref = Common.generateUuid();
+            HttpServletResponse response) {
+        response.setStatus(410);
+        return GeneralException.getError(
+                "REPLACED",
+                "Use the CPay provider console for connection verification and controlled transaction tests");
     }
 
     @PostMapping(path = "/testMtnPayInCheckStatus")
@@ -5263,8 +4581,11 @@ public class TransactionsLogController {
                                                                         jdbcTemplate,
                                                                         transactionManager);
                                                     } catch (RuntimeException payoutEx) {
-                                                        ledgerService.releaseReservation(
-                                                                batchReservationReference);
+                                                        if (!net.citotech.cito.gateway
+                                                                .MobileMoneyCompatibilityBridge
+                                                                .manages(newTx))
+                                                            ledgerService.releaseReservation(
+                                                                    batchReservationReference);
                                                         throw payoutEx;
                                                     }
 
@@ -5286,13 +4607,17 @@ public class TransactionsLogController {
                                                     // orchestration path
                                                     // does, keyed by tx_unique_id so it can never
                                                     // double-post.
-                                                    legacyLedgerPostingService.postPaymentEntries(
-                                                            Transaction.TX_TYPE_PAYOUT,
-                                                            gateway_id,
-                                                            merchant,
-                                                            newTx,
-                                                            b.getAmount(),
-                                                            charges);
+                                                    if (!net.citotech.cito.gateway
+                                                            .MobileMoneyCompatibilityBridge.manages(
+                                                            newTx))
+                                                        legacyLedgerPostingService
+                                                                .postPaymentEntries(
+                                                                        Transaction.TX_TYPE_PAYOUT,
+                                                                        gateway_id,
+                                                                        merchant,
+                                                                        newTx,
+                                                                        b.getAmount(),
+                                                                        charges);
 
                                                     // Now update this particular beneficiary
                                                     JSONObject rObject = new JSONObject(resultPay);
@@ -5300,10 +4625,15 @@ public class TransactionsLogController {
                                                             rObject.getString("state").equals("OK")
                                                                     && rObject.getString("code")
                                                                             .equals("000");
-                                                    if (payoutSucceeded) {
+                                                    if (!net.citotech.cito.gateway
+                                                                    .MobileMoneyCompatibilityBridge
+                                                                    .manages(newTx)
+                                                            && payoutSucceeded) {
                                                         ledgerService.captureReservation(
                                                                 batchReservationReference);
-                                                    } else {
+                                                    } else if (!net.citotech.cito.gateway
+                                                            .MobileMoneyCompatibilityBridge.manages(
+                                                            newTx)) {
                                                         ledgerService.releaseReservation(
                                                                 batchReservationReference);
                                                     }

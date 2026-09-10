@@ -139,7 +139,7 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                 gwResponse.setStatus("ERROR");
                 gwResponse.setTransactionStatus("UNDETERMINED");
                 gwResponse.setRequestTrace("");
-                return 0.0;
+                return null;
             }
 
             headers.put("Authorization", "Bearer " + token.getToken());
@@ -157,7 +157,7 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                 gwResponse.setStatus("ERROR");
                 gwResponse.setTransactionStatus("UNDETERMINED");
                 gwResponse.setRequestTrace(safeTrace(url_string, 0, data));
-                return 0.0;
+                return null;
             }
 
             if (rs.getStatusCode() != 200) {
@@ -184,12 +184,13 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                     res = "No response data from the server.";
                 }
 
-                gwResponse.setMessage(res);
+                gwResponse.setMessage(
+                        "Provider request was not confirmed; check transaction status");
                 gwResponse.setStatus("ERROR");
                 gwResponse.setTransactionStatus(transaction_status);
                 gwResponse.setNetworkId("");
                 gwResponse.setRequestTrace(safeTrace(url_string, rs.getStatusCode(), data));
-                return 0.0;
+                return null;
             } else {
                 gwResponse.setTransactionStatus("PENDING");
                 gwResponse.setHttpStatus(rs.getStatusCode() + "");
@@ -206,28 +207,28 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                     }
                 }
 
-                return 0.0;
+                return null;
             }
         } catch (JSONException ex) {
             Logger.getLogger(SettingsController.class.getName())
                     .log(Level.SEVERE, ex.getMessage(), "");
             GateWayResponse gwResponse = new GateWayResponse();
             gwResponse.setHttpStatus("0");
-            gwResponse.setMessage(ex.getMessage());
+            gwResponse.setMessage("Provider status is currently unavailable");
             gwResponse.setStatus("ERROR");
             gwResponse.setTransactionStatus("UNDETERMINED");
             gwResponse.setRequestTrace("");
-            return 0.0;
+            return null;
         } catch (IOException ex) {
             Logger.getLogger(SettingsController.class.getName())
                     .log(Level.SEVERE, ex.getMessage(), "");
             GateWayResponse gwResponse = new GateWayResponse();
             gwResponse.setHttpStatus("0");
-            gwResponse.setMessage(ex.getMessage());
+            gwResponse.setMessage("Provider status is currently unavailable");
             gwResponse.setStatus("ERROR");
             gwResponse.setTransactionStatus("UNDETERMINED");
             gwResponse.setRequestTrace("");
-            return 0.0;
+            return null;
         }
     }
 
@@ -298,9 +299,14 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                     }
                 }
 
-                gwResponse.setMessage(res);
+                gwResponse.setMessage(
+                        "Provider request was not confirmed; check transaction status");
                 gwResponse.setStatus("ERROR");
-                gwResponse.setTransactionStatus("FAILED");
+                gwResponse.setTransactionStatus(
+                        net.citotech.cito.gateway.ProviderEndpointPolicy.ambiguousSubmission(
+                                        rs.getStatusCode())
+                                ? "UNDETERMINED"
+                                : "FAILED");
                 gwResponse.setRequestTrace(safeTrace(url_string, rs.getStatusCode(), data));
                 return gwResponse;
             } else {
@@ -315,7 +321,7 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
             Logger.getLogger(MTNMoMoPaymentGateway.class.getName()).log(Level.SEVERE, null, ex);
             GateWayResponse gwResponse = new GateWayResponse();
             gwResponse.setHttpStatus("0");
-            gwResponse.setMessage(ex.getMessage());
+            gwResponse.setMessage("Provider status is currently unavailable");
             gwResponse.setStatus("ERROR");
             gwResponse.setTransactionStatus("UNDETERMINED");
             gwResponse.setRequestTrace("");
@@ -323,7 +329,7 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
         } catch (IOException ex) {
             GateWayResponse gwResponse = new GateWayResponse();
             gwResponse.setHttpStatus("0");
-            gwResponse.setMessage(ex.getMessage());
+            gwResponse.setMessage("Provider status is currently unavailable");
             gwResponse.setStatus("ERROR");
             gwResponse.setTransactionStatus("UNDETERMINED");
             gwResponse.setRequestTrace("");
@@ -399,7 +405,8 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                     res = "No response data from the server.";
                 }
 
-                gwResponse.setMessage(res);
+                gwResponse.setMessage(
+                        "Provider request was not confirmed; check transaction status");
                 gwResponse.setStatus("ERROR");
                 gwResponse.setTransactionStatus(transaction_status);
                 gwResponse.setNetworkId("");
@@ -436,7 +443,7 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                     .log(Level.SEVERE, ex.getMessage(), "");
             GateWayResponse gwResponse = new GateWayResponse();
             gwResponse.setHttpStatus("0");
-            gwResponse.setMessage(ex.getMessage());
+            gwResponse.setMessage("Provider status is currently unavailable");
             gwResponse.setStatus("ERROR");
             gwResponse.setTransactionStatus("UNDETERMINED");
             gwResponse.setRequestTrace("");
@@ -446,7 +453,7 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                     .log(Level.SEVERE, ex.getMessage(), "");
             GateWayResponse gwResponse = new GateWayResponse();
             gwResponse.setHttpStatus("0");
-            gwResponse.setMessage(ex.getMessage());
+            gwResponse.setMessage("Provider status is currently unavailable");
             gwResponse.setStatus("ERROR");
             gwResponse.setTransactionStatus("UNDETERMINED");
             gwResponse.setRequestTrace("");
@@ -496,7 +503,7 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                 gwResponse.setHttpStatus("0");
                 gwResponse.setMessage("HttpRequestResponse object is null.");
                 gwResponse.setStatus("ERROR");
-                gwResponse.setTransactionStatus("FAILED");
+                gwResponse.setTransactionStatus("UNDETERMINED");
                 gwResponse.setNetworkId("");
                 gwResponse.setRequestTrace(safeTrace(url_string, 0, data));
                 return gwResponse;
@@ -520,9 +527,14 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                     }
                 }
 
-                gwResponse.setMessage(res);
+                gwResponse.setMessage(
+                        "Provider request was not confirmed; check transaction status");
                 gwResponse.setStatus("ERROR");
-                gwResponse.setTransactionStatus("FAILED");
+                gwResponse.setTransactionStatus(
+                        net.citotech.cito.gateway.ProviderEndpointPolicy.ambiguousSubmission(
+                                        rs.getStatusCode())
+                                ? "UNDETERMINED"
+                                : "FAILED");
                 gwResponse.setRequestTrace(safeTrace(url_string, rs.getStatusCode(), data));
                 return gwResponse;
             } else {
@@ -540,20 +552,20 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                     .log(Level.SEVERE, ex.getMessage(), ex);
             GateWayResponse gwResponse = new GateWayResponse();
             gwResponse.setHttpStatus("0");
-            gwResponse.setMessage(ex.getMessage());
+            gwResponse.setMessage("Provider status is currently unavailable");
             gwResponse.setStatus("ERROR");
             gwResponse.setTransactionStatus("UNDETERMINED");
-            gwResponse.setRequestTrace(ex.getMessage());
+            gwResponse.setRequestTrace("Provider response could not be processed");
             return gwResponse;
         } catch (IOException ex) {
             Logger.getLogger(MTNMoMoPaymentGateway.class.getName())
                     .log(Level.SEVERE, ex.getMessage(), ex);
             GateWayResponse gwResponse = new GateWayResponse();
             gwResponse.setHttpStatus("0");
-            gwResponse.setMessage(ex.getMessage());
+            gwResponse.setMessage("Provider status is currently unavailable");
             gwResponse.setStatus("ERROR");
             gwResponse.setTransactionStatus("UNDETERMINED");
-            gwResponse.setRequestTrace(ex.getMessage());
+            gwResponse.setRequestTrace("Provider response could not be processed");
             return gwResponse;
         }
     }
@@ -591,6 +603,11 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
     }
 
     public Token getToken() throws IOException {
+        net.citotech.cito.gateway.ProviderEndpointPolicy.requireOrigin(
+                this.global_url,
+                "sandbox".equalsIgnoreCase(this.env)
+                        ? net.citotech.cito.gateway.MtnMomoCredentialSchema.SANDBOX_BASE_URL
+                        : net.citotech.cito.gateway.MtnMomoCredentialSchema.PRODUCTION_BASE_URL);
         // Tokens live only in the encrypted provider_tokens DB store (see
         // ProviderTokenStoreService) -
         // no plaintext on-disk cache.

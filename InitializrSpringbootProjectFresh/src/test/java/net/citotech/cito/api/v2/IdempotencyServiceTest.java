@@ -1,134 +1,131 @@
 package net.citotech.cito.api.v2;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.sql.ResultSet;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.citotech.cito.gateway.PaymentGatewayException;
-import net.citotech.cito.security.CanonicalRequestSigner;
-import org.junit.jupiter.api.Test;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.h2.jdbcx.JdbcDataSource;
+import org.junit.jupiter.api.*;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-/**
- * Covers audit D1's v1-body idempotency surface added to {@link IdempotencyService}: {@code
- * findExistingBody} replays the stored response for a reused key with an identical body, rejects a
- * reused key with a different body, and tolerates a missing/disabled table; {@code recordBody}
- * persists the raw response body under a canonical request hash. Mirrors the existing Mockito-based
- * test style used across this repo's unit tests (no Spring context).
- */
-@SuppressWarnings({"rawtypes", "unchecked"})
 class IdempotencyServiceTest {
+    private IdempotencyService service;
+    private NamedParameterJdbcTemplate jdbc;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    @Test
-    void findExistingBodyReplaysTheStoredResponseForAnIdenticalReplay() throws Exception {
-        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        String body = "{\"amount\":\"1000\",\"reference\":\"ref-1\"}";
-        String storedBody = "{\"state\":\"OK\",\"code\":\"000\"}";
-        String hash = CanonicalRequestSigner.sha256Hex(body);
-        when(jdbcTemplate.query(
-                        contains("cpay_idempotency_keys"),
-                        any(MapSqlParameterSource.class),
-                        any(RowMapper.class)))
-                .thenAnswer(
-                        invocation -> {
-                            RowMapper mapper = invocation.getArgument(2);
-                            ResultSet rs = mock(ResultSet.class);
-                            when(rs.getString("request_hash")).thenReturn(hash);
-                            when(rs.getString("response_body")).thenReturn(storedBody);
-                            return List.of(mapper.mapRow(rs, 1));
-                        });
-        IdempotencyService service = new IdempotencyService(jdbcTemplate, objectMapper);
-
-        Optional<String> replayed = service.findExistingBody("1000001", "key-1", body);
-
-        assertThat(replayed).isPresent();
-        assertThat(replayed.get()).isEqualTo(storedBody);
+    @BeforeEach
+    void database() {
+        JdbcDataSource source = new JdbcDataSource();
+        source.setURL(
+                "jdbc:h2:mem:"
+                        + UUID.randomUUID()
+                        + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1");
+        jdbc = new NamedParameterJdbcTemplate(source);
+        jdbc.getJdbcTemplate()
+                .execute(
+                        "CREATE TABLE cpay_idempotency_keys(id BIGINT AUTO_INCREMENT PRIMARY KEY,merchant_number VARCHAR(100),idempotency_key VARCHAR(255),request_hash VARCHAR(64),response_body TEXT,status VARCHAR(50),created_at TIMESTAMP,UNIQUE(merchant_number,idempotency_key))");
+        service = new IdempotencyService(jdbc, new ObjectMapper());
     }
 
     @Test
-    void findExistingBodyRejectsAReusedKeyWithADifferentBody() throws Exception {
-        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        String originalBody = "{\"amount\":\"1000\",\"reference\":\"ref-1\"}";
-        String differentBody = "{\"amount\":\"2000\",\"reference\":\"ref-1\"}";
-        String hash = CanonicalRequestSigner.sha256Hex(originalBody);
-        when(jdbcTemplate.query(
-                        contains("cpay_idempotency_keys"),
-                        any(MapSqlParameterSource.class),
-                        any(RowMapper.class)))
-                .thenAnswer(
-                        invocation -> {
-                            RowMapper mapper = invocation.getArgument(2);
-                            ResultSet rs = mock(ResultSet.class);
-                            when(rs.getString("request_hash")).thenReturn(hash);
-                            when(rs.getString("response_body"))
-                                    .thenReturn("{\"state\":\"OK\",\"code\":\"000\"}");
-                            return List.of(mapper.mapRow(rs, 1));
-                        });
-        IdempotencyService service = new IdempotencyService(jdbcTemplate, objectMapper);
+    void concurrentClaimsPermitExactlyOneSubmission() throws Exception {
+        AtomicInteger outbound = new AtomicInteger();
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService workers = Executors.newFixedThreadPool(8)) {
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < 8; i++)
+                futures.add(
+                        workers.submit(
+                                () -> {
+                                    try {
+                                        start.await();
+                                        if (service.findExistingBody("merchant", "key", "body")
+                                                .isEmpty()) outbound.incrementAndGet();
+                                    } catch (PaymentGatewayException expected) {
+                                    } catch (InterruptedException e) {
+                                        Thread.currentThread().interrupt();
+                                    }
+                                }));
+            start.countDown();
+            for (Future<?> future : futures) future.get(10, TimeUnit.SECONDS);
+        }
+        assertThat(outbound.get()).isEqualTo(1);
+        assertThat(
+                        jdbc.getJdbcTemplate()
+                                .queryForObject(
+                                        "SELECT COUNT(*) FROM cpay_idempotency_keys",
+                                        Integer.class))
+                .isEqualTo(1);
+    }
 
-        assertThatThrownBy(() -> service.findExistingBody("1000001", "key-1", differentBody))
+    @Test
+    void committedResultReplaysAndChangedBodyConflicts() {
+        assertThat(service.findExistingBody("merchant", "key", "body")).isEmpty();
+        service.recordBody("merchant", "key", "body", "{\"status\":\"PENDING\"}");
+        assertThat(service.findExistingBody("merchant", "key", "body"))
+                .contains("{\"status\":\"PENDING\"}");
+        assertThatThrownBy(() -> service.findExistingBody("merchant", "key", "changed"))
+                .isInstanceOf(PaymentGatewayException.class);
+    }
+
+    @Test
+    void failedDatabaseDoesNotAuthorizeSubmission() {
+        jdbc.getJdbcTemplate().execute("DROP TABLE cpay_idempotency_keys");
+        assertThatThrownBy(() -> service.findExistingBody("merchant", "key", "body"))
                 .isInstanceOf(PaymentGatewayException.class)
-                .hasMessageContaining("different request body");
+                .hasMessageContaining("no submission");
     }
 
     @Test
-    void findExistingBodyReturnsEmptyWhenTheTableIsNotYetAvailable() {
-        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        when(jdbcTemplate.query(
-                        contains("cpay_idempotency_keys"),
-                        any(MapSqlParameterSource.class),
-                        any(RowMapper.class)))
-                .thenThrow(new DataAccessException("no such table") {});
-        IdempotencyService service = new IdempotencyService(jdbcTemplate, objectMapper);
-
-        assertThat(service.findExistingBody("1000001", "key-1", "{}")).isEmpty();
+    void independentMerchantsMayUseTheSameKey() {
+        assertThat(service.findExistingBody("one", "key", "body")).isEmpty();
+        assertThat(service.findExistingBody("two", "key", "body")).isEmpty();
     }
 
     @Test
-    void findExistingBodyReturnsEmptyForABlankKey() {
-        IdempotencyService service =
-                new IdempotencyService(mock(NamedParameterJdbcTemplate.class), objectMapper);
-
-        assertThat(service.findExistingBody("1000001", "   ", "{}")).isEmpty();
+    void responseCannotBeRecordedWithoutAClaim() {
+        assertThatThrownBy(() -> service.recordBody("merchant", "unclaimed", "body", "{}"))
+                .isInstanceOf(PaymentGatewayException.class);
     }
 
     @Test
-    void recordBodyStoresTheRawResponseBody() {
-        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        when(jdbcTemplate.update(
-                        contains("INSERT INTO cpay_idempotency_keys"),
-                        any(MapSqlParameterSource.class)))
-                .thenReturn(1);
-        IdempotencyService service = new IdempotencyService(jdbcTemplate, objectMapper);
-
-        service.recordBody(
-                "1000001", "key-1", "{\"amount\":\"1000\"}", "{\"state\":\"OK\",\"code\":\"000\"}");
-        // No exception means the insert was accepted; the Mockito stub returning 1 confirms the
-        // update path ran.
+    void failedRequestBecomesReplayableWithoutReleasingItsIdentity() {
+        try (var scope = service.openRequestScope()) {
+            assertThat(service.findExisting("merchant", "key", "body")).isEmpty();
+        }
+        assertThat(service.findExisting("merchant", "key", "body").orElseThrow().getStatus())
+                .isEqualTo("REQUEST_FAILED");
+        assertThatThrownBy(() -> service.findExisting("merchant", "key", "changed"))
+                .isInstanceOf(PaymentGatewayException.class);
     }
 
     @Test
-    void recordBodySwallowsDataAccessExceptionsForBackwardCompatibility() {
-        NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        when(jdbcTemplate.update(
-                        contains("INSERT INTO cpay_idempotency_keys"),
-                        any(MapSqlParameterSource.class)))
-                .thenThrow(new DataAccessException("no such table") {});
-        IdempotencyService service = new IdempotencyService(jdbcTemplate, objectMapper);
+    void failedLegacyRequestReplaysAnErrorEnvelope() {
+        try (var scope = service.openRequestScope()) {
+            service.findExistingBody("merchant", "key", "body");
+        }
+        var result =
+                new org.json.JSONObject(
+                        service.findExistingBody("merchant", "key", "body").orElseThrow());
+        assertThat(result.getString("state")).isEqualTo("ERROR");
+        assertThat(result.getString("code")).isEqualTo("102");
+    }
 
-        service.recordBody("1000001", "key-1", "{}", "{\"state\":\"OK\"}");
-        // Backward compatible: recording must not break the payment flow when the table is absent.
+    @Test
+    void cleanupDoesNotOverwriteRecordedSuccessOrAnotherRequestsClaim() {
+        try (var owner = service.openRequestScope()) {
+            service.findExistingBody("merchant", "key", "body");
+            try (var duplicate = service.openRequestScope()) {
+                assertThatThrownBy(() -> service.findExistingBody("merchant", "key", "body"))
+                        .hasMessageContaining("already claimed");
+            }
+            assertThatThrownBy(() -> service.findExistingBody("merchant", "key", "body"))
+                    .hasMessageContaining("already claimed");
+            service.recordBody("merchant", "key", "body", "{\"status\":\"PENDING\"}");
+        }
+        assertThat(service.findExistingBody("merchant", "key", "body"))
+                .contains("{\"status\":\"PENDING\"}");
     }
 }

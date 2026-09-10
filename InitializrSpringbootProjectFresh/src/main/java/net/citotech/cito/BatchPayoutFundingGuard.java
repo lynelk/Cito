@@ -46,9 +46,11 @@ public class BatchPayoutFundingGuard {
     }
 
     /**
-     * Locks and reserves the next provider-call slice. Must be called from the payout transaction
-     * before any external payout is attempted.
+     * Commits the next slice holds before any provider call. This prevents an outer batch rollback
+     * from discarding funds holds after a durable provider submission.
      */
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public boolean reserveProcessingSlice(long batchId, long merchantId) {
         if (!lockProcessingBatch(batchId, merchantId)) {
             return false;

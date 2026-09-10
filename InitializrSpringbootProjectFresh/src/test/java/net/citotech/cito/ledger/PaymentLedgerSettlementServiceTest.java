@@ -128,6 +128,31 @@ class PaymentLedgerSettlementServiceTest {
         verify(ledger, never()).captureReservation(anyString());
     }
 
+    @Test
+    void collectionFeesConserveValueAndReduceMerchantPayable() {
+        Transaction tx = base("fee-collection", "fee-ref", "100.1234", "2.3456");
+        tx.setTx_type(Transaction.TX_TYPE_PAYIN);
+        service.applyTerminalProviderOutcome(tx, "SUCCESSFUL", merchant);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LedgerEntryCommand>> captured = ArgumentCaptor.forClass(List.class);
+        verify(ledger).post(anyString(), anyString(), anyString(), anyString(), captured.capture());
+        BigDecimal debit = BigDecimal.ZERO,
+                credit = BigDecimal.ZERO,
+                merchantPayable = BigDecimal.ZERO;
+        for (LedgerEntryCommand entry : captured.getValue()) {
+            if ("DR".equals(entry.direction())) debit = debit.add(entry.amount());
+            else credit = credit.add(entry.amount());
+            if ("MERCHANT_LIABILITY".equals(entry.accountType()))
+                merchantPayable =
+                        merchantPayable.add(
+                                "CR".equals(entry.direction())
+                                        ? entry.amount()
+                                        : entry.amount().negate());
+        }
+        assertThat(debit).isEqualByComparingTo(credit);
+        assertThat(merchantPayable).isEqualByComparingTo("97.7778");
+    }
+
     private Transaction payout(String id, String reference, String amount, String charges) {
         Transaction tx = base(id, reference, amount, charges);
         tx.setTx_type(Transaction.TX_TYPE_PAYOUT);
