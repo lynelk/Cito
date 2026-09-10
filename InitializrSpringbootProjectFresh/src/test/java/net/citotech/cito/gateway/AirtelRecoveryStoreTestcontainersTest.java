@@ -125,7 +125,8 @@ class AirtelRecoveryStoreTestcontainersTest {
                 Map.of("id", e.id()));
         String replacement = store.claim(e.id());
         assertThat(replacement).isNotEqualTo(old);
-        assertThat(tx.execute(x -> store.locked(e.id(), old))).isNull();
+        AirtelRecoveryStore.Entry stale = tx.execute(x -> store.locked(e.id(), old));
+        assertThat(stale).isNull();
         assertThatThrownBy(
                         () ->
                                 tx.execute(
