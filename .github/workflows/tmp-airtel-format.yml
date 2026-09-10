@@ -16,10 +16,22 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: feature/airtel-money-openapi-hardening-v3
+          fetch-depth: 0
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
+      - name: Normalize Airtel credential keys
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('InitializrSpringbootProjectFresh/src/main/java/net/citotech/cito/scheduler/AirtelOpenApiStatusPollScheduler.java')
+          text = path.read_text()
+          text = text.replace('"collectionsPath"', '"collectionPath"')
+          text = text.replace('"disbursementsPath"', '"payoutPath"')
+          text = text.replace('"disbursementStatusPath"', '"payoutStatusPath"')
+          path.write_text(text)
+          PY
       - name: Apply canonical Java formatting
         working-directory: InitializrSpringbootProjectFresh
         run: mvn -q spotless:apply
