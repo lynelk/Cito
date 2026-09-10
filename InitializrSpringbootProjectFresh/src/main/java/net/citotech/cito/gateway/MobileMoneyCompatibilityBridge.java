@@ -39,6 +39,19 @@ public class MobileMoneyCompatibilityBridge {
     }
 
     public static String submit(Transaction tx, Merchant merchant, boolean payout) {
+        return submit(tx, merchant, payout, null);
+    }
+
+    /**
+     * RefundService accepts only successful production payins; never use the server's default
+     * sandbox setting for their compensating payouts.
+     */
+    public static String submitRefund(Transaction tx, Merchant merchant) {
+        return submit(tx, merchant, true, "PRODUCTION");
+    }
+
+    private static String submit(
+            Transaction tx, Merchant merchant, boolean payout, String environment) {
         MobileMoneyCompatibilityBridge bridge = instance;
         if (bridge == null)
             throw new PaymentGatewayException("Mobile-money payment lifecycle is unavailable");
@@ -64,7 +77,9 @@ public class MobileMoneyCompatibilityBridge {
                         ? bridge.payments.payout(
                                 request,
                                 merchant,
-                                bridge.environment.toUpperCase(java.util.Locale.ROOT))
+                                environment == null
+                                        ? bridge.environment.toUpperCase(java.util.Locale.ROOT)
+                                        : environment)
                         : bridge.payments.collect(
                                 request,
                                 merchant,

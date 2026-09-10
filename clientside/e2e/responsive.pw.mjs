@@ -14,6 +14,7 @@ async function assertNoDocumentOverflow(page) {
       viewport: window.innerWidth,
       root: root.scrollWidth,
       body: body.scrollWidth,
+      scrollX: window.scrollX,
     };
   });
 
@@ -28,6 +29,8 @@ async function assertNoDocumentOverflow(page) {
         '.cito-provider-console', '.cito-provider-console form',
         '.cito-provider-console label', '.cito-provider-console input',
         '.cito-provider-console select', '.cito-provider-console textarea',
+        '.cito-provider-console .ios-table-card', '.cito-provider-console .ios-table-card__body',
+        '.cito-provider-console .ios-table-card__row', '.cito-provider-console .ios-table-card__value',
       ].join(',');
       return Array.from(document.querySelectorAll(selector))
         .map((element) => {

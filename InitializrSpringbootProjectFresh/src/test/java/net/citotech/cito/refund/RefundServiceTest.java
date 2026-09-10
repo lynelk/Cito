@@ -143,6 +143,26 @@ class RefundServiceTest {
                         merchant(), "PAY-1", "REF-1", new BigDecimal("500"), "reason");
 
         assertThat(result.status()).isEqualTo(RefundStatus.COMPLETED);
+        assertThatThrownBy(
+                        () ->
+                                service.requestRefund(
+                                        merchant(),
+                                        "OTHER-PAYMENT",
+                                        "REF-1",
+                                        new BigDecimal("500"),
+                                        "reason"))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("bound to another request");
+        assertThatThrownBy(
+                        () ->
+                                service.requestRefund(
+                                        merchant(),
+                                        "PAY-1",
+                                        "REF-1",
+                                        new BigDecimal("501"),
+                                        "reason"))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("bound to another request");
         verify(jdbcTemplate, never())
                 .update(contains("INSERT INTO refunds"), any(MapSqlParameterSource.class), any());
     }
@@ -199,11 +219,11 @@ class RefundServiceTest {
     }
 
     private void stubRefundedSoFar(NamedParameterJdbcTemplate jdbcTemplate, BigDecimal amount) {
-        when(jdbcTemplate.queryForObject(
-                        contains("SUM(requested_amount)"),
+        when(jdbcTemplate.queryForList(
+                        contains("SELECT requested_amount FROM refunds"),
                         any(MapSqlParameterSource.class),
                         org.mockito.ArgumentMatchers.eq(BigDecimal.class)))
-                .thenReturn(amount);
+                .thenReturn(List.of(amount));
     }
 
     private Merchant merchant() {

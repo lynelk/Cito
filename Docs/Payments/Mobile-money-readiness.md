@@ -71,3 +71,11 @@ Additional corrections include decimal percentage/flat fee calculation, collecti
 ## PR follow-up validation
 
 The branch is published as PR #190. The current main SMTP/password-recovery changes were merged without changing provider credentials. CI follow-up adds the previously undocumented portal/refund paths, administrator authorization for global portal lists, merchant-scoped callback counts and exclusion of platform alerts from merchant summaries. The public refund entry point now starts its Spring transaction directly; the MySQL refund scenario invokes that method through the real transaction interceptor. Updated CI results are recorded on the PR.
+
+### Legacy refund parity and concurrency
+
+The signed `/api/doMobileMoneyRefund` compatibility API now enters the same governed refund lifecycle as merchant and v2 requests. It claims the remaining unrefunded amount, preserves the legacy callback across approval, and reports the lifecycle status without treating acceptance as settlement. Production payin refunds explicitly use production execution even when the server defaults to sandbox. Refund references cannot be rebound to a different payment or amount.
+
+Cumulative claims use a current locking read after locking the original payin. The disposable MySQL scenario opens two repeatable-read snapshots before concurrent refund requests; exactly one reaches approval when their sum exceeds the remaining balance. It also verifies callback persistence, production isolation and replay through the Spring transaction proxy.
+
+Before cutover, reconcile historical legacy payout reversals that have no `refunds` association to their original payin. These old records do not reliably contain the original reference, so they must be resolved from operational evidence before accepting new refunds on affected collections. Do not infer financial associations or rewrite settled ledger entries.

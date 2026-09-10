@@ -12,13 +12,16 @@ paths:
   /api/doMobileMoneyRefund:
     post:
       operationId: legacyMobileMoneyRefund
-      summary: Request a full mobile money refund through the compatibility API
+      summary: Refund the remaining collection balance through the compatibility API
       description: 'Compatibility endpoint for a successful production PAYIN owned by the merchant. The
-        original payer, gateway and amount determine the compensating payout. Authentication is the required
+        original payer and gateway determine the compensating payout for the remaining unrefunded amount.
+        The shared refund lifecycle enforces cumulative limits, idempotency and independent approval
+        before any payout. The callback destination is retained across approval. Authentication is the required
         JSON-body signature: RSA-SHA256 or HMAC-SHA256 over merchant_number + original_reference + reference
         + description using the merchant configured signing method. This is not the v2 signature-header
         protocol. Acceptance or a pending response does not prove provider settlement. Use the v2 refund
-        resource for partial refunds and lifecycle tracking.'
+        resource for partial refund amounts and lifecycle tracking. The response adds refundReference
+        and refundStatus; only COMPLETED proves a successful refund.'
       security: []
       requestBody:
         required: true

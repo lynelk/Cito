@@ -75,6 +75,28 @@ public class RefundService {
             BigDecimal amount,
             String reason,
             String requestedBy) {
+        return requestRefund(
+                merchant,
+                originalMerchantRef,
+                refundReference,
+                amount,
+                reason,
+                requestedBy,
+                null,
+                null);
+    }
+
+    /** Legacy callback context is persisted so deferred approval keeps the same destination. */
+    @Transactional
+    public RefundRecord requestRefund(
+            Merchant merchant,
+            String originalMerchantRef,
+            String refundReference,
+            BigDecimal amount,
+            String reason,
+            String requestedBy,
+            String callbackUrl,
+            String originatingIp) {
         if (merchant == null || merchant.getId() == null) {
             throw new PaymentGatewayException("Merchant is required");
         }
@@ -83,6 +105,12 @@ public class RefundService {
         }
         Optional<RefundRecord> existing = findByReference(merchant.getId(), refundReference);
         if (existing.isPresent()) {
+            if (!java.util.Objects.equals(existing.get().originalMerchantRef(), originalMerchantRef)
+                    || (amount != null
+                            && existing.get().requestedAmount().compareTo(amount) != 0)) {
+                throw new PaymentGatewayException(
+                        "Refund reference is already bound to another request");
+            }
             return existing.get();
         }
 
@@ -116,7 +144,9 @@ public class RefundService {
                         originalMerchantRef,
                         refundAmount,
                         reason,
-                        requestedBy);
+                        requestedBy,
+                        callbackUrl,
+                        originatingIp);
         recordTimeline(
                 merchant.getId(),
                 originalMerchantRef,
@@ -486,14 +516,16 @@ public class RefundService {
     }
 
     private BigDecimal refundedSoFar(long originalTransactionId) {
-        BigDecimal sum =
-                jdbcTemplate.queryForObject(
-                        "SELECT COALESCE(SUM(requested_amount), 0) FROM refunds "
+        // A locking read sees claims committed while this request waited for the payin
+        // lock, even when an earlier idempotency lookup opened a repeatable-read snapshot.
+        List<BigDecimal> claims =
+                jdbcTemplate.queryForList(
+                        "SELECT requested_amount FROM refunds "
                                 + "WHERE original_transaction_id=:original_transaction_id "
-                                + "AND refund_status IN ('REQUESTED','PENDING_APPROVAL','PROCESSING','COMPLETED')",
+                                + "AND refund_status IN ('REQUESTED','PENDING_APPROVAL','PROCESSING','COMPLETED') FOR UPDATE",
                         new MapSqlParameterSource("original_transaction_id", originalTransactionId),
                         BigDecimal.class);
-        return sum == null ? BigDecimal.ZERO : sum;
+        return claims.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private long insertRefund(
@@ -503,7 +535,9 @@ public class RefundService {
             String originalMerchantRef,
             BigDecimal amount,
             String reason,
-            String requestedBy) {
+            String requestedBy,
+            String callbackUrl,
+            String originatingIp) {
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("refund_reference", refundReference);
         p.addValue("merchant_id", merchantId);
@@ -512,12 +546,14 @@ public class RefundService {
         p.addValue("requested_amount", amount);
         p.addValue("reason", reason);
         p.addValue("requested_by", blankToNull(requestedBy));
+        p.addValue("callback_url", blankToNull(callbackUrl));
+        p.addValue("originating_ip", blankToNull(originatingIp));
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(
                 "INSERT INTO refunds (refund_reference, merchant_id, original_transaction_id, original_merchant_ref, "
-                        + "requested_amount, reason, requested_by) "
+                        + "requested_amount, reason, requested_by, callback_url, originating_ip) "
                         + "VALUES (:refund_reference, :merchant_id, :original_transaction_id, :original_merchant_ref, "
-                        + ":requested_amount, :reason, :requested_by)",
+                        + ":requested_amount, :reason, :requested_by, :callback_url, :originating_ip)",
                 p,
                 keyHolder);
         Number key = keyHolder.getKey();
@@ -619,8 +655,13 @@ public class RefundService {
         refundTx.setTx_type(Transaction.TX_TYPE_PAYOUT_REVERSAL);
         refundTx.setTx_unique_id(Common.generateUuid());
         refundTx.setTx_merchant_ref(refundReference);
-        refundTx.setCallback_url("");
-        refundTx.setOriginate_ip("");
+        Map<String, Object> context =
+                jdbcTemplate.queryForMap(
+                        "SELECT callback_url, originating_ip FROM refunds WHERE merchant_id=:merchant AND refund_reference=:reference",
+                        new MapSqlParameterSource("merchant", merchant.getId())
+                                .addValue("reference", refundReference));
+        refundTx.setCallback_url(java.util.Objects.toString(context.get("callback_url"), ""));
+        refundTx.setOriginate_ip(java.util.Objects.toString(context.get("originating_ip"), ""));
         refundTx.setCharging_method(
                 chargeDetails == null ? "" : chargeDetails.getCustomerOutboundChargeMethod());
         refundTx.setCharges(charges == null ? 0.0 : charges);
@@ -632,7 +673,8 @@ public class RefundService {
         if (net.citotech.cito.gateway.MobileMoneyCompatibilityBridge.manages(refundTx)) {
             refundTx.setCurrency(currency(originalTx));
             try {
-                Common.doPayOut(refundTx, merchant, jdbcTemplate, transactionManager);
+                net.citotech.cito.gateway.MobileMoneyCompatibilityBridge.submitRefund(
+                        refundTx, merchant);
             } catch (RuntimeException failure) {
                 TransactionTemplate current = new TransactionTemplate(transactionManager);
                 current.setPropagationBehavior(

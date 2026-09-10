@@ -357,7 +357,7 @@ public final class MobileMoneyMysqlScenario {
                                             call.getArgument(2),
                                             "PAYOUT",
                                             mtn));
-            new MobileMoneyCompatibilityBridge(nativePayments, "PRODUCTION", jdbc, tm);
+            new MobileMoneyCompatibilityBridge(nativePayments, "SANDBOX", jdbc, tm);
             var refundTarget =
                     new net.citotech.cito.refund.RefundService(
                             jdbc,
@@ -381,7 +381,29 @@ public final class MobileMoneyMysqlScenario {
                             "mysql-collect",
                             "mysql-refund",
                             new BigDecimal("10"),
-                            "Disposable refund");
+                            "Disposable refund",
+                            "API:" + merchant.getAccount_number(),
+                            "https://merchant.example.com/refunds",
+                            "192.0.2.1");
+            assertThat(
+                            refunds.requestRefund(
+                                            merchant,
+                                            "mysql-collect",
+                                            "mysql-refund",
+                                            new BigDecimal("10"),
+                                            "Disposable refund")
+                                    .id())
+                    .isEqualTo(refund.id());
+            assertThat(
+                            Common.getMerchantTxByTheirRef("mysql-refund", Long.toString(id), jdbc)
+                                    .getCallback_url())
+                    .isEqualTo("https://merchant.example.com/refunds");
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT environment FROM mobile_money_executions WHERE merchant_id=:merchant AND merchant_reference='mysql-refund'",
+                                    Map.of("merchant", id),
+                                    String.class))
+                    .isEqualTo("PRODUCTION");
             assertThat(refund.status()).isEqualTo(net.citotech.cito.refund.RefundStatus.PROCESSING);
             assertThat(ledger.availableMerchantBalance(id, "UGX")).isEqualByComparingTo("74.3750");
             String refundPayment =
@@ -393,6 +415,76 @@ public final class MobileMoneyMysqlScenario {
             assertThat(refunds.findByReference(id, "mysql-refund").orElseThrow().status())
                     .isEqualTo(net.citotech.cito.refund.RefundStatus.COMPLETED);
             assertThat(ledger.availableMerchantBalance(id, "UGX")).isEqualByComparingTo("74.3750");
+
+            // Both callers open repeatable-read snapshots before competing for the payin lock.
+            // Their combined requested amounts exceed the remaining balance, so exactly one
+            // claim may reach approval even when each snapshot predates the other claim.
+            var claimTarget =
+                    new net.citotech.cito.refund.RefundService(
+                            jdbc,
+                            tm,
+                            ledger,
+                            mock(
+                                    net.citotech.cito.merchant.MerchantNotificationPreferenceService
+                                            .class),
+                            BigDecimal.ONE);
+            var claimProxy = new org.springframework.aop.framework.ProxyFactory(claimTarget);
+            claimProxy.addAdvice(
+                    new org.springframework.transaction.interceptor.TransactionInterceptor(
+                            tm,
+                            new org.springframework.transaction.annotation
+                                    .AnnotationTransactionAttributeSource()));
+            var claims = (net.citotech.cito.refund.RefundService) claimProxy.getProxy();
+            var snapshots = new CountDownLatch(2);
+            var claimThreads = Executors.newFixedThreadPool(2);
+            try {
+                var attempts = new ArrayList<Future<String>>();
+                for (String amount : List.of("50", "60")) {
+                    attempts.add(
+                            claimThreads.submit(
+                                    () -> {
+                                        try {
+                                            return transactions.execute(
+                                                    ignored -> {
+                                                        jdbc.queryForObject(
+                                                                "SELECT COUNT(*) FROM refunds",
+                                                                Map.of(),
+                                                                Long.class);
+                                                        snapshots.countDown();
+                                                        try {
+                                                            if (!snapshots.await(
+                                                                    10, TimeUnit.SECONDS))
+                                                                throw new IllegalStateException(
+                                                                        "Refund snapshots were not ready");
+                                                        } catch (InterruptedException ex) {
+                                                            Thread.currentThread().interrupt();
+                                                            throw new IllegalStateException(ex);
+                                                        }
+                                                        return claims.requestRefund(
+                                                                        merchant,
+                                                                        "mysql-collect",
+                                                                        "mysql-concurrent-refund-"
+                                                                                + amount,
+                                                                        new BigDecimal(amount),
+                                                                        "Concurrent refund claim")
+                                                                .status()
+                                                                .name();
+                                                    });
+                                        } catch (PaymentGatewayException ex) {
+                                            assertThat(ex.getMessage())
+                                                    .contains("exceeds the unrefunded balance");
+                                            return "REJECTED_AMOUNT";
+                                        }
+                                    }));
+                }
+                assertThat(
+                                List.of(
+                                        attempts.get(0).get(30, TimeUnit.SECONDS),
+                                        attempts.get(1).get(30, TimeUnit.SECONDS)))
+                        .containsExactlyInAnyOrder("PENDING_APPROVAL", "REJECTED_AMOUNT");
+            } finally {
+                claimThreads.shutdownNow();
+            }
 
             // Rejected/cancelled approval has no provider execution and must release its batch
             // hold and conclude a refund, without fabricating a provider failure transaction.

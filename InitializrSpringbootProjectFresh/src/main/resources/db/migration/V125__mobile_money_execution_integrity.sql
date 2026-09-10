@@ -61,3 +61,8 @@ INSERT INTO provider_treasury_accounts
 SELECT channel_code,environment,country_code,currency_code,'DISBURSEMENT','Airtel sandbox disbursement account',id,'YES',0.0000
 FROM provider_treasury_accounts WHERE channel_code='airtel_open_api' AND environment='SANDBOX' AND account_role='MASTER'
 ON DUPLICATE KEY UPDATE display_name=VALUES(display_name);
+
+-- Preserve compatibility refund callbacks across independent approval and recovery.
+ALTER TABLE refunds
+  ADD COLUMN callback_url VARCHAR(2048) NULL,
+  ADD COLUMN originating_ip VARCHAR(128) NULL;
