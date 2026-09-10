@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.citotech.cito.platform.CitoEntitlementService;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -21,6 +22,7 @@ class MerchantOnboardingReadinessServiceTest {
         NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
         MerchantActivationLifecycleService lifecycleService =
                 mock(MerchantActivationLifecycleService.class);
+        CitoEntitlementService entitlementService = mock(CitoEntitlementService.class);
 
         Map<String, Object> lifecycle = new LinkedHashMap<>();
         lifecycle.put("status", "RISK_REVIEW");
@@ -46,15 +48,54 @@ class MerchantOnboardingReadinessServiceTest {
                         });
 
         Map<String, Object> result =
-                new MerchantOnboardingReadinessService(jdbc, lifecycleService).readiness(42L);
+                new MerchantOnboardingReadinessService(jdbc, lifecycleService, entitlementService)
+                        .readiness(42L);
 
         verify(lifecycleService).ensure(42L);
+        verify(entitlementService).ensureMerchantOrganization(42L);
         assertThat((Map<?, ?>) result.get("progress"))
                 .containsEntry("requiredSteps", 2L)
                 .containsEntry("completedRequiredSteps", 1L);
         assertThat((List<?>) result.get("blockers")).hasSize(1);
         assertThat(result.get("readyForProduction")).isEqualTo(false);
         assertThat(result.get("nextAction")).isEqualTo("Resolve the risk review blocker.");
+        assertThat((Map<?, ?>) result.get("goLive"))
+                .containsEntry("requestStatus", "NOT_REQUESTED");
+    }
+
+    @Test
+    void requiresEveryCanonicalRequiredStepExceptFinalActivation() {
+        NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
+        MerchantActivationLifecycleService lifecycleService =
+                mock(MerchantActivationLifecycleService.class);
+        CitoEntitlementService entitlementService = mock(CitoEntitlementService.class);
+
+        Map<String, Object> lifecycle = new LinkedHashMap<>();
+        lifecycle.put("status", "GO_LIVE_APPROVED");
+        lifecycle.put("nextAction", "Complete the business profile.");
+
+        Map<String, Object> completed = step("GO_LIVE_APPROVED", "COMPLETED", null);
+        Map<String, Object> missing = step("BUSINESS_PROFILE", "NOT_STARTED", null);
+        Map<String, Object> finalActivation = step("PRODUCTION_ACTIVATED", "NOT_STARTED", null);
+
+        when(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class)))
+                .thenAnswer(
+                        invocation -> {
+                            String sql = invocation.getArgument(0);
+                            if (sql.contains("FROM merchant_activation_lifecycles WHERE")) {
+                                return List.of(lifecycle);
+                            }
+                            if (sql.contains("FROM merchant_activation_steps s")) {
+                                return List.of(completed, missing, finalActivation);
+                            }
+                            return List.of();
+                        });
+
+        Map<String, Object> result =
+                new MerchantOnboardingReadinessService(jdbc, lifecycleService, entitlementService)
+                        .readiness(77L);
+
+        assertThat(result.get("readyForProduction")).isEqualTo(false);
     }
 
     private Map<String, Object> step(String code, String status, String blocker) {
