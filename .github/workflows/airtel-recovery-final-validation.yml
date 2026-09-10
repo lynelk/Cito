@@ -1,0 +1,156 @@
+name: Airtel recovery final validation
+on:
+  push:
+    branches: [feature/airtel-money-openapi-hardening-v3]
+    paths: ['.github/workflows/airtel-recovery-final-validation.yml']
+permissions:
+  contents: write
+concurrency:
+  group: airtel-recovery-final-validation
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.repository == 'lynelk/Cito' && github.ref == 'refs/heads/feature/airtel-money-openapi-hardening-v3'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: clientside/package-lock.json
+      - name: Apply bounded source edits
+        shell: python
+        run: |
+          from pathlib import Path
+          root = Path('.')
+          def replace(text, old, new, count=1):
+              assert text.count(old) == count, f'Unexpected source shape: {old[:70]}'
+              return text.replace(old, new)
+          p = root/'clientside/src/features/ProviderTreasuryConsole.tsx'
+          s = p.read_text()
+          s = "import { filterProviderRows, filterProviderAdjustments } from './providerScope';\n" + s
+          s = replace(s, 'export default function ProviderTreasuryConsole(): React.ReactElement {', "export default function ProviderTreasuryConsole({ channelScope }: { channelScope?: string } = {}): React.ReactElement {")
+          for variable, hook in [('accounts','useTreasuryAccounts'),('adjustments','useTreasuryAdjustments'),('entitlements','useSharedProviderEntitlements'),('credentials','usePlatformCredentials'),('liveTests','useProviderLiveTests')]:
+              s = replace(s, f'const {variable} = {hook}();', f'const {variable}Query = {hook}();')
+          marker = "  const [notice, setNotice] = useState('');"
+          scope = """  const accounts = { ...accountsQuery, data: filterProviderRows(accountsQuery.data, channelScope) };
+            const credentials = { ...credentialsQuery, data: filterProviderRows(credentialsQuery.data, channelScope) };
+            const entitlements = { ...entitlementsQuery, data: filterProviderRows(entitlementsQuery.data, channelScope) };
+            const liveTests = { ...liveTestsQuery, data: filterProviderRows(liveTestsQuery.data, channelScope) };
+            const adjustments = { ...adjustmentsQuery, data: filterProviderAdjustments(adjustmentsQuery.data, accounts.data, channelScope) };
+          """
+          s = replace(s, marker, scope + marker)
+          s = replace(s, "channelCode: 'airtel_money', environment: 'PRODUCTION'", "channelCode: channelScope || 'airtel_money', environment: 'PRODUCTION'", 2)
+          s = replace(s, "channelCode: 'mtn_momo', environment: 'SANDBOX'", "channelCode: channelScope || 'mtn_momo', environment: 'SANDBOX'")
+          s = replace(s, "useState({ environment: '', channel: '', currency: '', role: '', state: '' })", "useState({ environment: '', channel: channelScope || '', currency: '', role: '', state: '' })")
+          for state in ['filters.channel', 'liveTest.channelCode', 'entitlement.channelCode', 'credential.channelCode']:
+              s = replace(s, f'<select style={{fieldStyle}} value={{{state}}}', f'<select disabled={{Boolean(channelScope)}} style={{fieldStyle}} value={{{state}}}')
+          # Scope remains fixed at submission, not merely a presentation filter.
+          s = replace(s, 'channelCode: credential.channelCode,', 'channelCode: channelScope || credential.channelCode,')
+          s = replace(s, '...entitlement,\n', '...entitlement,\n      channelCode: channelScope || entitlement.channelCode,\n')
+          s = replace(s, '...liveTest,\n', '...liveTest,\n      channelCode: channelScope || liveTest.channelCode,\n')
+          p.write_text(s)
+          (root/'clientside/src/features/providerScope.ts').write_text('''export function filterProviderRows<T extends { channelCode: string }>(rows: readonly T[] | undefined, scope?: string): T[] {
+            return (rows ?? []).filter((row) => !scope || row.channelCode === scope);
+          }
+          export function filterProviderAdjustments<T extends { sourceAccountId?: number | null; destinationAccountId?: number | null }>(rows: readonly T[] | undefined, accounts: readonly { id: number }[], scope?: string): T[] {
+            if (!scope) return [...(rows ?? [])];
+            const ids = new Set(accounts.map((account) => account.id));
+            return (rows ?? []).filter((row) => {
+              const participants = [row.sourceAccountId, row.destinationAccountId].filter((id): id is number => id != null);
+              return participants.length > 0 && participants.every((id) => ids.has(id));
+            });
+          }
+          ''')
+          (root/'clientside/src/features/providerScope.test.ts').write_text('''import { describe, expect, it } from 'vitest';
+          import { filterProviderRows, filterProviderAdjustments } from './providerScope';
+          describe('Airtel operation scope', () => {
+            it('excludes MTN and legacy Airtel from every provider list', () => {
+              const rows = [{channelCode:'mtn_momo'}, {channelCode:'airtel_money'}, {channelCode:'airtel_open_api'}];
+              expect(filterProviderRows(rows, 'airtel_open_api')).toEqual([{channelCode:'airtel_open_api'}]);
+              expect(filterProviderRows(rows)).toHaveLength(3);
+            });
+            it('excludes adjustments involving another provider or no known account', () => {
+              const rows = [{sourceAccountId:1}, {destinationAccountId:2}, {sourceAccountId:1,destinationAccountId:3}, {}];
+              expect(filterProviderAdjustments(rows,[{id:1},{id:2}],'airtel_open_api')).toEqual([{sourceAccountId:1},{destinationAccountId:2}]);
+            });
+            it('handles unloaded data without exposing unscoped records', () => {
+              expect(filterProviderRows(undefined,'airtel_open_api')).toEqual([]);
+              expect(filterProviderAdjustments([{sourceAccountId:1}],[],'airtel_open_api')).toEqual([]);
+            });
+          });
+          ''')
+          p = root/'clientside/src/components/MainMenu.jsx'
+          s = p.read_text()
+          s = replace(s, "{ title: 'Operations', items: [", "{ title: 'Operations', items: [\n    { value: 'airtel-money', text: 'Airtel Money', Icon: Icons.PaymentsIcon },")
+          p.write_text(s)
+          p = root/'InitializrSpringbootProjectFresh/src/main/java/net/citotech/cito/scheduler/AirtelOpenApiStatusPollScheduler.java'
+          s = p.read_text()
+          marker = '        String segment = Transaction.TX_TYPE_PAYOUT.equalsIgnoreCase(observed.getTx_type())'
+          guard = '''        var state = Common.getSettings("application_settings_state", jdbcTemplate);
+                  var simulation = Common.getSettings("simulate_transactions", jdbcTemplate);
+                  if (state != null && "sandbox".equalsIgnoreCase(text(state.getSetting_value()))
+                          && (simulation == null || "yes".equalsIgnoreCase(text(simulation.getSetting_value())))) return;
+          '''
+          s = replace(s, marker, guard + marker)
+          p.write_text(s)
+          # Correct the stale fixed migration expectation before exercising a clean schema.
+          p = root/'InitializrSpringbootProjectFresh/src/test/java/net/citotech/cito/FlywayMigrationSmokeTest.java'
+          s = p.read_text()
+          if 'assertEquals("113", latestSuccessfulVersion(connection));' in s:
+              s = s.replace('assertEquals("113", latestSuccessfulVersion(connection));', 'assertEquals("123", latestSuccessfulVersion(connection));')
+          p.write_text(s)
+          # Legacy global credentials may be saved but not selected. Report presence only in that case.
+          p = root/'ops/readiness/provider_legacy_no_money.py'
+          s = p.read_text()
+          marker = '            if merchant_mode:\n'
+          report = '''            if merchant_mode:
+                          names = ["gw_mtn_api_collections_user_id", "gw_mtn_api_collections_user_key", "gw_mtn_api_collections_subscription_key", "gw_mtn_api_disbursements_user_id", "gw_mtn_api_disbursements_user_key", "gw_mtn_api_disbursements_subscription_key", "gw_airtelmoney_api_username", "gw_airtelmoney_api_password"]
+                          emit({"source": "LEGACY_GLOBAL_NOT_SELECTED", "configuredFieldNames": [name for name in names if str(values.get(name) or "").strip()], "missingFieldNames": [name for name in names if not str(values.get(name) or "").strip()], "tokenObtained": False})
+          '''
+          s = replace(s, marker, report + marker)
+          p.write_text(s)
+      - name: Format and record candidate on feature branch only
+        run: |
+          set -euo pipefail
+          mvn -B -ntp -f InitializrSpringbootProjectFresh/pom.xml spotless:apply
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm -f --ignore-unmatch .tmp-airtel-format-trigger .github/workflows/airtel-recovery-final-validation.yml
+          git add clientside InitializrSpringbootProjectFresh ops/readiness
+          git diff --cached --check
+          git commit -m 'Complete scoped Airtel recovery safety and regression coverage'
+          git push origin HEAD:refs/heads/feature/airtel-money-openapi-hardening-v3
+          mkdir -p /tmp/airtel-final-evidence
+          git rev-parse HEAD | tee /tmp/airtel-final-evidence/source-sha.txt
+          git archive --format=tar.gz -o /tmp/airtel-final-evidence/source.tar.gz HEAD
+      - name: Verify backend including Docker-tagged tests
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B -ntp -Ddocker.tests.excludedGroups= verify
+      - name: Verify frontend
+        working-directory: clientside
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Save actual source and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: airtel-final-recovery-evidence
+          path: |
+            /tmp/airtel-final-evidence
+            InitializrSpringbootProjectFresh/target/surefire-reports
+            InitializrSpringbootProjectFresh/target/failsafe-reports
+          retention-days: 7
