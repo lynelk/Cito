@@ -128,6 +128,8 @@ The control plane supports:
 - Founding 20 enrolment, status and cohort listing;
 - Embedded Partner Programme enrolment, status and programme listing.
 
+All operations in the authoritative admin OpenAPI contract must retain stable, unique `operationId` values so generated clients and API-governance checks remain deterministic across releases.
+
 ## 7. Relationship to P1 and P2
 
 P1 supplies authoritative activation, usage, retention, service-attachment and economics reporting. P2 supplies the coherent merchant onboarding/readiness projection. P4 consumes those capabilities conceptually and through their existing data owners; it must not reimplement either system.
