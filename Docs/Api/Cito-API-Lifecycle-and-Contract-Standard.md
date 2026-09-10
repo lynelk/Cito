@@ -5,9 +5,17 @@
 
 ## 1. API ownership
 
-Every API route MUST have one owning domain and one documented source contract. Controllers should remain thin. Validation, tenant scope and business rules belong in services or dedicated boundary components rather than being duplicated across controllers.
+Every API route MUST have one owning domain and one authoritative source contract. Controllers should remain thin. Validation, tenant scope and business rules belong in services or dedicated boundary components rather than being duplicated across controllers.
 
-New routes MUST be documented in OpenAPI in the same pull request. The repository's API documentation gate is intentionally blocking.
+Contract ownership follows `Docs/Api/README.md`. At present:
+
+- `Docs/Api/cpay-v2-openapi.yaml` owns server-to-server CPay payment integrations and payment-adjacent compatibility/admin surfaces explicitly assigned there;
+- `Docs/Api/cito-platform-v2-openapi.yaml` owns signed-in merchant workspace, platform-service, developer-control-plane and merchant-capability routes;
+- administrator-only contracts MAY exist for admin-specific surfaces, but any route duplicated in another specification MUST identify one owner and treat the duplicate as compatibility/reference only.
+
+When a route appears in more than one specification, the contract designated by `Docs/Api/README.md` or the route's explicit ownership note is authoritative. The other occurrence MUST NOT diverge in method, security, status semantics or schemas, and SHOULD reference or mechanically mirror the owner contract. New overlapping authoritative definitions are prohibited.
+
+New routes MUST be documented in the owning OpenAPI contract in the same pull request. The repository's API documentation gate is intentionally blocking.
 
 ## 2. Versioning
 
@@ -85,7 +93,9 @@ Error responses MUST NOT include stack traces, secrets, raw provider credentials
 
 ## 9. Money and currency
 
-Amounts MUST use decimal semantics and a declared currency. A response containing monetary aggregates MUST either:
+Amounts MUST use the canonical decimal money policy and a declared currency. Legacy compatibility signatures MAY retain historical numeric types only at the boundary; authoritative arithmetic MUST convert to the canonical decimal representation before aggregation or posting.
+
+A response containing monetary aggregates MUST either:
 
 1. group totals by currency; or
 2. identify the approved FX rate/source/effective time used for conversion.
@@ -135,12 +145,13 @@ Every production route MUST document:
 - asynchronous behavior where relevant;
 - idempotency/correlation expectations where relevant.
 
-Controller changes that affect the contract MUST update OpenAPI in the same PR.
+Controller changes that affect the contract MUST update the owning OpenAPI contract in the same PR. Compatibility copies MUST be kept synchronized or removed.
 
 ## 15. API review checklist
 
 Before merge, reviewers MUST confirm:
 
+- the route's owning domain and authoritative OpenAPI contract are identifiable;
 - tenant scope is explicit;
 - authorization matches the route purpose;
 - invalid/empty states are deterministic;
@@ -149,4 +160,5 @@ Before merge, reviewers MUST confirm:
 - secrets/PII are excluded;
 - range limits are bounded;
 - OpenAPI and tests reflect the implementation;
+- any compatibility duplicate matches the owner contract;
 - provider/ledger/billing ownership is not bypassed.
