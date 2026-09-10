@@ -1,4 +1,6 @@
 Railway backend release trigger
-Verified hotfix production merge: 05b33d9d129c3e173c784d83769498e69b214193
-Purpose: force cito-backend to build the latest production tree containing the live compliance cases schema-compatibility fix.
+Verified production head: 66af8e612cfe204c431223a0f3499176ad9276cf
+Purpose: force cito-backend to build the current synchronized production tree after branch reconciliation and final CI acceptance.
+Active Railway project: 8d361df2-d17e-4d15-984e-435735f22f6c
+Production environment: bec50941-04c7-426d-8bc3-883cbdece892
 Date: 2026-09-10
