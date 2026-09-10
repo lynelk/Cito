@@ -1,0 +1,68 @@
+name: Mobile money final-mile validation
+on:
+  push:
+    branches: [feature/mobile-money-final-mile-20260910]
+    paths:
+      - '.github/workflows/mobile-money-final-mile-validation.yml'
+      - '.ci/mobile-money-repair/**'
+permissions:
+  contents: write
+concurrency:
+  group: mobile-money-final-mile-20260910
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.repository == 'lynelk/Cito' && github.ref == 'refs/heads/feature/mobile-money-final-mile-20260910'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - name: Verify and apply the reviewed local repair
+        run: |
+          set -euo pipefail
+          cat .ci/mobile-money-repair/0{0,1,2,3} | gzip -dc > /tmp/mobile-money-repair.patch
+          echo '9441486a3595edce262b1e3c4423d29363b86d440fc762e6ce92408618e27c15  /tmp/mobile-money-repair.patch' | sha256sum -c -
+          git apply --check /tmp/mobile-money-repair.patch
+          git apply /tmp/mobile-money-repair.patch
+          git diff --check
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Format the changed Java sources
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B -ntp spotless:apply
+      - name: Commit candidate source to the feature branch only
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm -r .ci/mobile-money-repair .github/workflows/mobile-money-final-mile-validation.yml
+          git add InitializrSpringbootProjectFresh Docs/Operations/mobile-money-final-mile-20260910.md
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'Fix Airtel uncertain outcomes and PEM encryption; isolate Airtel and MTN tokens'
+          git push origin HEAD:refs/heads/feature/mobile-money-final-mile-20260910
+          git rev-parse HEAD | tee /tmp/mobile-money-source-sha.txt
+          echo "Candidate source SHA: $(git rev-parse HEAD). Tests execute in the next steps; this commit is not test approval or production deployment." >> "$GITHUB_STEP_SUMMARY"
+      - name: Targeted Airtel and MTN regression tests
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B -ntp -Dtest=AirtelMoneyOpenApiPaymentGatewayWireMockTest,AirtelMoneyOpenApiPaymentGateway401RefreshTest,MobileMoneyTokenIsolationTest,ProviderTokenScopeTest,AirtelOpenApiCredentialSchemaTest,MtnMomoCredentialSchemaTest,MtnMomoStatusClientTest,MtnMomoExecutionTest,MTNMoMoPaymentGateway401RefreshTest,TransactionTimeoutSchedulerTest test
+      - name: Full backend verification
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B -ntp verify
+      - name: Export actual verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-money-final-mile-verification
+          path: |
+            /tmp/mobile-money-source-sha.txt
+            InitializrSpringbootProjectFresh/target/surefire-reports
+            InitializrSpringbootProjectFresh/target/failsafe-reports
+          if-no-files-found: warn
+          retention-days: 7
