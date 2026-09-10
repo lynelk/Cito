@@ -7,9 +7,12 @@ This folder is the detailed documentation set for **Cito**. The product/reposito
 | Document | Purpose |
 |---|---|
 | `../Readme.md` | Product overview, current architecture and production posture |
+| `Engineering-Standards-Index.md` | Normative platform engineering, API, SLO, incident and service-maturity standards |
 | `Financial-correctness-and-data-integrity.md` | Normative money, ledger, tax, FX, reconciliation and settlement invariants |
 | `Architecture/Overview.md` | System/package architecture and main flows |
-| `Api/cpay-v2-openapi.yaml` | Machine-readable v2 API contract |
+| `Api/cpay-v2-openapi.yaml` | Machine-readable v2 payments/compatibility API contract |
+| `Api/cito-platform-v2-openapi.yaml` | Machine-readable Cito platform/merchant API contract |
+| `Api/README.md` | API contract ownership and documentation boundaries |
 | `Api-v2-signing.md` | Signed-request contract |
 | `Api-v2-examples.md` | v2 integration examples |
 | `sandbox-guide.md` | Sandbox/environment behavior |
@@ -19,6 +22,7 @@ This folder is the detailed documentation set for **Cito**. The product/reposito
 
 | Area | Main documents |
 |---|---|
+| Engineering governance | `Engineering-Standards-Index.md`, `Architecture/Cito-Platform-Engineering-Standard.md`, `Api/Cito-API-Lifecycle-and-Contract-Standard.md`, `Operations/Cito-SLO-Incident-and-Service-Maturity-Standard.md` |
 | Money and ledger | `Financial-correctness-and-data-integrity.md`, `Money-ledger-and-orchestration-roadmap.md`, `Adr/0004-billing-ledger-integration.md` |
 | Billing/BaaS | `Financial-correctness-and-data-integrity.md`, ADRs `0003`–`0005`, billing implementation/specification documents in this repository |
 | Reconciliation and settlement | `Financial-correctness-and-data-integrity.md`, `Process-flow-controls.md`, `Runbooks/Reconciliation-finance-daily-close.md` |
