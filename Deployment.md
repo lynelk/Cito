@@ -118,10 +118,10 @@ CPAY_SECURITY_NONCE_STORE=jdbc
 
 Keep the historical `CPAY_*` names where they are part of the deployed compatibility contract. A future rename requires an explicit dual-read migration period.
 
-Production API documentation/Swagger should remain disabled unless there is an approved operational reason to expose it:
+The admin API workbench requires runtime OpenAPI generation. Its routes require an administrator portal session; public Swagger UI remains disabled:
 
 ```text
-SPRINGDOC_API_DOCS_ENABLED=false
+SPRINGDOC_API_DOCS_ENABLED=true
 SPRINGDOC_SWAGGER_UI_ENABLED=false
 ```
 
