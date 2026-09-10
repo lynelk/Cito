@@ -1,0 +1,42 @@
+name: P0 Backend Diagnostics
+
+on:
+  push:
+    branches:
+      - fix/admin-api-500s-159
+
+permissions:
+  contents: read
+
+jobs:
+  backend-diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Capture Maven package and verify diagnostics
+        shell: bash
+        run: |
+          set +e
+          cd InitializrSpringbootProjectFresh
+          mvn -DskipTests clean package > ../p0-maven-package.log 2>&1
+          PACKAGE_EXIT=$?
+          mvn verify > ../p0-maven-verify.log 2>&1
+          VERIFY_EXIT=$?
+          printf 'package_exit=%s\nverify_exit=%s\n' "$PACKAGE_EXIT" "$VERIFY_EXIT" > ../p0-maven-exit-codes.txt
+          exit 0
+      - name: Upload diagnostics
+        uses: actions/upload-artifact@v7
+        with:
+          name: p0-backend-diagnostics-${{ github.sha }}
+          path: |
+            p0-maven-package.log
+            p0-maven-verify.log
+            p0-maven-exit-codes.txt
+          retention-days: 1
