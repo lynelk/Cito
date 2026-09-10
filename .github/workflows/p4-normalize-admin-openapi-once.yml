@@ -1,0 +1,59 @@
+name: P4 Normalize Admin OpenAPI One Shot
+
+on:
+  push:
+    branches:
+      - feature/commercial-founding20-embedded-p4-v2
+    paths:
+      - .github/workflows/p4-normalize-admin-openapi-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/commercial-founding20-embedded-p4-v2
+          fetch-depth: 0
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Add stable operation identifiers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('Docs/Api/cito-admin-v2-openapi.yaml')
+          text = path.read_text()
+          replacements = {
+            "    get:\n      tags: [Admin Compliance]\n      summary: Get compliance summary": "    get:\n      tags: [Admin Compliance]\n      operationId: getComplianceSummary\n      summary: Get compliance summary",
+            "    get:\n      tags: [Admin Compliance]\n      summary: Get compliance report": "    get:\n      tags: [Admin Compliance]\n      operationId: getComplianceReport\n      summary: Get compliance report",
+            "    post:\n      tags: [Admin Compliance]\n      summary: Mark a compliance event reviewed": "    post:\n      tags: [Admin Compliance]\n      operationId: reviewComplianceEvent\n      summary: Mark a compliance event reviewed",
+            "    get:\n      tags: [Admin Compliance]\n      summary: List compliance profiles": "    get:\n      tags: [Admin Compliance]\n      operationId: listComplianceProfiles\n      summary: List compliance profiles",
+            "    post:\n      tags: [Admin Compliance]\n      summary: Create or update a compliance profile": "    post:\n      tags: [Admin Compliance]\n      operationId: upsertComplianceProfile\n      summary: Create or update a compliance profile",
+            "    get:\n      tags: [Admin Communication Routing]\n      summary: List communication providers": "    get:\n      tags: [Admin Communication Routing]\n      operationId: listCommunicationProviders\n      summary: List communication providers",
+            "    get:\n      tags: [Admin Communication Routing]\n      summary: List communication routing rules": "    get:\n      tags: [Admin Communication Routing]\n      operationId: listCommunicationRoutingRules\n      summary: List communication routing rules",
+            "    post:\n      tags: [Admin Communication Routing]\n      summary: Create or update a routing rule": "    post:\n      tags: [Admin Communication Routing]\n      operationId: upsertCommunicationRoutingRule\n      summary: Create or update a routing rule",
+            "    delete:\n      tags: [Admin Communication Routing]\n      summary: Delete a communication routing rule": "    delete:\n      tags: [Admin Communication Routing]\n      operationId: deleteCommunicationRoutingRule\n      summary: Delete a communication routing rule",
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'expected fragment not found: {old!r}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+      - name: Apply repository Java formatting
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B spotless:apply --no-transfer-progress
+      - name: Commit normalized contract and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/p4-normalize-admin-openapi-once.yml
+          git add Docs/Api/cito-admin-v2-openapi.yaml InitializrSpringbootProjectFresh
+          git commit -m "fix(p4): normalize admin API contract and formatting"
+          git push origin HEAD:feature/commercial-founding20-embedded-p4-v2
