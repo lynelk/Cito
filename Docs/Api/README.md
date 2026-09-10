@@ -1,13 +1,16 @@
 # Cito API Documentation
 
-Cito is the platform. CPay is the payments capability within Cito. The API documentation is therefore split by security and product boundary rather than pretending every endpoint belongs to one giant payments contract.
+Cito is the platform. CPay is the payments capability within Cito. API documentation is split by security and product boundary rather than pretending every endpoint belongs to one giant payments contract.
 
 ## Authoritative contracts
 
-| Contract | File | Audience | Primary authentication |
-| --- | --- | --- | --- |
-| CPay Payments API | `Docs/Api/cpay-v2-openapi.yaml` | Server-to-server payment integrations, operations and payment-adjacent admin surfaces | CPay v2 request signature or explicitly documented admin/public auth |
-| Cito Platform API | `Docs/Api/cito-platform-v2-openapi.yaml` | Signed-in merchant workspace, platform services, developer control plane and merchant capability APIs | Cito merchant session plus service/environment entitlements |
+| Contract | File | Audience | Primary authentication | Ownership |
+| --- | --- | --- | --- | --- |
+| CPay Payments API | `Docs/Api/cpay-v2-openapi.yaml` | Server-to-server payment integrations, operations and payment-adjacent compatibility/admin surfaces | CPay v2 request signature or explicitly documented admin/public auth | Payment execution and compatibility routes |
+| Cito Platform API | `Docs/Api/cito-platform-v2-openapi.yaml` | Signed-in merchant workspace, platform services, developer control plane and merchant capability APIs | Cito merchant session plus service/environment entitlements | General merchant/platform capability routes |
+| Cito Merchant Onboarding API | `Docs/Api/cito-onboarding-v2-openapi.yaml` | Merchant and administrator onboarding/readiness clients | Cito merchant/admin session with tenant-scope enforcement | `/api/v2/merchants/{merchantId}/onboarding` and its readiness schema |
+
+The dedicated onboarding contract is a specialized Cito Platform sub-contract. For its onboarding path and schemas it is authoritative, not a duplicate compatibility copy. It is validated, linted and published by the API documentation workflow alongside the broader platform contract.
 
 Supporting documentation remains authoritative for behavior that does not belong cleanly inside OpenAPI schemas:
 
@@ -21,9 +24,10 @@ Supporting documentation remains authoritative for behavior that does not belong
 
 ## Platform API groups
 
-The Cito Platform contract currently includes merchant self-service APIs for:
+The Cito Platform contract set currently includes merchant self-service APIs for:
 
 - service catalog and merchant entitlements;
+- coherent merchant onboarding and production readiness;
 - developer projects, service accounts, credentials, test events, request logs and readiness;
 - intelligent payment routing simulation, policies, rules and decisions;
 - marketplace subaccounts, split rules, executions, refund allocations and recovery events;
@@ -41,10 +45,10 @@ Every pull request that changes API-facing Java code is checked in two ways:
 1. it must include an API documentation change; and
 2. every path declared by a changed Spring controller must exist in at least one authoritative OpenAPI contract.
 
-Both OpenAPI contracts are parsed, structurally validated and linted. CI then generates separate browsable references for CPay Payments and the wider Cito Platform and stores them as source-commit-specific build artifacts.
+The authoritative OpenAPI contracts are parsed, structurally validated and linted. CI generates browsable references and stores them as source-commit-specific build artifacts.
 
 This is intentionally stricter than the earlier advisory-only drift scan. A new controller can no longer be merged merely because somebody edited an unrelated documentation file, which was an impressively human loophole while it lasted.
 
 ## Change rule
 
-If an implementation changes a public request, response, path, authentication requirement, entitlement requirement, asynchronous state, webhook, error condition or security-sensitive behavior, update the appropriate OpenAPI contract in the same pull request. Generated HTML is output, never the source of truth.
+If an implementation changes a public request, response, path, authentication requirement, entitlement requirement, asynchronous state, webhook, error condition or security-sensitive behavior, update the owning OpenAPI contract in the same pull request. Generated HTML is output, never the source of truth.
