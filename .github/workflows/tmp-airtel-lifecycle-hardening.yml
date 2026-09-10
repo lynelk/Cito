@@ -17,28 +17,28 @@ jobs:
         with:
           ref: fix/airtel-mtn-lifecycle-hardening-20260910
           fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
       - name: Apply lifecycle corrections
         shell: python
         run: |
           from pathlib import Path
-          import re
 
           root = Path('.')
           gateway = root / 'InitializrSpringbootProjectFresh/src/main/java/net/citotech/cito/Model/AirtelMoneyOpenApiPaymentGateway.java'
           text = gateway.read_text()
           original = text
 
-          # Airtel must not carry MTN-specific environment configuration.
           text = text.replace('    String env = "mtnuganda";\n', '')
 
-          # Any successful HTTP transport response, including 201/202 Accepted, is parsed as
-          # provider state. Accepted is not settlement and defaults to PENDING below.
           text = text.replace(
               '            if (response.getStatusCode() == 200) {\n                applySuccessResponse(gatewayResponse, response);\n            } else {\n                gatewayResponse.setStatus("ERROR");\n                gatewayResponse.setTransactionStatus("FAILED");',
               '            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {\n                applySuccessResponse(gatewayResponse, response);\n            } else {\n                gatewayResponse.setStatus("ERROR");\n                gatewayResponse.setTransactionStatus(\n                        "GET".equalsIgnoreCase(method) || isRetryableTransportStatus(response.getStatusCode())\n                                ? "UNDETERMINED"\n                                : "FAILED");'
           )
 
-          # TA/ambiguous Airtel state is non-terminal and owned by reconciliation.
           text = text.replace(
               '            } else if ("TA".equalsIgnoreCase(status)) {\n                gatewayResponse.setTransactionStatus("UNDETERMINED");\n            }',
               '            } else if ("TA".equalsIgnoreCase(status)) {\n                gatewayResponse.setTransactionStatus("PENDING");\n            }'
@@ -55,8 +55,6 @@ jobs:
               raise SystemExit('Airtel gateway patch made no changes')
           gateway.write_text(text)
 
-          # The generic elapsed-time scheduler must not manufacture terminal state for async
-          # Airtel Open API transactions once provider reconciliation owns their lifecycle.
           candidates = []
           for p in (root / 'InitializrSpringbootProjectFresh/src/main/java').rglob('*.java'):
               s = p.read_text(errors='ignore')
@@ -65,36 +63,17 @@ jobs:
           if len(candidates) != 1:
               raise SystemExit(f'Expected one TransactionTimeoutScheduler, found {len(candidates)}')
           timeout_path, timeout = candidates[0]
-          before = timeout
-
-          # Extend any existing MTN exclusion predicate/guard with Airtel identifiers. Handle the
-          # common literal forms used in this codebase and fail closed if no verifiable edit occurs.
-          replacements = [
-              ('MtnMomoPaymentGateway', 'MtnMomoPaymentGateway'),
-              ('MtnMomo', 'MtnMomo'),
-              ('mtn_momo', 'mtn_momo'),
-          ]
-          # Prefer adding a helper-backed guard just inside the per-transaction loop when possible.
-          loop = re.search(r'(for\s*\([^\n]+\btransaction\b[^\n]*\)\s*\{)', timeout)
-          if loop and 'isProviderReconciledAsyncTransaction(transaction)' not in timeout:
-              insert = loop.group(1) + '''\n            if (isProviderReconciledAsyncTransaction(transaction)) {\n                continue;\n            }'''
-              timeout = timeout[:loop.start()] + insert + timeout[loop.end():]
-              class_end = timeout.rfind('}')
-              helper2 = '''\n    private boolean isProviderReconciledAsyncTransaction(Object transaction) {\n        String value = String.valueOf(transaction).toLowerCase(java.util.Locale.ROOT);\n        return value.contains("mtn")\n                || value.contains("airtel")\n                || value.contains("airtelmoneyopenapi")\n                || value.contains("airtel_open_api");\n    }\n'''
-              timeout = timeout[:class_end] + helper2 + timeout[class_end:]
-
-          # If loop shape differs, do not guess financial-state code. Existing MTN exclusion may
-          # already cover provider-owned timeout handling and CI/tests below will expose it.
-          if timeout != before:
+          old_guard = '''            if (LegacyGatewayIds.MTN_MOMO.equals(gatewayId)) {\n                continue;\n            }'''
+          new_guard = '''            if (LegacyGatewayIds.MTN_MOMO.equals(gatewayId)\n                    || LegacyGatewayIds.AIRTEL_OPEN_API.equals(gatewayId)) {\n                continue;\n            }'''
+          if new_guard not in timeout:
+              if old_guard not in timeout:
+                  raise SystemExit('Could not locate MTN timeout exclusion guard')
+              timeout = timeout.replace(old_guard, new_guard)
               timeout_path.write_text(timeout)
-          else:
-              print('NOTE: timeout scheduler structure was not auto-edited; inspecting existing provider exclusion in CI output')
-              print(timeout[:5000])
 
-          # Record a controlled implementation note for reviewers and release evidence.
           note = root / 'Docs/Payments/AIRTEL_MTN_LIFECYCLE_HARDENING_20260910.md'
           note.parent.mkdir(parents=True, exist_ok=True)
-          note.write_text('''# Airtel Money Open API and MTN MoMo lifecycle hardening\n\n## Airtel\n- HTTP 2xx, including 202 Accepted, is transport success and enters provider-state parsing.\n- Accepted/ambiguous responses are non-terminal and must not settle funds.\n- Status lookup network failures, 408, 409, 425, 429 and 5xx are unresolved/retryable, not provider-declared failures.\n- Explicit Airtel terminal transaction status remains the only provider evidence used for success/failure.\n- MTN-specific environment residue was removed from the Airtel gateway.\n- Existing trusted configured Airtel endpoint templates remain unchanged until an authoritative provider contract proves a different version.\n\n## MTN\n- Preserve PR #161 and #162 lifecycle controls: 202 remains pending, authenticated provider status is authoritative, callbacks are signals, and missed callbacks are recovered by polling.\n\n## Frontend parity\nCito's existing provider operations console already exposes Airtel and MTN balances, collection/payout tests, and transaction status. Internal reconciliation remains automatic; user-visible terminal state must come from the canonical transaction lifecycle rather than transport acceptance.\n\n## Certification boundary\nCode, CI and deployment verification do not constitute live Airtel/MTN production certification. Real provider credentials and explicit live-transaction authorization are required for that evidence.\n''')
+          note.write_text('''# Airtel Money Open API and MTN MoMo lifecycle hardening\n\n## Airtel\n- HTTP 2xx, including 202 Accepted, is transport success and enters provider-state parsing.\n- Accepted/ambiguous responses are non-terminal and must not settle funds.\n- Status lookup network failures, 408, 409, 425, 429 and 5xx are unresolved/retryable, not provider-declared failures.\n- Explicit Airtel terminal transaction status remains the only provider evidence used for success/failure.\n- Airtel Open API is excluded from the generic elapsed-time failure scheduler so provider reconciliation owns terminal state.\n- MTN-specific environment residue was removed from the Airtel gateway.\n- Existing configured Airtel endpoint templates remain unchanged until authoritative provider evidence proves a different version.\n\n## MTN\n- Preserve PR #161 and #162 lifecycle controls: 202 remains pending, authenticated provider status is authoritative, callbacks are signals, and missed callbacks are recovered by polling.\n\n## Frontend parity\nCito's provider operations console already exposes Airtel and MTN balances, collection/payout tests, and transaction status. Internal reconciliation is automatic; user-visible terminal state must come from the canonical transaction lifecycle rather than transport acceptance.\n\n## Certification boundary\nCode, CI and deployment verification do not constitute live Airtel/MTN production certification. Real provider credentials and explicit live-transaction authorization are required for that evidence.\n''')
       - name: Backend verification
         working-directory: InitializrSpringbootProjectFresh
         run: mvn -B -DskipTests=false verify
@@ -103,7 +82,7 @@ jobs:
         run: |
           npm ci
           npm run typecheck --if-present
-          npm test -- --runInBand
+          npm test -- --run
           npm run build
       - name: Commit hardened implementation
         run: |
