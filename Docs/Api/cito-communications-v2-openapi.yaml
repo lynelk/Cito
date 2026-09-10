@@ -331,7 +331,6 @@ paths:
       tags:
       - SMS Audience
       operationId: listMerchantSmsContacts
-      summary: List Merchant Sms Contacts
       security: [{ merchantSession: [] }]
       responses:
         '200':
@@ -343,7 +342,6 @@ paths:
       tags:
       - SMS Audience
       operationId: saveMerchantSmsContact
-      summary: Save Merchant Sms Contact
       security: [{ merchantSession: [] }]
       requestBody:
         required: true
@@ -364,7 +362,6 @@ paths:
       tags:
       - SMS Audience
       operationId: deleteMerchantSmsContact
-      summary: Delete Merchant Sms Contact
       security: [{ merchantSession: [] }]
       parameters:
       - $ref: '#/components/parameters/PositiveId'
@@ -379,7 +376,6 @@ paths:
       tags:
       - SMS Audience
       operationId: listMerchantSmsGroups
-      summary: List Merchant Sms Groups
       security: [{ merchantSession: [] }]
       responses:
         '200':
@@ -391,7 +387,6 @@ paths:
       tags:
       - SMS Audience
       operationId: saveMerchantSmsGroup
-      summary: Save Merchant Sms Group
       security: [{ merchantSession: [] }]
       requestBody:
         required: true
@@ -412,7 +407,6 @@ paths:
       tags:
       - SMS Audience
       operationId: addMerchantSmsGroupMembers
-      summary: Add Merchant Sms Group Members
       security: [{ merchantSession: [] }]
       parameters:
       - name: groupId
@@ -448,7 +442,6 @@ paths:
       tags:
       - SMS Sender Identities
       operationId: listMerchantSmsSenderIdentities
-      summary: List Merchant Sms Sender Identities
       security: [{ merchantSession: [] }]
       responses:
         '200':
@@ -460,7 +453,6 @@ paths:
       tags:
       - SMS Sender Identities
       operationId: requestMerchantSmsSenderIdentity
-      summary: Request Merchant Sms Sender Identity
       security: [{ merchantSession: [] }]
       requestBody:
         required: true
@@ -502,7 +494,6 @@ paths:
       tags:
       - Merchant SMS Workspace
       operationId: listMerchantSmsTemplates
-      summary: List Merchant Sms Templates
       security: [{ merchantSession: [] }]
       responses:
         '200':
@@ -515,7 +506,6 @@ paths:
       tags:
       - Merchant SMS Workspace
       operationId: listMerchantSmsDrafts
-      summary: List Merchant Sms Drafts
       security: [{ merchantSession: [] }]
       responses:
         '200':
@@ -527,7 +517,6 @@ paths:
       tags:
       - Merchant SMS Workspace
       operationId: saveMerchantSmsDraft
-      summary: Save Merchant Sms Draft
       security: [{ merchantSession: [] }]
       requestBody:
         required: true
@@ -548,7 +537,6 @@ paths:
       tags:
       - Merchant SMS Workspace
       operationId: deleteMerchantSmsDraft
-      summary: Delete Merchant Sms Draft
       security: [{ merchantSession: [] }]
       parameters:
       - name: draftId
@@ -568,7 +556,6 @@ paths:
       tags:
       - SMS Campaigns
       operationId: listMerchantSmsCampaigns
-      summary: List Merchant Sms Campaigns
       security: [{ merchantSession: [] }]
       parameters:
       - name: limit
@@ -609,7 +596,6 @@ paths:
       tags:
       - SMS Campaigns
       operationId: listMerchantSmsDeliveryReports
-      summary: List Merchant Sms Delivery Reports
       security: [{ merchantSession: [] }]
       parameters:
       - name: from
@@ -650,7 +636,6 @@ paths:
       tags:
       - SMS Campaigns
       operationId: getMerchantSmsBillingSummary
-      summary: Get Merchant Sms Billing Summary
       security: [{ merchantSession: [] }]
       responses:
         '200':
@@ -663,7 +648,6 @@ paths:
       tags:
       - SMS Conversations
       operationId: listMerchantSmsConversations
-      summary: List Merchant Sms Conversations
       security: [{ merchantSession: [] }]
       parameters:
       - name: limit
@@ -684,7 +668,6 @@ paths:
       tags:
       - SMS Conversations
       operationId: listMerchantSmsConversationMessages
-      summary: List Merchant Sms Conversation Messages
       security: [{ merchantSession: [] }]
       parameters:
       - $ref: '#/components/parameters/ConversationId'
@@ -708,7 +691,6 @@ paths:
       tags:
       - SMS Conversations
       operationId: replyToMerchantSmsConversation
-      summary: Reply To Merchant Sms Conversation
       security: [{ merchantSession: [] }]
       parameters:
       - $ref: '#/components/parameters/ConversationId'

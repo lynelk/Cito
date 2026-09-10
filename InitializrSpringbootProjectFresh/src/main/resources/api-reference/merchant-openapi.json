@@ -5625,7 +5625,6 @@
           "SMS Audience"
         ],
         "operationId": "listMerchantSmsContacts",
-        "summary": "List merchant sms contacts",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5639,6 +5638,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "List merchant sms contacts",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -5653,7 +5653,6 @@
           "SMS Audience"
         ],
         "operationId": "saveMerchantSmsContact",
-        "summary": "Save merchant sms contact",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5680,6 +5679,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "Save merchant sms contact",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -5696,7 +5696,6 @@
           "SMS Audience"
         ],
         "operationId": "deleteMerchantSmsContact",
-        "summary": "Delete merchant sms contact",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5715,6 +5714,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "Delete merchant sms contact",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -5731,7 +5731,6 @@
           "SMS Audience"
         ],
         "operationId": "listMerchantSmsGroups",
-        "summary": "List merchant sms groups",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5745,6 +5744,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "List merchant sms groups",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -5759,7 +5759,6 @@
           "SMS Audience"
         ],
         "operationId": "saveMerchantSmsGroup",
-        "summary": "Save merchant sms group",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5786,6 +5785,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "Save merchant sms group",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -5802,7 +5802,6 @@
           "SMS Audience"
         ],
         "operationId": "addMerchantSmsGroupMembers",
-        "summary": "Add merchant sms group members",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5851,6 +5850,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "Add merchant sms group members",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -5867,7 +5867,6 @@
           "SMS Sender Identities"
         ],
         "operationId": "listMerchantSmsSenderIdentities",
-        "summary": "List merchant sms sender identities",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5881,6 +5880,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "List merchant sms sender identities",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -5895,7 +5895,6 @@
           "SMS Sender Identities"
         ],
         "operationId": "requestMerchantSmsSenderIdentity",
-        "summary": "Request merchant sms sender identity",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5922,6 +5921,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "Request merchant sms sender identity",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -5981,7 +5981,6 @@
           "Merchant SMS Workspace"
         ],
         "operationId": "listMerchantSmsTemplates",
-        "summary": "List merchant sms templates",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -5995,6 +5994,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "List merchant sms templates",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -6011,7 +6011,6 @@
           "Merchant SMS Workspace"
         ],
         "operationId": "listMerchantSmsDrafts",
-        "summary": "List merchant sms drafts",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6025,6 +6024,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "List merchant sms drafts",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -6039,7 +6039,6 @@
           "Merchant SMS Workspace"
         ],
         "operationId": "saveMerchantSmsDraft",
-        "summary": "Save merchant sms draft",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6066,6 +6065,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "Save merchant sms draft",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -6082,7 +6082,6 @@
           "Merchant SMS Workspace"
         ],
         "operationId": "deleteMerchantSmsDraft",
-        "summary": "Delete merchant sms draft",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6107,6 +6106,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "Delete merchant sms draft",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -6123,7 +6123,6 @@
           "SMS Campaigns"
         ],
         "operationId": "listMerchantSmsCampaigns",
-        "summary": "List merchant sms campaigns",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6149,6 +6148,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "List merchant sms campaigns",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -6206,7 +6206,6 @@
           "SMS Campaigns"
         ],
         "operationId": "listMerchantSmsDeliveryReports",
-        "summary": "List merchant sms delivery reports",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6265,6 +6264,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "List merchant sms delivery reports",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -6281,7 +6281,6 @@
           "SMS Campaigns"
         ],
         "operationId": "getMerchantSmsBillingSummary",
-        "summary": "Get merchant sms billing summary",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6295,6 +6294,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "Get merchant sms billing summary",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -6311,7 +6311,6 @@
           "SMS Conversations"
         ],
         "operationId": "listMerchantSmsConversations",
-        "summary": "List merchant sms conversations",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6337,6 +6336,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "List merchant sms conversations",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -6353,7 +6353,6 @@
           "SMS Conversations"
         ],
         "operationId": "listMerchantSmsConversationMessages",
-        "summary": "List merchant sms conversation messages",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6385,6 +6384,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "List merchant sms conversation messages",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -6401,7 +6401,6 @@
           "SMS Conversations"
         ],
         "operationId": "replyToMerchantSmsConversation",
-        "summary": "Reply to merchant sms conversation",
         "security": [
           {
             "cito_a767bf_merchantSession": []
@@ -6442,6 +6441,7 @@
             "$ref": "#/components/responses/cito_a767bf_Unauthorized"
           }
         },
+        "summary": "Reply to merchant sms conversation",
         "x-cito-audience": "MERCHANT_WORKSPACE",
         "x-cito-billing": {
           "unit": "AUTHENTICATED_REQUEST",
@@ -9746,5 +9746,5 @@
       }
     }
   },
-  "x-source-sha256": "376d35ab26df990f0830bf251d0e3091a865524410207d66be2344e0862c87f5"
+  "x-source-sha256": "fd8cff55c9855d97301aebfe5a0c4a896a6d4a8a2c81c05aa4fcd70439c27eda"
 }
