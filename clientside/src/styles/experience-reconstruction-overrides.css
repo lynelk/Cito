@@ -236,3 +236,13 @@
     width: 100%;
   }
 }
+
+/* Provider forms must fit the nested cards even on a 320 px viewport. */
+.cito-provider-console form > label,
+.cito-provider-console form > button {
+  min-width: 0;
+  max-width: 100%;
+}
+.cito-provider-console form > button {
+  white-space: normal;
+}

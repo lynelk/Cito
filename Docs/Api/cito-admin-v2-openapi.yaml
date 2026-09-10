@@ -3,19 +3,200 @@ info:
   title: Cito Admin API
   version: 2.1.0
   description: |
-    Administrative API contract for Cito operational and commercial control-plane workflows.
-    These endpoints are authenticated and restricted to administrator roles.
+    Administrative API contract for Cito operational and commercial control-plane workflows,
+    including authenticated portal reads. Administrator-only operations explicitly require the
+    platform ADMIN role; session and dashboard routes also support scoped merchant sessions.
 servers:
   - url: https://cito.coresynergi.es
     description: Production
 security:
   - merchantSession: []
 tags:
+  - name: Portal Workspace
   - name: Admin Payment Credentials
   - name: Admin Compliance
   - name: Admin Communication Routing
   - name: Admin Commercial Programmes
 paths:
+  /api/v2/portal/session:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalSession
+      summary: Read the current portal session
+      description: Returns authenticated status and the current administrator or merchant identity. Requires
+        an existing portal session; this endpoint does not create a login.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/portal/dashboard/summary:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalDashboardSummary
+      summary: Read the portal dashboard summary
+      description: Returns production financial totals, current environment preference, channel balances
+        and activity. Merchant sessions receive their own financial data and callback count; platform operations
+        alerts are administrator-only.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/portal/merchants:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalMerchants
+      summary: List merchants for portal administration
+      description: Requires platform ADMIN authorization. Returns merchant account summaries.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - count
+                - limit
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  count:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+      - name: limit
+        in: query
+        description: Default 100; values below 1 use the default and values above 500 are capped at 500.
+        schema:
+          type: integer
+          default: 100
+  /api/v2/portal/settings:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalSettings
+      summary: Read portal administration settings
+      description: Requires platform ADMIN authorization. Returns the operational settings list; this route
+        is not available to merchant users.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/portal/transactions:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalTransactions
+      summary: List production transactions for portal administration
+      description: Requires platform ADMIN authorization. Returns canonical production payment rows; sandbox
+        transactions are excluded.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - count
+                - limit
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  count:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+      - name: limit
+        in: query
+        description: Default 100; values below 1 use the default and values above 500 are capped at 500.
+        schema:
+          type: integer
+          default: 100
+  /api/v2/portal/sms:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalSms
+      summary: List SMS batches for portal administration
+      description: Requires platform ADMIN authorization. Returns platform SMS batch summaries.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - count
+                - limit
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  count:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+      - name: limit
+        in: query
+        description: Default 100; values below 1 use the default and values above 500 are capped at 500.
+        schema:
+          type: integer
+          default: 100
   /api/v2/admin/shared-provider/merchant-credentials:
     get:
       tags: [Admin Payment Credentials]
@@ -39,7 +220,7 @@ paths:
       tags: [Admin Payment Credentials]
       operationId: decideMerchantCredentialRevision
       summary: Approve, reject or disable a merchant credential revision
-      description: Requires PROVIDER_CREDENTIAL_APPROVE. ACTIVE requires current provider connectivity evidence and a reviewer different from the requester. Actor identity comes from authentication. Changes are audited.
+      description: Approval and rejection require PROVIDER_CREDENTIAL_APPROVE; disabling requires PROVIDER_CREDENTIAL_MANAGE. ACTIVE requires current provider connectivity evidence and a reviewer different from the requester. Actor identity comes from authentication. Changes are audited.
       parameters:
         - name: id
           in: path

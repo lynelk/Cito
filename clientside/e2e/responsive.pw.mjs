@@ -25,6 +25,9 @@ async function assertNoDocumentOverflow(page) {
         '.ios-card', '.cito-service-hub', '.cito-compliance-panel',
         '.cito-platform', '.cito-platform__hero', '.cito-platform__metrics',
         '.cito-platform__tabs', '.cito-platform__section', '.ios-sidebar',
+        '.cito-provider-console', '.cito-provider-console form',
+        '.cito-provider-console label', '.cito-provider-console input',
+        '.cito-provider-console select', '.cito-provider-console textarea',
       ].join(',');
       return Array.from(document.querySelectorAll(selector))
         .map((element) => {

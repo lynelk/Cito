@@ -9,6 +9,60 @@ servers:
 security:
 - CPayV2Signature: []
 paths:
+  /api/doMobileMoneyRefund:
+    post:
+      operationId: legacyMobileMoneyRefund
+      summary: Request a full mobile money refund through the compatibility API
+      description: 'Compatibility endpoint for a successful production PAYIN owned by the merchant. The
+        original payer, gateway and amount determine the compensating payout. Authentication is the required
+        JSON-body signature: RSA-SHA256 or HMAC-SHA256 over merchant_number + original_reference + reference
+        + description using the merchant configured signing method. This is not the v2 signature-header
+        protocol. Acceptance or a pending response does not prove provider settlement. Use the v2 refund
+        resource for partial refunds and lifecycle tracking.'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - merchant_number
+              - original_reference
+              - reference
+              - description
+              - callback_url
+              - signature
+              properties:
+                merchant_number:
+                  type: string
+                  description: Merchant account number.
+                original_reference:
+                  type: string
+                  description: Original successful production collection reference.
+                reference:
+                  type: string
+                  description: Unique merchant reference for this refund payout.
+                description:
+                  type: string
+                  description: Refund reason; included in the signature.
+                callback_url:
+                  type: string
+                  description: Callback destination, or an empty string when unused.
+                signature:
+                  type: string
+                  description: Base64-encoded signature of the legacy concatenated request fields.
+      responses:
+        '200':
+          description: Legacy JSON payment or error envelope. Inspect its result and transaction status;
+            HTTP 200 alone is not successful settlement.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '429':
+          description: Merchant rate limit exceeded.
   /api/v2/native/payments/collect:
     post:
       summary: Submit an adapter-native mobile money collection request

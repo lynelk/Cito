@@ -52,6 +52,7 @@ public class RefundService {
     }
 
     /** amount == null means a full refund of whatever remains unrefunded on the original payin. */
+    @Transactional
     public RefundRecord requestRefund(
             Merchant merchant,
             String originalMerchantRef,

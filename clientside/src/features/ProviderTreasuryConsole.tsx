@@ -32,7 +32,11 @@ import {
 } from '../shared/api/providerTreasury';
 
 const fieldStyle: React.CSSProperties = {
-  minWidth: 150,
+  display: 'block',
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   padding: '10px 12px',
   border: '1px solid var(--ios-separator)',
   borderRadius: 10,
@@ -41,7 +45,7 @@ const fieldStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))',
   gap: 12,
   alignItems: 'end',
 };
@@ -318,7 +322,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
   ];
 
   return (
-    <div style={{ padding: 'var(--ios-space-6)' }}>
+    <div className="cito-provider-console" style={{ padding: 'var(--ios-space-6)' }}>
       <Toolbar>
         <div>
           <h2 style={{ margin: 0 }}>Provider Treasury & Shared Channels</h2>
@@ -370,7 +374,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
             </> : null}
             <Button variant="primary" type="submit" disabled={createLiveTest.isPending}>{liveTest.operation === 'PAYOUT' ? 'Request payout test' : 'Run collection test'}</Button>
           </form>
-          <label style={{ display: 'block', marginTop: 16 }}>Checker MFA code for pending payouts<input type="password" inputMode="numeric" autoComplete="one-time-code" style={{ ...fieldStyle, marginLeft: 8 }} value={approvalMfaCode} onChange={(e) => setApprovalMfaCode(e.target.value)} /></label>
+          <label style={{ display: 'block', marginTop: 16 }}>Checker MFA code for pending payouts<input type="password" inputMode="numeric" autoComplete="one-time-code" style={fieldStyle} value={approvalMfaCode} onChange={(e) => setApprovalMfaCode(e.target.value)} /></label>
         </Card>
         <Card flush><Table<ProviderLiveTest> columns={liveTestColumns} rows={liveTests.data ?? []} rowKey={(row) => row.id} emptyText="No provider transaction tests have been run." /></Card>
       </Section>

@@ -167,3 +167,5 @@ The product name is **Cito**. `CPay` remains in some Java class names, database 
 
 
 Communications notification policies, provider configuration, evidence and release checks: [Notification orchestration](Docs/Communications/Notification-Orchestration.md).
+
+SMTP transport, mailbox configuration and the optional connection-only production diagnostic: [Administrator email recovery](Docs/Api/admin-password-recovery.md#smtp-configuration). Password-reset and Communications emails share TLS settings and bounded timeouts; application health alone does not verify delivery.

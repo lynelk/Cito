@@ -67,3 +67,7 @@ Additional corrections include decimal percentage/flat fee calculation, collecti
 - Frontend: 41 test files / 259 tests passed; TypeScript checking and production build passed. ESLint passed with four existing warnings and no errors. API/CI YAML, browser-test JavaScript syntax, brand checks and Git whitespace checks passed.
 - Responsive/keyboard/zoom browser cases are committed for CI, but were not executed locally because the authenticated browser could not reach this runtime's preview. Provider authentication, real provider acceptance, release CI and production deployment are not claimed by this local evidence.
 - No live operator credential values were changed, and no real-money request or deployment was performed. Publishing the feature branch was blocked by automatic approval review pending explicit permission to push it and open the PR.
+
+## PR follow-up validation
+
+The branch is published as PR #190. The current main SMTP/password-recovery changes were merged without changing provider credentials. CI follow-up adds the previously undocumented portal/refund paths, administrator authorization for global portal lists, merchant-scoped callback counts and exclusion of platform alerts from merchant summaries. The public refund entry point now starts its Spring transaction directly; the MySQL refund scenario invokes that method through the real transaction interceptor. Updated CI results are recorded on the PR.

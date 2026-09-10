@@ -358,7 +358,7 @@ public final class MobileMoneyMysqlScenario {
                                             "PAYOUT",
                                             mtn));
             new MobileMoneyCompatibilityBridge(nativePayments, "PRODUCTION", jdbc, tm);
-            var refunds =
+            var refundTarget =
                     new net.citotech.cito.refund.RefundService(
                             jdbc,
                             tm,
@@ -367,16 +367,21 @@ public final class MobileMoneyMysqlScenario {
                                     net.citotech.cito.merchant.MerchantNotificationPreferenceService
                                             .class),
                             new BigDecimal("500000"));
-            ReflectionTestUtils.setField(refunds, "paymentWebhooks", webhooks);
+            ReflectionTestUtils.setField(refundTarget, "paymentWebhooks", webhooks);
+            var refundProxy = new org.springframework.aop.framework.ProxyFactory(refundTarget);
+            refundProxy.addAdvice(
+                    new org.springframework.transaction.interceptor.TransactionInterceptor(
+                            tm,
+                            new org.springframework.transaction.annotation
+                                    .AnnotationTransactionAttributeSource()));
+            var refunds = (net.citotech.cito.refund.RefundService) refundProxy.getProxy();
             var refund =
-                    transactions.execute(
-                            ignored ->
-                                    refunds.requestRefund(
-                                            merchant,
-                                            "mysql-collect",
-                                            "mysql-refund",
-                                            new BigDecimal("10"),
-                                            "Disposable refund"));
+                    refunds.requestRefund(
+                            merchant,
+                            "mysql-collect",
+                            "mysql-refund",
+                            new BigDecimal("10"),
+                            "Disposable refund");
             assertThat(refund.status()).isEqualTo(net.citotech.cito.refund.RefundStatus.PROCESSING);
             assertThat(ledger.availableMerchantBalance(id, "UGX")).isEqualByComparingTo("74.3750");
             String refundPayment =
