@@ -1,0 +1,47 @@
+name: Airtel recovery validation
+on:
+  push:
+    branches: [feature/airtel-durable-recovery-20260910]
+permissions:
+  contents: read
+concurrency:
+  group: airtel-recovery-validation
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Export exact tracked source
+        run: |
+          mkdir -p /tmp/cito-recovery-evidence
+          git rev-parse HEAD > /tmp/cito-recovery-evidence/source-sha.txt
+          git archive --format=tar.gz -o /tmp/cito-recovery-evidence/source.tar.gz HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: airtel-recovery-source
+          path: /tmp/cito-recovery-evidence
+          retention-days: 1
+      - uses: actions/setup-java@v5
+        if: hashFiles('InitializrSpringbootProjectFresh/src/main/java/net/citotech/cito/gateway/AirtelRecoveryService.java') != ''
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Full backend verification including Docker tests
+        if: hashFiles('InitializrSpringbootProjectFresh/src/main/java/net/citotech/cito/gateway/AirtelRecoveryService.java') != ''
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B -ntp -Ddocker.tests.excludedGroups= verify
+      - uses: actions/upload-artifact@v4
+        if: always() && hashFiles('InitializrSpringbootProjectFresh/target/surefire-reports/*') != ''
+        with:
+          name: airtel-recovery-test-evidence
+          path: |
+            /tmp/cito-recovery-evidence/source-sha.txt
+            InitializrSpringbootProjectFresh/target/surefire-reports
+            InitializrSpringbootProjectFresh/target/failsafe-reports
+          retention-days: 7
