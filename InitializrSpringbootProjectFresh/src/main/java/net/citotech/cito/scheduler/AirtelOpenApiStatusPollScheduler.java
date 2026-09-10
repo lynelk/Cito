@@ -125,12 +125,16 @@ public class AirtelOpenApiStatusPollScheduler {
                 && "sandbox".equalsIgnoreCase(text(state.getSetting_value()))
                 && (simulation == null
                         || "yes".equalsIgnoreCase(text(simulation.getSetting_value())))) return;
+        if (!"UGX".equalsIgnoreCase(text(observed.getCurrency())))
+            throw new PaymentGatewayException(
+                    "Legacy Airtel recovery requires its recorded UGX scope");
         String segment =
                 Transaction.TX_TYPE_PAYOUT.equalsIgnoreCase(observed.getTx_type())
                         ? "disbursement"
                         : "collection";
         GateWayResponse provider =
                 new DoPayGateway()
+                        .withRecordedAirtelScope()
                         .runPayGatewayDoCheckStatus(
                                 jdbcTemplate,
                                 LegacyGatewayIds.AIRTEL_OPEN_API,
@@ -227,7 +231,7 @@ public class AirtelOpenApiStatusPollScheduler {
 
     private List<Map<String, Object>> pendingSharedAfter(long after) {
         return jdbcTemplate.queryForList(
-                "SELECT r.id, r.operation, r.provider_reference, r.currency_code,"
+                "SELECT r.id, r.merchant_id, r.operation, r.provider_reference, r.currency_code,"
                         + " r.merchant_reference, r.treasury_account_id, a.environment, a.country_code"
                         + " FROM provider_treasury_reservations r JOIN provider_treasury_accounts a ON a.id=r.treasury_account_id"
                         + " WHERE r.status='PENDING' AND a.channel_code=:channel AND r.merchant_reference<>''"
@@ -266,6 +270,16 @@ public class AirtelOpenApiStatusPollScheduler {
         // A status read does not require a payout PIN or encryption key.
         AirtelOpenApiCredentialSchema.validateForOperation(
                 credentials, environment, country, currency, "COLLECT");
+        net.citotech.cito.gateway.AirtelRecoveryScopeStore.require(
+                jdbcTemplate,
+                submittedReference,
+                number(row.get("merchant_id")),
+                operation,
+                "PLATFORM_SHARED",
+                value(credentials, "baseUrl"),
+                value(credentials, "clientId"),
+                country,
+                currency);
         AirtelMoneyOpenApiPaymentGateway gateway = new AirtelMoneyOpenApiPaymentGateway();
         gateway.setApiDetails(
                 value(credentials, "baseUrl"),
@@ -288,14 +302,17 @@ public class AirtelOpenApiStatusPollScheduler {
                         status -> {
                             List<Map<String, Object>> locked =
                                     jdbcTemplate.queryForList(
-                                            "SELECT status, merchant_reference, treasury_account_id, operation, currency_code"
+                                            "SELECT status, merchant_id, merchant_reference, treasury_account_id, operation, currency_code"
                                                     + " FROM provider_treasury_reservations WHERE id=:id FOR UPDATE",
                                             new MapSqlParameterSource("id", reservationId));
                             if (locked.size() != 1)
                                 throw new PaymentGatewayException("Airtel reservation not found");
                             Map<String, Object> current = locked.get(0);
                             if (!"PENDING".equals(text(current.get("status")))) return;
-                            if (!submittedReference.equals(text(current.get("merchant_reference")))
+                            if (!text(row.get("merchant_id"))
+                                            .equals(text(current.get("merchant_id")))
+                                    || !submittedReference.equals(
+                                            text(current.get("merchant_reference")))
                                     || !text(row.get("treasury_account_id"))
                                             .equals(text(current.get("treasury_account_id")))
                                     || !operation.equals(text(current.get("operation")))

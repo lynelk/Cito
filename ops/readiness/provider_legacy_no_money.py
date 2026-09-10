@@ -34,6 +34,7 @@ def run():
             if merchant_mode:
                 names = ["gw_mtn_api_collections_user_id", "gw_mtn_api_collections_user_key", "gw_mtn_api_collections_subscription_key", "gw_mtn_api_disbursements_user_id", "gw_mtn_api_disbursements_user_key", "gw_mtn_api_disbursements_subscription_key", "gw_airtelmoney_api_username", "gw_airtelmoney_api_password"]
                 emit({"source": "LEGACY_GLOBAL_NOT_SELECTED", "configuredFieldNames": [name for name in names if str(values.get(name) or "").strip()], "missingFieldNames": [name for name in names if not str(values.get(name) or "").strip()], "tokenObtained": False})
+                inspect(values, "LEGACY_GLOBAL_NOT_SELECTED")
             if merchant_mode:
                 cursor.execute("SELECT merchant_id, name, setting_value FROM merchant_settings WHERE name LIKE 'gw_mtn_api_%' OR name LIKE 'gw_airtelmoney_%' ORDER BY merchant_id LIMIT 2001")
                 rows = cursor.fetchall()

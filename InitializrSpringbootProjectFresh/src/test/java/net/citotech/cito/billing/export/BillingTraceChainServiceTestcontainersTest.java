@@ -44,6 +44,7 @@ class BillingTraceChainServiceTestcontainersTest {
     @Container
     private static final MySQLContainer MYSQL =
             new MySQLContainer("mysql:8.0.36")
+                    .withCommand("--log-bin-trust-function-creators=1")
                     .withDatabaseName("cpay_test")
                     .withUsername("cpay")
                     .withPassword("cpay");

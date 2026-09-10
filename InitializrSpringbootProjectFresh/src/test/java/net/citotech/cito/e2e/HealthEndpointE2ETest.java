@@ -18,12 +18,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 
 /**
- * Covers audit K3: a dedicated E2E test suite. Everything else in this codebase tests one class
- * or one HTTP handler in isolation (mocked collaborators, mocked JDBC). Nothing before this
- * started the real Spring application context, ran the real Flyway migration history against a
- * real database, and made a real HTTP call all the way through the servlet stack and back out -
- * so a class of bug (a bean that fails to wire, a migration that doesn't actually apply cleanly,
- * a controller mapping that's broken) was invisible to the existing test suite no matter how much
+ * Covers audit K3: a dedicated E2E test suite. Everything else in this codebase tests one class or
+ * one HTTP handler in isolation (mocked collaborators, mocked JDBC). Nothing before this started
+ * the real Spring application context, ran the real Flyway migration history against a real
+ * database, and made a real HTTP call all the way through the servlet stack and back out - so a
+ * class of bug (a bean that fails to wire, a migration that doesn't actually apply cleanly, a
+ * controller mapping that's broken) was invisible to the existing test suite no matter how much
  * unit-test coverage existed. This starts the whole app on a random port against a real MySQL 8
  * Testcontainer and drives one real request through it.
  *
@@ -32,13 +32,13 @@ import org.testcontainers.mysql.MySQLContainer;
  * aspiration for K3, and audit K2 ({@code AirtelMoneyOpenApiPaymentGatewayWireMockTest}) already
  * independently proves the WireMock side of that combination works. It wasn't combined into this
  * same test because a real payment flow needs merchant channel credentials seeded through the
- * encrypted {@code merchant_channel_credentials} path (a real {@code MERCHANT_CHANNEL_ENCRYPTION_KEY}
- * plus {@code MerchantChannelCryptoService}) and a correctly V2-signed request
- * ({@code V2RequestSecurityService} - signing/nonce/idempotency), and this environment has no
- * running Docker daemon to actually execute and verify that heavier flow end to end before
- * landing it. Getting either wrong here would ship an E2E test that looks like real coverage but
- * was never actually proven to pass - worse than being explicit about the gap. {@code /status/health}
- * was chosen instead because it's a real, unauthenticated, DB-touching endpoint
+ * encrypted {@code merchant_channel_credentials} path (a real {@code
+ * MERCHANT_CHANNEL_ENCRYPTION_KEY} plus {@code MerchantChannelCryptoService}) and a correctly
+ * V2-signed request ({@code V2RequestSecurityService} - signing/nonce/idempotency), and this
+ * environment has no running Docker daemon to actually execute and verify that heavier flow end to
+ * end before landing it. Getting either wrong here would ship an E2E test that looks like real
+ * coverage but was never actually proven to pass - worse than being explicit about the gap. {@code
+ * /status/health} was chosen instead because it's a real, unauthenticated, DB-touching endpoint
  * ({@code HealthController} queries pending-transaction and failed-callback counts) that
  * meaningfully proves the full stack works without needing either of those two extra unverified
  * pieces. The signed-payment E2E is the natural next step for whoever has a Docker-capable
@@ -46,8 +46,8 @@ import org.testcontainers.mysql.MySQLContainer;
  *
  * <p>Requires a running Docker daemon (for the MySQL Testcontainer), so - like the K1 test - this
  * is tagged {@code "docker"} and excluded from the default {@code mvn test}/{@code mvn verify} run
- * (see {@code docker.tests.excludedGroups} in {@code pom.xml}). Run explicitly with:
- * {@code mvn test -Ddocker.tests.excludedGroups=}
+ * (see {@code docker.tests.excludedGroups} in {@code pom.xml}). Run explicitly with: {@code mvn
+ * test -Ddocker.tests.excludedGroups=}
  */
 @Tag("docker")
 @Testcontainers
@@ -55,10 +55,12 @@ import org.testcontainers.mysql.MySQLContainer;
 class HealthEndpointE2ETest {
 
     @Container
-    private static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.0.36")
-        .withDatabaseName("cpay_e2e")
-        .withUsername("cpay")
-        .withPassword("cpay");
+    private static final MySQLContainer MYSQL =
+            new MySQLContainer("mysql:8.0.36")
+                    .withCommand("--log-bin-trust-function-creators=1")
+                    .withDatabaseName("cpay_e2e")
+                    .withUsername("cpay")
+                    .withPassword("cpay");
 
     @DynamicPropertySource
     static void applicationProperties(DynamicPropertyRegistry registry) {
@@ -74,19 +76,20 @@ class HealthEndpointE2ETest {
         registry.add("admin.api.username", () -> "e2e-admin");
         registry.add("admin.api.password", () -> "e2e-admin-pass");
         registry.add("callback.signing.secret", () -> "e2e-callback-signing-secret");
-        registry.add("merchant.channel.encryption.key", () -> "e2e-merchant-channel-key-0123456789");
+        registry.add(
+                "merchant.channel.encryption.key", () -> "e2e-merchant-channel-key-0123456789");
     }
 
-    @LocalServerPort
-    private int port;
+    @LocalServerPort private int port;
 
     @Test
     void theFullApplicationBootsAgainstARealDatabaseAndServesARealHttpRequest() throws Exception {
         HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:" + port + "/status/health"))
-            .GET()
-            .build();
+        HttpRequest request =
+                HttpRequest.newBuilder()
+                        .uri(URI.create("http://localhost:" + port + "/status/health"))
+                        .GET()
+                        .build();
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 

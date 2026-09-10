@@ -139,6 +139,20 @@ public class ProviderTreasuryService {
         requireMerchant(merchant);
         BigDecimal money = money(amount);
         String operation = context.operation();
+        if (net.citotech.cito.gateway.AirtelOpenApiCredentialSchema.CHANNEL_CODE.equals(
+                channelCode)) {
+            net.citotech.cito.gateway.AirtelRecoveryScopeStore.record(
+                    jdbc,
+                    reference,
+                    merchant.getId(),
+                    operation,
+                    "PLATFORM_SHARED",
+                    String.valueOf(context.credentials().get("baseUrl")),
+                    String.valueOf(context.credentials().get("clientId")),
+                    context.countryCode(),
+                    context.currencyCode());
+        }
+
         Map<String, Object> account =
                 lockAccount(
                         channelCode,
