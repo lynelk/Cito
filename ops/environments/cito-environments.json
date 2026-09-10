@@ -54,7 +54,8 @@
           "rootDirectory": "InitializrSpringbootProjectFresh",
           "buildCommand": "mvn -B -DskipTests -Dspotless.skip=true clean package --no-transfer-progress",
           "startCommand": "sh /app/start.sh",
-          "publicDomain": "cito-staging-backend-production.up.railway.app"
+          "publicDomain": "cito-staging-backend-production.up.railway.app",
+          "springProfile": "staging"
         },
         "frontend": {
           "serviceId": "69ef3eaa-05b5-4504-8f5e-2bfaa27f3512",
@@ -66,7 +67,9 @@
         "database": {
           "serviceId": "4fe51073-a138-4ef3-965b-69245786594e",
           "image": "mysql:8.4",
-          "persistence": "EPHEMERAL_VALIDATION_ONLY"
+          "persistence": "EPHEMERAL_VALIDATION_ONLY",
+          "startCommand": "docker-entrypoint.sh mysqld --log-bin-trust-function-creators=1",
+          "initialization": "MYSQL_INITDB_SKIP_TZINFO=1"
         }
       }
     }
