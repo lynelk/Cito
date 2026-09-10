@@ -1,4 +1,4 @@
-Cito production release trigger
-Base verified production SHA: 0fa2d3bad7d1272916d9f7edde655ea20b36e2d7
-Purpose: force Railway cito-backend to build the latest production tree without changing runtime configuration.
-Date: 2026-09-10
+Railway source synchronization trigger
+Verified application base: 0fa2d3bad7d1272916d9f7edde655ea20b36e2d7
+Release branch event: release/railway-source-sync-20260910
+Target: cito-backend
