@@ -102,6 +102,8 @@ export interface ProviderLiveTest {
 }
 
 export interface PlatformCredential {
+  revision: number;
+  lastTestStatus?: string;
   id: number;
   channelCode: string;
   environment: string;

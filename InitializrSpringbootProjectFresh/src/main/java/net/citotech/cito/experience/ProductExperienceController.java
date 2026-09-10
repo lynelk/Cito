@@ -73,7 +73,7 @@ public class ProductExperienceController {
                                COALESCE(SUM(CASE WHEN tx_type='PAYOUT' AND status='SUCCESSFUL' THEN original_amount ELSE 0 END),0) successful_payouts,
                                COALESCE(SUM(CASE WHEN status='FAILED' THEN 1 ELSE 0 END),0) failed_count,
                                MAX(updated_on) data_as_of
-                        FROM merchant_transactions_log WHERE merchant_id=:merchantId
+                        FROM merchant_production_transactions WHERE merchant_id=:merchantId
                         """,
                         params));
         response.put(
@@ -282,7 +282,7 @@ public class ProductExperienceController {
                         SELECT tx_unique_id reference, tx_merchant_ref merchant_reference,
                                tx_gateway_ref provider_reference, status, tx_type, original_amount,
                                currency, merchant_id, updated_on
-                        FROM merchant_transactions_log
+                        FROM merchant_production_transactions
                         WHERE (tx_unique_id LIKE :query ESCAPE '\\\\'
                            OR tx_merchant_ref LIKE :query ESCAPE '\\\\'
                            OR tx_gateway_ref LIKE :query ESCAPE '\\\\')
@@ -769,7 +769,7 @@ public class ProductExperienceController {
                                tx_description, tx_merchant_description, tx_unique_id, tx_gateway_ref,
                                tx_merchant_ref, payer_number, tx_type, account_type, resolved_by,
                                created_on, updated_on
-                        FROM merchant_transactions_log
+                        FROM merchant_production_transactions
                         WHERE (tx_unique_id=:reference OR tx_gateway_ref=:reference OR tx_merchant_ref=:reference)
                         """
                                 + scope

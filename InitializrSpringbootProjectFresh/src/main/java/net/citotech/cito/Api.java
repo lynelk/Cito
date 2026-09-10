@@ -1632,113 +1632,34 @@ public class Api {
                 SafariComPaymentGateway.gateway_id, ConversationID);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private net.citotech.cito.gateway.MobileMoneyRecoveryService mobileMoneyRecovery;
+
     @PostMapping(path = "/doAirtelMoneyPayInCallback")
     public String doAirtelMoneyPayInCallback(
             @RequestBody String requestBody,
             HttpServletRequest request,
             HttpServletResponse response) {
-        // PII masking (compliance I4): only the masked form of the provider callback reaches logs.
-        String maskedBody = maskMsisdnsInPayload(requestBody);
-        Logger.getLogger(AuthenticationController.class.getName())
-                .log(Level.INFO, "AIRTEL MONEY CALLBACK: " + maskedBody, maskedBody);
         try {
-            JSONObject sObject;
-            try {
-                sObject = new JSONObject(requestBody);
-            } catch (JSONException e) {
-                return GeneralException.getError(
-                        "124", String.format(GeneralException.ERRORS_124, ""));
+            String id = new JSONObject(requestBody).getJSONObject("transaction").getString("id");
+            if (!mobileMoneyRecovery.signal("airtel_open_api", id, id)) {
+                // Historical requests used our transaction UUID as Airtel transaction.id.
+                Transaction tx = Common.getTxByRef(id, jdbcTemplate);
+                if (tx == null
+                        || !net.citotech.cito.gateway.LegacyGatewayIds.AIRTEL_OPEN_API.equals(
+                                tx.getGateway_id())) {
+                    response.setStatus(404);
+                    return GeneralException.getError("109", "Airtel transaction was not found");
+                }
+                tx.setFinalStatusSet(
+                        false); // Never apply the unauthenticated callback's claimed status.
+                Common.updateTx(tx, jdbcTemplate, transactionManager);
             }
-
-            if (sObject.isNull("transaction")) {
-                return GeneralException.getError(
-                        "114", String.format(GeneralException.ERRORS_114, "transaction"));
-            }
-            JSONObject transaction = sObject.getJSONObject("transaction");
-            if (transaction.isNull("id")) {
-                return GeneralException.getError(
-                        "114", String.format(GeneralException.ERRORS_114, "transaction.id"));
-            }
-            if (transaction.isNull("status")) {
-                return GeneralException.getError(
-                        "114", String.format(GeneralException.ERRORS_114, "transaction.status"));
-            }
-
-            final String txId = transaction.getString("id");
-            final String airtelStatus = transaction.getString("status");
-            final String airtelMoneyId =
-                    transaction.isNull("airtel_money_id")
-                            ? ""
-                            : transaction.getString("airtel_money_id");
-
-            TransactionTemplate template = new TransactionTemplate(transactionManager);
-            String result =
-                    template.execute(
-                            new TransactionCallback<String>() {
-                                @Override
-                                public String doInTransaction(TransactionStatus status) {
-                                    try {
-                                        Transaction tx =
-                                                Common.getTxByNetworkRef(txId, jdbcTemplate);
-                                        if (tx == null) {
-                                            Logger.getLogger(
-                                                            AuthenticationController.class
-                                                                    .getName())
-                                                    .log(
-                                                            Level.WARNING,
-                                                            "AIRTEL CALLBACK - Transaction "
-                                                                    + txId
-                                                                    + " not found",
-                                                            requestBody);
-                                            return GeneralException.getError(
-                                                    "109",
-                                                    String.format(
-                                                            GeneralException.ERRORS_109,
-                                                            "Transaction",
-                                                            txId));
-                                        }
-                                        if ("TS".equalsIgnoreCase(airtelStatus)) {
-                                            tx.setStatus("SUCCESSFUL");
-                                        } else if ("TF".equalsIgnoreCase(airtelStatus)
-                                                || "TA".equalsIgnoreCase(airtelStatus)) {
-                                            tx.setStatus("FAILED");
-                                        } else {
-                                            return GeneralSuccessResponse.getMessage(
-                                                    "000", "Status pending, no update required");
-                                        }
-                                        tx.setFinalStatusSet(true);
-                                        tx.setTx_update_trace(requestBody);
-                                        tx.setResolved_by("SYSTEM");
-                                        if (!airtelMoneyId.isEmpty()) {
-                                            tx.setTx_gateway_ref(airtelMoneyId);
-                                        }
-                                        String results =
-                                                Common.updateTx(
-                                                        tx, jdbcTemplate, transactionManager);
-                                        if (results.equals("success")) {
-                                            return GeneralSuccessResponse.getMessage(
-                                                    "000", "Request processed successfully");
-                                        } else {
-                                            return GeneralException.getError(
-                                                    "109", GeneralException.ERRORS_142);
-                                        }
-                                    } catch (Exception e) {
-                                        status.setRollbackOnly();
-                                        Logger.getLogger(AuthenticationController.class.getName())
-                                                .log(
-                                                        Level.SEVERE,
-                                                        "INTERNAL ERROR: " + e.getMessage(),
-                                                        "");
-                                        return GeneralException.getError(
-                                                "102", GeneralException.ERRORS_102);
-                                    }
-                                }
-                            });
-            return result;
-        } catch (Exception ex) {
-            Logger.getLogger(AuthenticationController.class.getName())
-                    .log(Level.SEVERE, "GENERAL INTERNAL ERROR: " + ex.getMessage(), ex);
-            return GeneralException.getError("102", GeneralException.ERRORS_102);
+            response.setStatus(202);
+            return "{\"code\":\"000\",\"message\":\"Status verification scheduled\"}";
+        } catch (Exception e) {
+            response.setStatus(400);
+            return GeneralException.getError("124", "Invalid Airtel callback");
         }
     }
 

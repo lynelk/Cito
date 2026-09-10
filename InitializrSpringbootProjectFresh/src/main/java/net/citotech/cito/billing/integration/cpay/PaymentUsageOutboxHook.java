@@ -19,8 +19,8 @@ import org.springframework.stereotype.Service;
  * FeatureRegistryService}). Called from {@code PaymentOrchestrationService.collect()} (after {@code
  * Common.doPayIn} succeeds) and {@code payout()} (after the ledger reservation is captured and
  * before it can be released) - like {@code queueWebhook} in that same class, neither call ever
- * throws: the payment/payout result is authoritative and must never be rolled back or fail because
- * of this shadow write.
+ * throws. The durable mobile-money finalizer instead calls recordPaymentSettled inside its
+ * transaction so enabled usage evidence and financial settlement commit atomically.
  */
 @Service
 public class PaymentUsageOutboxHook {
@@ -47,6 +47,23 @@ public class PaymentUsageOutboxHook {
     public void recordPaymentPayoutSubmitted(
             Merchant merchant, PaymentRequest request, Transaction tx) {
         recordSubmitted(merchant, request, tx, "PAYMENT_PAYOUT_SUBMITTED");
+    }
+
+    /** Durable variant: a canonical settlement rolls back if its enabled billing outbox fails. */
+    public void recordPaymentSettled(Merchant merchant, PaymentRequest request, Transaction tx) {
+        if (!featureRegistry.isEnabled(FLAG_KEY, merchant.getId())) return;
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("billingTenantId", tenantResolver.resolveTenantId(merchant.getId()));
+        payload.put("merchantId", merchant.getId());
+        payload.put("transactionReference", tx.getTx_unique_id());
+        payload.put("amount", request.getAmount());
+        payload.put("currency", request.getCurrency());
+        payload.put("status", tx.getStatus());
+        String type =
+                Transaction.TX_TYPE_PAYIN.equals(tx.getTx_type())
+                        ? "PAYMENT_COLLECTION_SUBMITTED"
+                        : "PAYMENT_PAYOUT_SUBMITTED";
+        outboxWriter.write("PAYMENT", tx.getTx_unique_id(), type, payload);
     }
 
     private void recordSubmitted(

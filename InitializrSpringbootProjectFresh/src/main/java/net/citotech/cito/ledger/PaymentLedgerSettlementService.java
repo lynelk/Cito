@@ -144,9 +144,9 @@ public class PaymentLedgerSettlementService {
             if (charges != null && charges.signum() > 0) {
                 entries.add(
                         entry(
-                                "merchant:" + merchant.getId() + ":" + currency + ":fees",
-                                "Merchant transaction fees",
-                                "MERCHANT_EXPENSE",
+                                merchantAccount,
+                                "Merchant payout payable",
+                                "MERCHANT_LIABILITY",
                                 "MERCHANT",
                                 merchant.getId(),
                                 "DR",
@@ -194,6 +194,31 @@ public class PaymentLedgerSettlementService {
                             + tx.getTx_type());
         }
 
+        if (!payout && charges != null && charges.signum() > 0) {
+            entries.add(
+                    entry(
+                            merchantAccount,
+                            "Merchant collection payable",
+                            "MERCHANT_LIABILITY",
+                            "MERCHANT",
+                            merchant.getId(),
+                            "DR",
+                            charges,
+                            currency,
+                            merchantReference));
+            entries.add(
+                    entry(
+                            "cpay:" + currency + ":fee_revenue",
+                            "CPay fee revenue",
+                            "REVENUE",
+                            "SYSTEM",
+                            null,
+                            "CR",
+                            charges,
+                            currency,
+                            merchantReference));
+        }
+
         ledgerService.post(
                 paymentReference(tx),
                 "PAYMENT",
@@ -230,6 +255,21 @@ public class PaymentLedgerSettlementService {
     }
 
     private String reservationReference(Transaction tx, Merchant merchant) {
+        if (merchantReference(tx).matches("batch-payout:[0-9]+:[0-9]+")) {
+            String reference =
+                    merchantReference(tx).replace("batch-payout:", "batch-payout-reserve:");
+            Integer count =
+                    jdbcTemplate.queryForObject(
+                            "SELECT COUNT(*) FROM ledger_reservations WHERE reservation_reference=:ref AND merchant_id=:merchant AND source_reference=:source",
+                            new MapSqlParameterSource("ref", reference)
+                                    .addValue("merchant", merchant.getId())
+                                    .addValue("source", merchantReference(tx)),
+                            Integer.class);
+            if (count == null || count != 1)
+                throw new PaymentGatewayException(
+                        "Batch payout requires its committed slice reservation");
+            return reference;
+        }
         return "payout-reserve:"
                 + required(merchant.getAccount_number(), "merchant account number")
                 + ":"

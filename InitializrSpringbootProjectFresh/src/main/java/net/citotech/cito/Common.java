@@ -445,6 +445,7 @@ public class Common {
         try {
             URL rquestUrl = URI.create(url).toURL();
             HttpURLConnection con = (HttpURLConnection) rquestUrl.openConnection();
+            con.setInstanceFollowRedirects(false);
 
             con.setRequestMethod(method);
 
@@ -699,6 +700,13 @@ public class Common {
      * @Param reference: This is our reference.
      * Returns Merchant object or null.
      */
+    public static String transactionReadTable(jakarta.servlet.http.HttpServletRequest request) {
+        return request != null
+                        && "SANDBOX".equalsIgnoreCase(request.getHeader("X-Cito-Environment"))
+                ? "merchant_sandbox_transactions"
+                : "merchant_production_transactions";
+    }
+
     public static Transaction getTxByRef(
             String reference, NamedParameterJdbcTemplate jdbcTemplate) {
 
@@ -1376,7 +1384,6 @@ public class Common {
             // long userId;
             jdbcTemplate.update(sql_final, parameters, keyHolder);
             // Now insert privileges
-            BigInteger statementId = (BigInteger) keyHolder.getKey();
             refreshMerchantChannelBalanceReadModel(
                     tx, statementBalanceType, parameters, jdbcTemplate);
 
@@ -1579,12 +1586,28 @@ public class Common {
             NamedParameterJdbcTemplate jdbcTemplate,
             PlatformTransactionManager transactionManager,
             boolean skipRiskCheck) {
+        if (net.citotech.cito.gateway.MobileMoneyCompatibilityBridge.manages(newTx)) {
+            return net.citotech.cito.gateway.MobileMoneyCompatibilityBridge.submit(
+                    newTx, merchant, false);
+        }
 
         // First check if there is tx with this reference on merchant.
         Transaction tx =
                 Common.getMerchantTxByTheirRef(
                         newTx.getTx_merchant_ref(), merchant.getId() + "", jdbcTemplate);
         if (tx != null) {
+            if (!tx.getOriginalAmountDecimal().equals(newTx.getOriginalAmountDecimal())
+                    || !java.util.Objects.equals(tx.getCurrency(), newTx.getCurrency())
+                    || !java.util.Objects.equals(tx.getGateway_id(), newTx.getGateway_id())
+                    || !java.util.Objects.equals(tx.getPayer_number(), newTx.getPayer_number())
+                    || !java.util.Objects.equals(tx.getTx_type(), newTx.getTx_type())) {
+                throw new net.citotech.cito.gateway.PaymentGatewayException(
+                        "Payment reference conflicts with the original transaction");
+            }
+            newTx.setId(tx.getId());
+            newTx.setTx_unique_id(tx.getTx_unique_id());
+            newTx.setStatus(tx.getStatus());
+            newTx.setTx_gateway_ref(tx.getTx_gateway_ref());
             return buildIdempotentReplayResponse(tx);
         }
 
@@ -1908,6 +1931,10 @@ public class Common {
             NamedParameterJdbcTemplate jdbcTemplate,
             PlatformTransactionManager transactionManager,
             boolean skipRiskCheck) {
+        if (net.citotech.cito.gateway.MobileMoneyCompatibilityBridge.manages(newTx)) {
+            return net.citotech.cito.gateway.MobileMoneyCompatibilityBridge.submit(
+                    newTx, merchant, true);
+        }
 
         boolean useMerchantCreds = Common.useMerchantProviderCredentials(jdbcTemplate);
         Merchant[] gwAccounts = Common.resolveGatewayAccounts(useMerchantCreds, jdbcTemplate);
@@ -1920,6 +1947,18 @@ public class Common {
                 Common.getMerchantTxByTheirRef(
                         newTx.getTx_merchant_ref(), merchant.getId() + "", jdbcTemplate);
         if (tx != null) {
+            if (!tx.getOriginalAmountDecimal().equals(newTx.getOriginalAmountDecimal())
+                    || !java.util.Objects.equals(tx.getCurrency(), newTx.getCurrency())
+                    || !java.util.Objects.equals(tx.getGateway_id(), newTx.getGateway_id())
+                    || !java.util.Objects.equals(tx.getPayer_number(), newTx.getPayer_number())
+                    || !java.util.Objects.equals(tx.getTx_type(), newTx.getTx_type())) {
+                throw new net.citotech.cito.gateway.PaymentGatewayException(
+                        "Payment reference conflicts with the original transaction");
+            }
+            newTx.setId(tx.getId());
+            newTx.setTx_unique_id(tx.getTx_unique_id());
+            newTx.setStatus(tx.getStatus());
+            newTx.setTx_gateway_ref(tx.getTx_gateway_ref());
             return buildIdempotentReplayResponse(tx);
         }
 
@@ -2544,8 +2583,8 @@ public class Common {
                     Transaction t = new Transaction();
                     t.setId(rs.getLong("id"));
                     t.setCharging_method(rs.getString("charging_method"));
-                    t.setCharges(rs.getDouble("charges"));
-                    t.setOriginal_amount(rs.getDouble("original_amount"));
+                    t.setChargesDecimal(rs.getBigDecimal("charges"));
+                    t.setOriginalAmountDecimal(rs.getBigDecimal("original_amount"));
                     t.setCreated_on(rs.getString("created_on"));
                     t.setUpdated_on(rs.getString("updated_on"));
                     t.setGateway_id(rs.getString("gateway_id"));
@@ -2561,11 +2600,12 @@ public class Common {
                     t.setTx_type(rs.getString("tx_type"));
                     t.setCallback_trace(rs.getString("callback_trace"));
                     t.setTx_merchant_ref(rs.getString("tx_merchant_ref"));
-                    t.setTx_cost(rs.getDouble("tx_cost"));
+                    t.setTxCostDecimal(rs.getBigDecimal("tx_cost"));
                     t.setCallback_url(rs.getString("callback_url"));
                     t.setSafaricomRequestReference(rs.getString("safaricom_request_reference"));
                     t.setOriginate_ip(rs.getString("originate_ip"));
                     t.setCurrency(rs.getString("currency"));
+                    t.setEnvironment(rs.getString("execution_environment"));
                     t.setCallback_status(rs.getString("callback_status"));
                     return t;
                 };
@@ -2731,6 +2771,42 @@ public class Common {
 
     //
     public static String updateTx(
+            Transaction tx,
+            NamedParameterJdbcTemplate jdbcTemplate,
+            PlatformTransactionManager transactionManager) {
+        Integer managed =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM mobile_money_executions WHERE transaction_id=:tx",
+                        new MapSqlParameterSource("tx", tx.getTx_unique_id()),
+                        Integer.class);
+        if (managed != null && managed > 0) {
+            jdbcTemplate.update(
+                    "UPDATE mobile_money_executions SET next_poll_at=CURRENT_TIMESTAMP WHERE transaction_id=:tx",
+                    new MapSqlParameterSource("tx", tx.getTx_unique_id()));
+            return "success";
+        }
+        return new TransactionTemplate(transactionManager)
+                .execute(
+                        ignored -> {
+                            jdbcTemplate.queryForObject(
+                                    "SELECT id FROM merchant_transactions_log WHERE id=:id FOR UPDATE",
+                                    new MapSqlParameterSource("id", tx.getId()),
+                                    Long.class);
+                            Transaction stored = getTxByRef(tx.getTx_unique_id(), jdbcTemplate);
+                            if (stored != null
+                                    && ("SUCCESSFUL".equals(stored.getStatus())
+                                            || "FAILED".equals(stored.getStatus())))
+                                return "success";
+                            String result = updateTxInternal(tx, jdbcTemplate, transactionManager);
+                            if (!"success".equals(result) && !"duplicate".equals(result))
+                                throw new net.citotech.cito.gateway.PaymentGatewayException(
+                                        "Payment finalization failed");
+                            net.citotech.cito.ledger.PaymentSettlementRegistry.apply(tx);
+                            return "success";
+                        });
+    }
+
+    private static String updateTxInternal(
             Transaction tx,
             NamedParameterJdbcTemplate jdbcTemplate,
             PlatformTransactionManager transactionManager) {

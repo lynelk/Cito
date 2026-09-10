@@ -91,7 +91,7 @@ jobs:
             InitializrSpringbootProjectFresh/src/main/resources/db/migration/V63__production_maturity_execution_automation.sql
 
   mysql-migration:
-    name: Clean MySQL 8.4 Migration
+    name: MySQL 8.4 Migration and Payment Lifecycle
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -129,7 +129,7 @@ jobs:
             mysql -uroot -proot-ci-password \
             -e "SET GLOBAL log_bin_trust_function_creators = 1;"
           test "$(docker exec "$MYSQL_CONTAINER" mysql -uroot -proot-ci-password -NBe 'SELECT @@GLOBAL.log_bin_trust_function_creators')" = "1"
-      - name: Apply every Flyway migration to a clean MySQL schema
+      - name: Apply migrations and verify fake-provider accounting and recovery
         env:
           DB_URL: jdbc:mysql://127.0.0.1:3306/cpayadmin?allowPublicKeyRetrieval=true&useSSL=false
           DB_USERNAME: cpay

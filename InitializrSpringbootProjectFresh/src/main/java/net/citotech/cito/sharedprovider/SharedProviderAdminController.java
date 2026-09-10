@@ -79,6 +79,14 @@ public class SharedProviderAdminController {
         return service.savePlatformCredential(body, actor(authentication));
     }
 
+    @PostMapping("/credentials/{id}/verify")
+    public Map<String, Object> verifyCredential(
+            @PathVariable long id, Authentication authentication) {
+        permissions.require(
+                "PROVIDER_CREDENTIAL_MANAGE", "provider-credential-verify", "credential:" + id);
+        return service.verifyPlatformCredential(id, actor(authentication));
+    }
+
     @PostMapping("/credentials/{id}/approve")
     public Map<String, Object> approveCredential(
             @PathVariable long id, Authentication authentication) {
@@ -93,6 +101,35 @@ public class SharedProviderAdminController {
         permissions.require(
                 "PROVIDER_CREDENTIAL_MANAGE", "provider-credential-disable", "credential:" + id);
         return service.disablePlatformCredential(id, actor(authentication));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private net.citotech.cito.merchant.MerchantChannelCredentialService merchantCredentials;
+
+    @GetMapping("/merchant-credentials")
+    public List<Map<String, Object>> merchantCredentials() {
+        permissions.require("PROVIDER_CREDENTIAL_MANAGE", "merchant-credential-list", "all");
+        return merchantCredentials.approvalQueue();
+    }
+
+    @PostMapping("/merchant-credentials/{id}/decision")
+    public Map<String, Object> decideMerchantCredential(
+            @PathVariable long id,
+            @RequestBody Map<String, Object> body,
+            Authentication authentication) {
+        String decision = String.valueOf(body.get("decision"));
+        permissions.require(
+                "DISABLED".equals(decision)
+                        ? "PROVIDER_CREDENTIAL_MANAGE"
+                        : "PROVIDER_CREDENTIAL_APPROVE",
+                "merchant-credential-decision",
+                "credential:" + id);
+        return merchantCredentials.decide(
+                id,
+                ((Number) body.get("revision")).longValue(),
+                decision,
+                actor(authentication),
+                String.valueOf(body.getOrDefault("reason", "")));
     }
 
     private String actor(Authentication authentication) {

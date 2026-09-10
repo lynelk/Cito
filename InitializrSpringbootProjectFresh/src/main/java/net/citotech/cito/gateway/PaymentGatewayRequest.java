@@ -7,26 +7,46 @@ import java.util.Map;
 public class PaymentGatewayRequest {
     private final String merchantNumber;
     private final String accountIdentifier;
-    private final Double amount;
+    private final java.math.BigDecimal amount;
     private final String reference;
     private final String description;
     private final String callbackUrl;
     private final Map<String, String> metadata;
 
-    public PaymentGatewayRequest(String merchantNumber,
-                                 String accountIdentifier,
-                                 Double amount,
-                                 String reference,
-                                 String description,
-                                 String callbackUrl,
-                                 Map<String, String> metadata) {
+    public PaymentGatewayRequest(
+            String merchantNumber,
+            String accountIdentifier,
+            Double amount,
+            String reference,
+            String description,
+            String callbackUrl,
+            Map<String, String> metadata) {
+        this(
+                merchantNumber,
+                accountIdentifier,
+                java.math.BigDecimal.valueOf(amount),
+                reference,
+                description,
+                callbackUrl,
+                metadata);
+    }
+
+    public PaymentGatewayRequest(
+            String merchantNumber,
+            String accountIdentifier,
+            java.math.BigDecimal amount,
+            String reference,
+            String description,
+            String callbackUrl,
+            Map<String, String> metadata) {
         this.merchantNumber = merchantNumber;
         this.accountIdentifier = accountIdentifier;
         this.amount = amount;
         this.reference = reference;
         this.description = description;
         this.callbackUrl = callbackUrl;
-        this.metadata = metadata == null ? Collections.emptyMap() : Collections.unmodifiableMap(metadata);
+        this.metadata =
+                metadata == null ? Collections.emptyMap() : Collections.unmodifiableMap(metadata);
     }
 
     public String getMerchantNumber() {
@@ -38,6 +58,10 @@ public class PaymentGatewayRequest {
     }
 
     public Double getAmount() {
+        return amount.doubleValue();
+    }
+
+    public java.math.BigDecimal getAmountDecimal() {
         return amount;
     }
 
@@ -57,4 +81,3 @@ public class PaymentGatewayRequest {
         return metadata;
     }
 }
-

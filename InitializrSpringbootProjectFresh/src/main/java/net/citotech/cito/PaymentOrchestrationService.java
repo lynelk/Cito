@@ -55,9 +55,31 @@ public class PaymentOrchestrationService {
         this.paymentUsageOutboxHook = paymentUsageOutboxHook;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private net.citotech.cito.api.v2.AdapterNativePaymentService nativePayments;
+
+    private boolean usesManagedMobileMoney(PaymentRequest request) {
+        if (request == null) return false;
+        if (net.citotech.cito.gateway.MobileMoneyExecutionService.managed(request.getChannel()))
+            return true;
+        if (request.getChannel() != null && !request.getChannel().isBlank()) return false;
+        String account =
+                request.getPayer() != null
+                        ? request.getPayer().getValue()
+                        : request.getPayee() == null ? null : request.getPayee().getValue();
+        String gateway = DoPayGateway.getGatewayIdByMsisdn(account, jdbcTemplate);
+        if (net.citotech.cito.gateway.LegacyGatewayIds.MTN_MOMO.equals(gateway))
+            request.setChannel("mtn_momo");
+        if (net.citotech.cito.gateway.LegacyGatewayIds.AIRTEL_OPEN_API.equals(gateway))
+            request.setChannel("airtel_open_api");
+        return net.citotech.cito.gateway.MobileMoneyExecutionService.managed(request.getChannel());
+    }
+
     public PaymentResult collect(
             PaymentRequest request, Merchant verifiedMerchant, String originateIp) {
         validatePaymentRequest(request, true);
+        if (usesManagedMobileMoney(request))
+            return nativePayments.collect(request, verifiedMerchant, "PRODUCTION");
         Merchant merchant =
                 validateMerchant(
                         request.getMerchantNumber(),
@@ -103,6 +125,8 @@ public class PaymentOrchestrationService {
     public PaymentResult payout(
             PaymentRequest request, Merchant verifiedMerchant, String originateIp) {
         validatePaymentRequest(request, false);
+        if (usesManagedMobileMoney(request))
+            return nativePayments.payout(request, verifiedMerchant, "PRODUCTION");
         Merchant merchant =
                 validateMerchant(
                         request.getMerchantNumber(),
@@ -117,7 +141,13 @@ public class PaymentOrchestrationService {
 
         Double amount = parseAmount(request.getAmount());
         Double charges = DoPayGateway.getCustomerOutboundCharges(amount, chargeDetails);
-        ensureMerchantHasAvailableBalance(merchant, gatewayId, amount + charges);
+        ensureMerchantHasAvailableBalance(
+                merchant,
+                gatewayId,
+                MoneyAmount.of(java.math.BigDecimal.valueOf(amount))
+                        .asBigDecimal()
+                        .add(MoneyAmount.of(java.math.BigDecimal.valueOf(charges)).asBigDecimal())
+                        .doubleValue());
 
         Transaction tx = baseTransaction(request, merchant, gatewayId, originateIp, amount);
         tx.setPayer_number(accountIdentifier);

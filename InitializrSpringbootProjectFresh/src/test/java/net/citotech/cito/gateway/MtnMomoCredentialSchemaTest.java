@@ -51,6 +51,7 @@ class MtnMomoCredentialSchemaTest {
         Map<String, Object> credentials = credentials();
         credentials.put("baseUrl", MtnMomoCredentialSchema.PRODUCTION_BASE_URL);
         credentials.put("targetEnvironment", "mtnuganda");
+        credentials.put("baseUrl", MtnMomoCredentialSchema.PRODUCTION_BASE_URL);
         credentials.put("baseCurrency", "UGX");
 
         assertThatCode(
@@ -65,6 +66,7 @@ class MtnMomoCredentialSchemaTest {
         Map<String, Object> credentials = credentials();
         credentials.put("baseUrl", MtnMomoCredentialSchema.PRODUCTION_BASE_URL);
         credentials.put("targetEnvironment", "mtnuganda");
+        credentials.put("baseUrl", MtnMomoCredentialSchema.PRODUCTION_BASE_URL);
         credentials.put("baseCurrency", "EUR");
 
         assertThatThrownBy(
@@ -101,6 +103,7 @@ class MtnMomoCredentialSchemaTest {
     void acceptsHttpsCallbackForUgandaProduction() {
         Map<String, Object> credentials = credentials();
         credentials.put("targetEnvironment", "mtnuganda");
+        credentials.put("baseUrl", MtnMomoCredentialSchema.PRODUCTION_BASE_URL);
         credentials.put("baseCurrency", "UGX");
 
         assertThatCode(

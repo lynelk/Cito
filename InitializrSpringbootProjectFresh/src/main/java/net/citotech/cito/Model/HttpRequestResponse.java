@@ -1,11 +1,8 @@
 package net.citotech.cito.Model;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**
- *
  * @author josephtabajjwa
  */
 public class HttpRequestResponse {
@@ -32,8 +29,6 @@ public class HttpRequestResponse {
     public void setRequestData(String requestData) {
         this.requestData = requestData;
     }
-    
-    
 
     public int getStatusCode() {
         return statusCode;
@@ -74,33 +69,16 @@ public class HttpRequestResponse {
     public void setResponseHeaders(Map<String, String> responseHeaders) {
         this.responseHeaders = responseHeaders;
     }
-    
+
+    /** Diagnostics deliberately exclude credentials, payloads, URLs and exception messages. */
+    @Override
     public String toString() {
-        String request_headers = "";
-        String response_headers = "";
-        if (requestHeaders != null) {
-            for (Map.Entry<String, String> h : this.getRequestHeaders().entrySet()) {
-                request_headers += h.getKey()+": "+h.getValue()+"\n";
-            }
-        }
-        
-        if (responseHeaders != null) {
-            for (Map.Entry<String, String> h_ : this.getResponseHeaders().entrySet()) {
-                response_headers += h_.getKey()+": "+h_.getValue()+"\n";
-            }
-        }
-        
-        return "\n****URL****\n"+this.getUrl()+"\n\n"
-                + "****Status****\n"+this.getStatusCode()+"\n\n"
-                + "****Request Headers****\n"+request_headers+"\n\n"
-                + "****Request Data****\n"+this.getRequestData()+"\n\n"
-                + "****Respoonse Headers****\n"+response_headers+"\n\n"
-                + "****Respones Data****\n"+this.getResponse()+"\n\n"
-                + "****Error Message****\n"+this.getErrorMessage()+"\n\n";
+        return "httpStatus="
+                + statusCode
+                + "; transportError="
+                + (errorMessage != null && !errorMessage.isBlank());
     }
-    
-    
-    
+
     public class Header {
         String name;
         String value;
@@ -109,14 +87,13 @@ public class HttpRequestResponse {
             this.name = name;
             this.value = value;
         }
-        
-        public String getValue( ) {
+
+        public String getValue() {
             return this.name;
         }
+
         public String getName() {
             return this.name;
         }
     }
-    
 }
-

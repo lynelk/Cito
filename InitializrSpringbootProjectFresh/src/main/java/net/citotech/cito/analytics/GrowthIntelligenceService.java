@@ -224,7 +224,7 @@ public class GrowthIntelligenceService {
                         + "SUM(CASE WHEN status IN ('FAILED','FAILURE','REJECTED','CANCELLED') THEN 1 ELSE 0 END) failedCount,"
                         + "COALESCE(SUM(CASE WHEN status IN ('SUCCESS','SUCCESSFUL','COMPLETED') "
                         + "THEN CAST(original_amount AS DECIMAL(20,4)) ELSE CAST(0 AS DECIMAL(20,4)) END),CAST(0 AS DECIMAL(20,4))) successfulVolume "
-                        + "FROM merchant_transactions_log WHERE created_on>=:from"
+                        + "FROM merchant_production_transactions WHERE created_on>=:from"
                         + merchantClause
                         + " GROUP BY COALESCE(NULLIF(currency,''),'UNKNOWN') ORDER BY transactionCount DESC",
                 parameters);

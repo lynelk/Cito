@@ -251,3 +251,44 @@ test('merchant service portfolio is responsive and entitlement-aware', async ({ 
 
   await attachEvidence(page, testInfo, 'merchant-services');
 });
+test('merchant payment credentials preserve stored secrets at narrow and wide widths', async ({ page }, testInfo) => {
+  await primeMerchant(page);
+  const credentials = { baseUrl: 'https://openapiuat.airtel.africa', clientId: '****', clientSecret: '****', country: 'UG', currency: 'UGX', publicKey: 'PUBLIC KEY EXAMPLE' };
+  await page.route('**/api/v2/merchant-self-service/environment', route => route.fulfill(json({ environment: 'SANDBOX' })));
+  await page.route('**/api/v2/merchant-self-service/channels', route => route.fulfill(json([{ channelCode: 'airtel_open_api', displayName: 'Airtel OpenAPI', countryCode: 'UG', currencyCode: 'UGX', environments: { SANDBOX: { status: 'CONFIGURED', credentials, revision: 7 } } }])));
+  await page.goto('/fo/channels', { waitUntil: 'domcontentloaded' });
+  const secret = page.getByLabel('Client secret (stored; leave blank to keep)');
+  await expect(secret).toBeVisible();
+  await expect(secret).toHaveValue('');
+  await expect(page.getByLabel('Airtel country code')).toHaveValue('UG');
+  await expect(page.getByLabel('Airtel RSA public key')).toBeVisible();
+  await assertNoDocumentOverflow(page);
+  await attachEvidence(page, testInfo, 'merchant-payment-credentials');
+});
+
+test('admin can review a credential revision with a reason using the keyboard', async ({ page }, testInfo) => {
+  await primeAdmin(page);
+  await page.route('**/api/v2/admin/provider-treasury/**', route => route.fulfill(json([])));
+  await page.route('**/api/v2/admin/shared-provider/**', route => route.fulfill(json([])));
+  const review = { id: 1, merchantNumber: 'QA-MERCHANT', channelCode: 'mtn_momo', environment: 'PRODUCTION', revision: 7, status: 'SUBMITTED_FOR_APPROVAL', lastTestStatus: 'CONNECTIVITY_VERIFIED', requestedBy: 'maker@example.invalid' };
+  await page.route('**/api/v2/admin/shared-provider/merchant-credentials', route => route.fulfill(json([review])));
+  let decision;
+  await page.route('**/api/v2/admin/shared-provider/merchant-credentials/1/decision', async route => { decision = route.request().postDataJSON(); review.status = decision.decision; await route.fulfill(json(review)); });
+  await page.goto('/bo/provider-treasury', { waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { name: 'Merchant credential reviews' })).toBeVisible();
+  const approve = page.getByRole('button', { name: 'Approve', exact: true });
+  await expect(approve).toBeDisabled();
+  const reason = page.getByLabel('Decision reason');
+  await reason.fill('Independent review of the current connection evidence');
+  await approve.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Credential decision recorded.')).toBeVisible();
+  expect(decision).toEqual({ revision: 7, decision: 'ACTIVE', reason: 'Independent review of the current connection evidence' });
+  await assertNoDocumentOverflow(page);
+  await attachEvidence(page, testInfo, 'admin-credential-review');
+  if (testInfo.project.name === 'chrome-edge-1440') {
+    await page.evaluate(() => { document.documentElement.style.zoom = '200%'; });
+    await assertNoDocumentOverflow(page);
+    await attachEvidence(page, testInfo, 'admin-credential-review-200-percent');
+  }
+});

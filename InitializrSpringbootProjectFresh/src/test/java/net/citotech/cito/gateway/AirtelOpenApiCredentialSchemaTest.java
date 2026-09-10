@@ -31,7 +31,7 @@ class AirtelOpenApiCredentialSchemaTest {
                                         "PRODUCTION",
                                         "UG",
                                         "UGX"));
-        assertTrue(error.getMessage().contains("production"));
+        assertTrue(error.getMessage().contains("approved origin"));
     }
 
     @Test

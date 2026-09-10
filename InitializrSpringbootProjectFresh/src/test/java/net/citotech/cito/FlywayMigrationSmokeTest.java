@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 class FlywayMigrationSmokeTest {
 
     @Test
-    void appliesAllMigrationsToCleanMysqlSchema() throws SQLException {
+    void appliesAllMigrationsToCleanMysqlSchema() throws Exception {
         String url = System.getenv("DB_URL");
         Assumptions.assumeTrue(
                 url != null && url.startsWith("jdbc:mysql:"),
@@ -41,11 +41,11 @@ class FlywayMigrationSmokeTest {
         assertTrue(result.migrationsExecuted > 0, "A clean schema must execute migrations");
 
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            assertEquals("124", latestSuccessfulVersion(connection));
+            assertEquals("125", latestSuccessfulVersion(connection));
             assertEquals(4, auditProtectionTriggerCount(connection));
-            assertEquals(5, treasuryAccountRoleCount(connection, "MASTER"));
-            assertEquals(5, treasuryAccountRoleCount(connection, "COLLECTION"));
-            assertEquals(5, treasuryAccountRoleCount(connection, "DISBURSEMENT"));
+            assertEquals(6, treasuryAccountRoleCount(connection, "MASTER"));
+            assertEquals(6, treasuryAccountRoleCount(connection, "COLLECTION"));
+            assertEquals(6, treasuryAccountRoleCount(connection, "DISBURSEMENT"));
             assertEquals(3, mtnScopeAccountCount(connection, "PRODUCTION", "UGX"));
             assertEquals(3, mtnScopeAccountCount(connection, "SANDBOX", "EUR"));
             assertEquals(0, nonZeroSeededTreasuryAccountCount(connection));
@@ -55,6 +55,7 @@ class FlywayMigrationSmokeTest {
             assertEquals(0, defaultOperationalMerchantUserCount(connection));
             assertEquals(0, nonZeroDefaultOperationalBalanceCount(connection));
         }
+        net.citotech.cito.gateway.MobileMoneyMysqlScenario.run(url, username, password);
         net.citotech.cito.communication.outbox.NotificationMysqlScenario.run(
                 url, username, password);
     }

@@ -5,12 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 /**
- * Covers audit N7's capability matrix: OWNER has full access, FINANCE can move money but not
- * manage users/channels, DEVELOPER can manage channels but not move money, VIEWER can only view.
- * Also covers the fail-open contract of {@link MerchantRole#fromString(String)}: a null or
- * unrecognized stored role value must resolve to OWNER, never to a more restrictive role such as
- * VIEWER, so a pre-migration/unknown row never silently locks out an already-active merchant
- * user.
+ * Covers audit N7's capability matrix: OWNER has full access, FINANCE can move money but not manage
+ * users/channels, DEVELOPER can manage channels but not move money, VIEWER can only view. Also
+ * covers the fail-open contract of {@link MerchantRole#fromString(String)}: a null or unrecognized
+ * stored role value must resolve to OWNER, never to a more restrictive role such as VIEWER, so a
+ * pre-migration/unknown row never silently locks out an already-active merchant user.
  */
 class MerchantRoleTest {
 
@@ -55,21 +54,21 @@ class MerchantRoleTest {
     }
 
     @Test
-    void fromStringFailsOpenToOwnerOnNullValue() {
-        assertThat(MerchantRole.fromString(null)).isEqualTo(MerchantRole.OWNER);
+    void fromStringFailsClosedToViewerOnNullValue() {
+        assertThat(MerchantRole.fromString(null)).isEqualTo(MerchantRole.VIEWER);
     }
 
     @Test
-    void fromStringFailsOpenToOwnerOnBlankValue() {
-        assertThat(MerchantRole.fromString("")).isEqualTo(MerchantRole.OWNER);
-        assertThat(MerchantRole.fromString("   ")).isEqualTo(MerchantRole.OWNER);
+    void fromStringFailsClosedToViewerOnBlankValue() {
+        assertThat(MerchantRole.fromString("")).isEqualTo(MerchantRole.VIEWER);
+        assertThat(MerchantRole.fromString("   ")).isEqualTo(MerchantRole.VIEWER);
     }
 
     @Test
-    void fromStringFailsOpenToOwnerOnUnrecognizedValue() {
+    void fromStringFailsClosedToViewerOnUnrecognizedValue() {
         // e.g. a future role name this build doesn't know about, or corrupted data - must never
         // silently downgrade to a more restrictive role like VIEWER.
-        assertThat(MerchantRole.fromString("SUPERADMIN")).isEqualTo(MerchantRole.OWNER);
-        assertThat(MerchantRole.fromString("not-a-role")).isEqualTo(MerchantRole.OWNER);
+        assertThat(MerchantRole.fromString("SUPERADMIN")).isEqualTo(MerchantRole.VIEWER);
+        assertThat(MerchantRole.fromString("not-a-role")).isEqualTo(MerchantRole.VIEWER);
     }
 }

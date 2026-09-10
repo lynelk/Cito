@@ -77,6 +77,24 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
         return false;
     }
 
+    private String verifiedTransactionId = "";
+    private String verifiedAmount;
+    private String verifiedCurrency;
+
+    public String getVerifiedTransactionId() {
+        return verifiedTransactionId;
+    }
+
+    public void requireMatchingCommercialAttributes(java.math.BigDecimal amount, String currency) {
+        if (verifiedAmount != null
+                && amount.compareTo(new java.math.BigDecimal(verifiedAmount)) != 0)
+            throw new net.citotech.cito.gateway.PaymentGatewayException(
+                    "Airtel amount does not match payment");
+        if (verifiedCurrency != null && !currency.equalsIgnoreCase(verifiedCurrency))
+            throw new net.citotech.cito.gateway.PaymentGatewayException(
+                    "Airtel currency does not match payment");
+    }
+
     public void setApiDetails(
             String global_url, String api_username, String api_password, String api_pin) {
         if (global_url != null && !global_url.trim().isEmpty()) {
@@ -182,7 +200,7 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
         try {
             Token token = getToken();
             if (token == null) {
-                return 0.0;
+                return null;
             }
             Map<String, String> headers = standardHeaders(token);
             HttpRequestResponse response = Common.doHttpRequest("GET", balanceUrl(), "", headers);
@@ -198,7 +216,7 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
             if (response == null
                     || response.getStatusCode() != 200
                     || response.getResponse().isEmpty()) {
-                return 0.0;
+                return null;
             }
             JSONObject json = new JSONObject(response.getResponse());
             if (!json.isNull("data")) {
@@ -207,15 +225,20 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
                     return Double.parseDouble(data.getString("balance").replace(",", ""));
                 }
             }
-            return 0.0;
+            return null;
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
-            return 0.0;
+            return null;
         }
     }
 
     @Override
     public GateWayResponse doPayOut(Double amount, String payee, String ref, String narrative) {
+        return doPayOut(java.math.BigDecimal.valueOf(amount), payee, ref, narrative);
+    }
+
+    public GateWayResponse doPayOut(
+            java.math.BigDecimal amount, String payee, String ref, String narrative) {
         this.segment = "disbursement";
         try {
             JSONObject body = new JSONObject();
@@ -241,6 +264,11 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
 
     @Override
     public GateWayResponse doPayIn(Double amount, String payer, String ref, String narrative) {
+        return doPayIn(java.math.BigDecimal.valueOf(amount), payer, ref, narrative);
+    }
+
+    public GateWayResponse doPayIn(
+            java.math.BigDecimal amount, String payer, String ref, String narrative) {
         this.segment = "collection";
         try {
             JSONObject body = new JSONObject();
@@ -264,7 +292,16 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
 
     @Override
     public GateWayResponse checkStatus(String ref) {
-        return submit("GET", statusUrl(this.segment, ref), "", ref);
+        GateWayResponse response = submit("GET", statusUrl(this.segment, ref), "", ref);
+        if (response != null
+                && ("SUCCESSFUL".equals(response.getTransactionStatus())
+                        || "FAILED".equals(response.getTransactionStatus()))
+                && !ref.equals(getVerifiedTransactionId())) {
+            response.setTransactionStatus("UNDETERMINED");
+            response.setMessage(
+                    "Provider status did not verify the submitted transaction reference");
+        }
+        return response;
     }
 
     @Override
@@ -299,6 +336,12 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
     }
 
     public Token getToken() throws IOException, JSONException {
+        net.citotech.cito.gateway.ProviderEndpointPolicy.requireOrigin(
+                this.global_url,
+                "SANDBOX".equalsIgnoreCase(this.mode)
+                        ? net.citotech.cito.gateway.AirtelOpenApiCredentialSchema.SANDBOX_BASE_URL
+                        : net.citotech.cito.gateway.AirtelOpenApiCredentialSchema
+                                .PRODUCTION_BASE_URL);
         Token token = readToken();
         if (token == null
                 || LocalDateTime.now().isAfter(token.created_on.plusMinutes(TOKEN_TTL_MINUTES))) {
@@ -384,10 +427,8 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
                 gatewayResponse.setTransactionStatus(uncertain ? "UNDETERMINED" : "FAILED");
                 // Audit C6: response.getResponse() is the RAW, unfiltered Airtel OpenAPI response
                 // body -
-                // it must never be handed to a merchant directly. Translate it into a merchant-safe
-                // message; the raw body is still available internally via requestTrace (set above
-                // from
-                // response.toString(), which is never serialized into a merchant-facing response).
+                // it must never be handed to a merchant or persisted in a trace. Translate it
+                // into a merchant-safe message and keep only the HTTP outcome in the trace.
                 ProviderErrorTranslator.Translation translation =
                         ProviderErrorTranslator.translateProviderResponse(
                                 response.getStatusCode(),
@@ -407,7 +448,7 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
             // surfaced nor actually captured for internal diagnosis. Log it here, and hand the
             // merchant
             // only a stable reason code plus a generic, safe message.
-            logger.error("Airtel OpenAPI request failed for " + url, e);
+            logger.error("Airtel OpenAPI request failed ({})", e.getClass().getSimpleName());
             ProviderErrorTranslator.Translation translation =
                     ProviderErrorTranslator.translateInternalFailure(e);
             GateWayResponse errorResponse = new GateWayResponse();
@@ -418,13 +459,7 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
             errorResponse.setMessage(
                     "Payment outcome is not yet confirmed; check status before retrying.");
             errorResponse.setRequestTrace(
-                    translation.stableCode()
-                            + ": "
-                            + e.getClass().getSimpleName()
-                            + (e.getMessage() == null ? "" : " - " + e.getMessage())
-                            + " | "
-                            + url
-                            + data);
+                    translation.stableCode() + ": " + e.getClass().getSimpleName());
             return errorResponse;
         }
     }
@@ -463,6 +498,11 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
         JSONObject json = new JSONObject(response.getResponse());
         if (!json.isNull("data") && !json.getJSONObject("data").isNull("transaction")) {
             JSONObject transaction = json.getJSONObject("data").getJSONObject("transaction");
+            verifiedTransactionId = transaction.optString("id", "");
+            verifiedAmount =
+                    transaction.has("amount") ? transaction.optString("amount", null) : null;
+            verifiedCurrency =
+                    transaction.has("currency") ? transaction.optString("currency", null) : null;
             String status = transaction.isNull("status") ? "" : transaction.getString("status");
             String networkId = transaction.optString("airtel_money_id", "");
             if (networkId.isBlank()) networkId = transaction.optString("reference_id", "");
@@ -563,9 +603,7 @@ public class AirtelMoneyOpenApiPaymentGateway extends PaymentGateway {
 
     private String endpoint(String pathOrUrl) {
         String configured = valueOrCurrent(pathOrUrl, "");
-        if (configured.startsWith("http://") || configured.startsWith("https://")) {
-            return configured;
-        }
+        net.citotech.cito.gateway.ProviderEndpointPolicy.requireRelativePath(configured);
         String base =
                 this.global_url == null || this.global_url.trim().isEmpty()
                         ? "https://openapiuat.airtel.africa"

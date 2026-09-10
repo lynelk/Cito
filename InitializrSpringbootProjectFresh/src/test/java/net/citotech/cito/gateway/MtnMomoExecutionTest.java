@@ -59,6 +59,9 @@ class MtnMomoExecutionTest {
                     respond(exchange, 202, "");
                 });
         server.start();
+        ProviderHttpTestTransport.route(
+                MtnMomoCredentialSchema.SANDBOX_BASE_URL,
+                "http://localhost:" + server.getAddress().getPort());
         try {
             ProviderTokenStoreService tokenStore = mock(ProviderTokenStoreService.class);
             when(tokenStore.findValid(anyString(), anyString(), anyString()))
@@ -96,6 +99,7 @@ class MtnMomoExecutionTest {
                     .save(anyString(), anyString(), anyString(), anyString(), any(Instant.class));
         } finally {
             server.stop(0);
+            ProviderHttpTestTransport.reset();
         }
     }
 
@@ -136,6 +140,9 @@ class MtnMomoExecutionTest {
                     respond(exchange, 202, "");
                 });
         server.start();
+        ProviderHttpTestTransport.route(
+                MtnMomoCredentialSchema.SANDBOX_BASE_URL,
+                "http://localhost:" + server.getAddress().getPort());
         try {
             ProviderTokenStoreService tokenStore = mock(ProviderTokenStoreService.class);
             when(tokenStore.findValid(anyString(), anyString(), anyString()))
@@ -173,6 +180,7 @@ class MtnMomoExecutionTest {
                     .save(anyString(), anyString(), anyString(), anyString(), any(Instant.class));
         } finally {
             server.stop(0);
+            ProviderHttpTestTransport.reset();
         }
     }
 
@@ -183,9 +191,12 @@ class MtnMomoExecutionTest {
 
     private PaymentGatewayRequest request(int port, String description) {
         Map<String, String> credentials = new HashMap<>();
-        credentials.put("baseUrl", "http://localhost:" + port);
+        credentials.put("baseUrl", MtnMomoCredentialSchema.SANDBOX_BASE_URL);
         credentials.put("targetEnvironment", "sandbox");
         credentials.put("currency", "EUR");
+        credentials.put("baseCurrency", "EUR");
+        credentials.put("country", "UG");
+        credentials.put("callbackHost", "pay.example.com");
         credentials.put("baseCurrency", "EUR");
         credentials.put("gatewayState", "SANDBOX");
         credentials.put("callbackHost", "pay.example.com");

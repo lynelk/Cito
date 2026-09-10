@@ -95,7 +95,7 @@ public class ReconciliationRepository {
                         + "JOIN ("
                         + " SELECT rr2.id AS reconciliation_id, MIN(tx.tx_unique_id) AS transaction_id, COUNT(*) AS candidate_count"
                         + " FROM reconciliation_records rr2"
-                        + " JOIN merchant_transactions_log tx ON tx.tx_merchant_ref = rr2.merchant_reference"
+                        + " JOIN merchant_production_transactions tx ON tx.tx_merchant_ref = rr2.merchant_reference"
                         + "  AND ABS(CAST(tx.original_amount AS DECIMAL(24,8)) - rr2.amount) < :amount_tolerance"
                         + "  AND UPPER(tx.currency) = UPPER(rr2.currency)"
                         + "  AND UPPER(tx.status) IN ('SUCCESS','SUCCESSFUL','COMPLETED','PAID')"
@@ -140,7 +140,7 @@ public class ReconciliationRepository {
                 new StringBuilder(
                         "SELECT id, tx_unique_id, tx_merchant_ref, tx_gateway_ref, merchant_id,"
                                 + " original_amount, currency, status, tx_type, created_on,"
-                                + " payer_number FROM merchant_transactions_log WHERE 1=1");
+                                + " payer_number FROM merchant_production_transactions WHERE 1=1");
         MapSqlParameterSource p = new MapSqlParameterSource();
         if (StringUtils.hasText(reference)) {
             sql.append(

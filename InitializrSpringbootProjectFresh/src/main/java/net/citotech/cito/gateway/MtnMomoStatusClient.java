@@ -62,7 +62,14 @@ public class MtnMomoStatusClient {
         return new VerifiedStatus(
                 status,
                 json.optString("externalId", "").trim(),
-                json.optString("financialTransactionId", "").trim());
+                json.optString("financialTransactionId", "").trim(),
+                json.optString("amount", null),
+                json.optString("currency", ""),
+                json.optJSONObject("PAYOUT".equalsIgnoreCase(operation) ? "payee" : "payer") == null
+                        ? ""
+                        : json.getJSONObject(
+                                        "PAYOUT".equalsIgnoreCase(operation) ? "payee" : "payer")
+                                .optString("partyId", ""));
     }
 
     private HttpRequestResponse statusRequest(
@@ -161,5 +168,15 @@ public class MtnMomoStatusClient {
         return safe;
     }
 
-    public record VerifiedStatus(String status, String externalId, String financialTransactionId) {}
+    public record VerifiedStatus(
+            String status,
+            String externalId,
+            String financialTransactionId,
+            String amount,
+            String currency,
+            String account) {
+        public VerifiedStatus(String status, String externalId, String financialTransactionId) {
+            this(status, externalId, financialTransactionId, null, "", "");
+        }
+    }
 }

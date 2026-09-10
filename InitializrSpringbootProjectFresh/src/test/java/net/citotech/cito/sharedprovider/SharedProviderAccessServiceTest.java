@@ -52,6 +52,12 @@ class SharedProviderAccessServiceTest {
         merchant.setId(42L);
         merchant.setAccount_number("M-42");
         merchant.setStatus("ACTIVE");
+        when(jdbc.query(
+                        contains("book_balance-reserved_balance"),
+                        any(MapSqlParameterSource.class),
+                        org.mockito.ArgumentMatchers
+                                .<org.springframework.jdbc.core.RowMapper<BigDecimal>>any()))
+                .thenReturn(List.of(new BigDecimal("1000")));
     }
 
     @Test
@@ -210,6 +216,8 @@ class SharedProviderAccessServiceTest {
                 "daily_limit",
                 new BigDecimal(daily),
                 "requested_by",
-                "maker@example.com");
+                "maker@example.com",
+                "used",
+                BigDecimal.ZERO);
     }
 }

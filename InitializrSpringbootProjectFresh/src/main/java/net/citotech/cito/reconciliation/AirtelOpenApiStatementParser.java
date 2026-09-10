@@ -6,6 +6,6 @@ package net.citotech.cito.reconciliation;
  */
 public class AirtelOpenApiStatementParser extends AbstractTabularStatementParser {
     public AirtelOpenApiStatementParser() {
-        super("AIRTEL_OPENAPI", "airtel_money_openapi");
+        super("AIRTEL_OPENAPI", "airtel_open_api");
     }
 }

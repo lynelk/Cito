@@ -37,6 +37,9 @@ public class MerchantChannelCredentialService {
         this.objectMapper = objectMapper;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private net.citotech.cito.gateway.ProviderCredentialProbeService probe;
+
     public List<Map<String, Object>> list(MerchantUser user) {
         requireUser(user);
         Map<String, Object> preference = environmentService.getPreference(user);
@@ -152,12 +155,30 @@ public class MerchantChannelCredentialService {
         return new LinkedHashMap<>();
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public Map<String, Object> save(MerchantUser user, Map<String, Object> body) {
         requireUser(user);
         requireCanManageChannels(user);
         String channelCode = text(body.get("channelCode"));
         String environment = normalizedEnvironment(text(body.get("environment")));
-        Map<String, Object> credentials = asMap(body.get("credentials"));
+        jdbcTemplate.queryForObject(
+                "SELECT id FROM merchants WHERE id=:id FOR UPDATE",
+                new MapSqlParameterSource("id", user.getMerchant_id()),
+                Long.class);
+        Map<String, Object> saved = find(user.getMerchant_id(), channelCode, environment);
+        long revision = saved == null ? 0 : ((Number) saved.get("revision")).longValue();
+        if (saved != null
+                && (!(body.get("revision") instanceof Number)
+                        || ((Number) body.get("revision")).longValue() != revision))
+            throw new PaymentGatewayException(
+                    "Credential configuration changed; reload before saving");
+        Map<String, Object> credentials =
+                CredentialEdits.merge(
+                        saved == null
+                                ? Map.of()
+                                : loadDecrypted(user.getMerchant_id(), channelCode, environment),
+                        asMap(body.get("credentials")),
+                        body.get("clearFields") instanceof List<?> list ? list : List.of());
         PaymentChannelAdapter adapter =
                 registry.findByChannelCode(channelCode)
                         .orElseThrow(
@@ -184,7 +205,7 @@ public class MerchantChannelCredentialService {
                         + " :display_name, :credential_payload, :credential_mask, :status, :actor,"
                         + " :actor) ON DUPLICATE KEY UPDATE display_name=:display_name,"
                         + " credential_payload=:credential_payload, credential_mask=:credential_mask,"
-                        + " status=:status, updated_by=:actor, updated_at=CURRENT_TIMESTAMP";
+                        + " status=:status, revision=revision+1, last_test_status=NULL, last_test_message=NULL, last_tested_at=NULL, tested_revision=NULL, approved_by=NULL, approved_at=NULL, decision_reason=NULL, submitted_for_approval_at=NULL, updated_by=:actor, updated_at=CURRENT_TIMESTAMP";
         jdbcTemplate.update(sql, p);
         audit(
                 user.getMerchant_id(),
@@ -214,19 +235,64 @@ public class MerchantChannelCredentialService {
                 loadDecrypted(user.getMerchant_id(), channelCode, environment);
         validateRequiredCredentials(adapter, credentials, environment);
         MapSqlParameterSource p = params(user.getMerchant_id(), channelCode, environment);
-        p.addValue("status", "PRODUCTION".equals(environment) ? "CONFIGURED" : "SANDBOX_TESTED");
-        p.addValue("test_status", "PASSED");
+        boolean connectivity = Boolean.TRUE.equals(body.get("connectivity"));
+        // Local structure checks preserve authentication evidence for the same revision.
+        if (!connectivity && "CONNECTIVITY_VERIFIED".equals(saved.get("lastTestStatus")))
+            return saved;
+        if (connectivity) {
+            try {
+                probe.verify(
+                        channelCode,
+                        environment,
+                        text(credentials.getOrDefault("country", adapter.countryCode())),
+                        text(
+                                credentials.getOrDefault(
+                                        "baseCurrency",
+                                        credentials.getOrDefault(
+                                                "currency", adapter.currencyCode()))),
+                        credentials);
+            } catch (RuntimeException failure) {
+                // Replace stale successful evidence only on the revision actually tested.
+                p.addValue("revision", saved.get("revision"));
+                jdbcTemplate.update(
+                        "UPDATE merchant_channel_credentials SET last_test_status='CONNECTIVITY_FAILED',last_test_message='Provider authentication could not be verified',last_tested_at=CURRENT_TIMESTAMP,tested_revision=:revision WHERE merchant_id=:merchant_id AND channel_code=:channel_code AND environment=:environment AND revision=:revision",
+                        p);
+                audit(
+                        user.getMerchant_id(),
+                        channelCode,
+                        environment,
+                        "CONNECTIVITY_FAILED",
+                        user.getEmail(),
+                        "Provider authentication could not be verified");
+                throw new PaymentGatewayException(
+                        "Provider authentication could not be verified; check credentials and provider availability");
+            }
+        }
+        p.addValue("revision", saved.get("revision"));
+        p.addValue(
+                "status",
+                "ACTIVE".equals(saved.get("status"))
+                        ? "ACTIVE"
+                        : !"PRODUCTION".equals(environment)
+                                        && (connectivity
+                                                || !net.citotech.cito.gateway
+                                                        .MobileMoneyExecutionService.managed(
+                                                        channelCode))
+                                ? "SANDBOX_TESTED"
+                                : "CONFIGURED");
+        p.addValue("test_status", connectivity ? "CONNECTIVITY_VERIFIED" : "STRUCTURE_VALID");
         p.addValue(
                 "message",
-                "Credential structure validated locally for "
-                        + environment
-                        + "; no provider request was sent");
-        jdbcTemplate.update(
-                "UPDATE merchant_channel_credentials SET status=:status,"
-                        + " last_test_status=:test_status, last_test_message=:message,"
-                        + " last_tested_at=CURRENT_TIMESTAMP WHERE merchant_id=:merchant_id AND"
-                        + " channel_code=:channel_code AND environment=:environment",
-                p);
+                connectivity
+                        ? "Provider authentication verified; payment, callback and settlement acceptance still require UAT"
+                        : "Credential structure validated locally; no provider request was sent");
+        int tested =
+                jdbcTemplate.update(
+                        "UPDATE merchant_channel_credentials SET status=:status,last_test_status=:test_status,last_test_message=:message,last_tested_at=CURRENT_TIMESTAMP,tested_revision=:revision WHERE merchant_id=:merchant_id AND channel_code=:channel_code AND environment=:environment AND revision=:revision",
+                        p);
+        if (tested != 1)
+            throw new PaymentGatewayException(
+                    "Credentials changed during verification; test the new revision");
         audit(
                 user.getMerchant_id(),
                 channelCode,
@@ -237,6 +303,7 @@ public class MerchantChannelCredentialService {
         return find(user.getMerchant_id(), channelCode, environment);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public Map<String, Object> submitForApproval(MerchantUser user, Map<String, Object> body) {
         requireUser(user);
         requireCanManageChannels(user);
@@ -248,10 +315,11 @@ public class MerchantChannelCredentialService {
                         "UPDATE merchant_channel_credentials SET status='SUBMITTED_FOR_APPROVAL',"
                                 + " submitted_for_approval_at=CURRENT_TIMESTAMP, updated_by=:actor"
                                 + " WHERE merchant_id=:merchant_id AND channel_code=:channel_code AND"
-                                + " environment=:environment",
+                                + " environment=:environment AND status IN ('CONFIGURED','SANDBOX_TESTED','REJECTED') AND (channel_code NOT IN ('mtn_momo','airtel_open_api') OR (last_test_status='CONNECTIVITY_VERIFIED' AND tested_revision=revision))",
                         p.addValue("actor", user.getEmail()));
         if (updated < 1)
-            throw new PaymentGatewayException("Channel credentials are not configured");
+            throw new PaymentGatewayException(
+                    "Verify provider connectivity for the current credential revision before submitting");
         audit(
                 user.getMerchant_id(),
                 channelCode,
@@ -277,7 +345,8 @@ public class MerchantChannelCredentialService {
                 "SELECT COUNT(*) FROM merchant_channel_credentials "
                         + "WHERE merchant_id=:merchant_id AND channel_code=:channel_code "
                         + "AND environment=:environment AND status IN "
-                        + allowedStatuses;
+                        + allowedStatuses
+                        + " AND (channel_code NOT IN ('mtn_momo','airtel_open_api') OR (last_test_status='CONNECTIVITY_VERIFIED' AND tested_revision=revision))";
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("merchant_id", merchant.getId());
         p.addValue("channel_code", channelCode);
@@ -314,7 +383,7 @@ public class MerchantChannelCredentialService {
 
     private Map<String, Object> find(Long merchantId, String channelCode, String environment) {
         String sql =
-                "SELECT channel_code, environment, display_name, credential_mask, status,"
+                "SELECT revision, tested_revision, decision_reason, channel_code, environment, display_name, credential_mask, status,"
                         + " last_test_status, last_test_message, last_tested_at,"
                         + " submitted_for_approval_at, approved_by, approved_at FROM"
                         + " merchant_channel_credentials WHERE merchant_id=:merchant_id AND"
@@ -325,6 +394,9 @@ public class MerchantChannelCredentialService {
                         params(merchantId, channelCode, normalizedEnvironment(environment)),
                         (rs, i) -> {
                             Map<String, Object> r = new LinkedHashMap<>();
+                            r.put("revision", rs.getLong("revision"));
+                            r.put("testedRevision", rs.getObject("tested_revision"));
+                            r.put("decisionReason", rs.getString("decision_reason"));
                             r.put("channelCode", rs.getString("channel_code"));
                             r.put("environment", rs.getString("environment"));
                             r.put("displayName", rs.getString("display_name"));
@@ -382,23 +454,63 @@ public class MerchantChannelCredentialService {
                 throw new PaymentGatewayException("Missing required credential field: " + key);
     }
 
-    private Map<String, Object> mask(Map<String, Object> credentials) {
-        Map<String, Object> masked = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : credentials.entrySet()) {
-            String value = text(entry.getValue());
-            String key = entry.getKey().toLowerCase();
-            if (key.contains("url")
-                    || key.endsWith("host")
-                    || key.endsWith("environment")
-                    || key.endsWith("currency")
-                    || key.equals("partyidtype")) masked.put(entry.getKey(), value);
-            else if (value.length() <= 4) masked.put(entry.getKey(), "****");
-            else
-                masked.put(
-                        entry.getKey(),
-                        value.substring(0, 2) + "****" + value.substring(value.length() - 2));
+    private Map<String, Object> mask(Map<String, Object> values) {
+        return CredentialEdits.mask(values);
+    }
+
+    public List<Map<String, Object>> approvalQueue() {
+        return jdbcTemplate.queryForList(
+                "SELECT c.id,c.merchant_id AS merchantId,m.account_number AS merchantNumber,c.channel_code AS channelCode,c.environment,c.revision,c.status,c.last_test_status AS lastTestStatus,c.last_tested_at AS lastTestedAt,c.updated_by AS requestedBy,c.decision_reason AS decisionReason FROM merchant_channel_credentials c JOIN merchants m ON m.id=c.merchant_id ORDER BY c.updated_at DESC LIMIT 500",
+                Map.of());
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public Map<String, Object> decide(
+            long id, long revision, String decision, String actor, String reason) {
+        if (actor == null || actor.isBlank())
+            throw new PaymentGatewayException("Authenticated checker is required");
+        if (!List.of("ACTIVE", "REJECTED", "DISABLED").contains(decision))
+            throw new PaymentGatewayException("Invalid credential decision");
+        if (reason == null || reason.isBlank() || reason.length() > 1000)
+            throw new PaymentGatewayException(
+                    "Decision reason is required and must be at most 1000 characters");
+        MapSqlParameterSource p = new MapSqlParameterSource("id", id);
+        List<Map<String, Object>> rows =
+                jdbcTemplate.queryForList(
+                        "SELECT * FROM merchant_channel_credentials WHERE id=:id FOR UPDATE", p);
+        if (rows.size() != 1) throw new PaymentGatewayException("Credential request was not found");
+        Map<String, Object> row = rows.get(0);
+        if (((Number) row.get("revision")).longValue() != revision)
+            throw new PaymentGatewayException(
+                    "Credential revision changed; reload the approval queue");
+        if (!"DISABLED".equals(decision)) {
+            if (!"SUBMITTED_FOR_APPROVAL".equals(row.get("status")))
+                throw new PaymentGatewayException("Only submitted credentials can be reviewed");
+            if (actor.equalsIgnoreCase(text(row.get("updated_by"))))
+                throw new PaymentGatewayException(
+                        "Requester cannot approve or reject their own credentials");
         }
-        return masked;
+        if ("ACTIVE".equals(decision)
+                && net.citotech.cito.gateway.MobileMoneyExecutionService.managed(
+                        text(row.get("channel_code")))
+                && (!"CONNECTIVITY_VERIFIED".equals(row.get("last_test_status"))
+                        || !java.util.Objects.equals(
+                                row.get("revision"), row.get("tested_revision"))))
+            throw new PaymentGatewayException(
+                    "Current credential revision requires provider connectivity verification");
+        p.addValue("status", decision).addValue("actor", actor).addValue("reason", reason);
+        jdbcTemplate.update(
+                "UPDATE merchant_channel_credentials SET status=:status,approved_by=:actor,approved_at=CURRENT_TIMESTAMP,decision_reason=:reason WHERE id=:id",
+                p);
+        Long merchant = ((Number) row.get("merchant_id")).longValue();
+        audit(
+                merchant,
+                text(row.get("channel_code")),
+                text(row.get("environment")),
+                decision,
+                actor,
+                reason);
+        return find(merchant, text(row.get("channel_code")), text(row.get("environment")));
     }
 
     private void audit(

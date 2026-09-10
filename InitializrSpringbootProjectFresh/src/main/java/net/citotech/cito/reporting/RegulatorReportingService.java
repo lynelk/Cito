@@ -141,7 +141,7 @@ public class RegulatorReportingService {
         return jdbcTemplate.query(
                 "SELECT tx_type, currency, status, COUNT(*) AS tx_count, "
                         + "COALESCE(SUM(original_amount), 0) AS total_amount "
-                        + "FROM merchant_transactions_log "
+                        + "FROM merchant_production_transactions "
                         + "WHERE created_on >= :rangeStart AND created_on < :rangeEnd "
                         + "GROUP BY tx_type, currency, status ORDER BY tx_type, currency, status",
                 p,

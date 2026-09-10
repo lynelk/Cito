@@ -92,6 +92,16 @@ public class Transaction {
         return r;
     }
 
+    private String environment = "PRODUCTION";
+
+    public String getEnvironment() {
+        return environment;
+    }
+
+    public void setEnvironment(String value) {
+        this.environment = value == null ? "PRODUCTION" : value;
+    }
+
     private BigDecimal money(Double value) {
         return value == null
                 ? BigDecimal.ZERO.setScale(MoneyAmount.SCALE)
