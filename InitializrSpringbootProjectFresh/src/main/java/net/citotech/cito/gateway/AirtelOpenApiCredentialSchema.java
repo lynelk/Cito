@@ -36,13 +36,49 @@ public final class AirtelOpenApiCredentialSchema {
         }
         String environmentValue = normalize(environment);
         String host = base.getHost().toLowerCase(Locale.ROOT);
-        if ("PRODUCTION".equals(environmentValue) && host.contains("openapiuat")) {
+        String expectedHost =
+                switch (environmentValue) {
+                    case "PRODUCTION" -> "openapi.airtel.africa";
+                    case "SANDBOX" -> "openapiuat.airtel.africa";
+                    default ->
+                            throw new PaymentGatewayException(
+                                    "Airtel environment must be SANDBOX or PRODUCTION");
+                };
+        if (!expectedHost.equals(host)
+                || base.getUserInfo() != null
+                || (base.getPort() != -1 && base.getPort() != 443)
+                || (base.getPath() != null
+                        && !base.getPath().isEmpty()
+                        && !base.getPath().equals("/"))) {
             throw new PaymentGatewayException(
-                    "Airtel production credentials cannot use the UAT base URL");
+                    "Airtel baseUrl does not match the approved sandbox/production environment origin");
         }
-        if ("SANDBOX".equals(environmentValue) && !host.contains("openapiuat")) {
-            throw new PaymentGatewayException(
-                    "Airtel sandbox credentials must use the UAT base URL");
+        for (String field :
+                List.of(
+                        "tokenPath",
+                        "collectionPath",
+                        "payoutPath",
+                        "balancePath",
+                        "collectionStatusPath",
+                        "payoutStatusPath")) {
+            String path = value(credentials, field);
+            if (!blank(path)) {
+                try {
+                    URI target =
+                            base.resolve(
+                                    path.replace("{reference}", "reference")
+                                            .replace("{id}", "reference"));
+                    if (!"https".equalsIgnoreCase(target.getScheme())
+                            || !expectedHost.equalsIgnoreCase(target.getHost())
+                            || target.getUserInfo() != null
+                            || (target.getPort() != -1 && target.getPort() != 443)
+                            || target.getQuery() != null
+                            || target.getFragment() != null) throw new IllegalArgumentException();
+                } catch (Exception ignored) {
+                    throw new PaymentGatewayException(
+                            "Airtel " + field + " must remain on the approved HTTPS origin");
+                }
+            }
         }
         if (!normalize(countryCode).equals(normalize(value(credentials, "country")))) {
             throw new PaymentGatewayException(
