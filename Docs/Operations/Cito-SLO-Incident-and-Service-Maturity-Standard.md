@@ -5,13 +5,16 @@
 
 ## 1. Service classes
 
-Every production capability MUST be assigned a service class.
+Every production capability MUST be assigned a service class and MUST remain consistent with the controlled service registry in `ops/iso/governance.json`.
 
-| Class | Typical Cito examples | Availability target | Primary objective |
-| --- | --- | ---: | --- |
-| **Class A: Financial critical** | payment execution, callbacks/status recovery, ledger, settlement, reconciliation | 99.95% monthly unless an approved provider dependency makes a lower target explicit | prevent incorrect, duplicate or lost money movement |
-| **Class B: Transaction supporting** | billing/rating, identity checks required for transactions, communications required for OTP/critical notifications | 99.9% monthly | preserve transaction completion and customer access |
-| **Class C: Operational/product** | analytics, reporting, admin tooling, non-critical campaigns, marketplace discovery | 99.5% monthly | preserve operator and product usefulness without compromising financial truth |
+| Class | Typical Cito examples | Controlled target | Primary objective |
+| --- | --- | --- | --- |
+| **Class A: Financial critical** | payment execution, callbacks/status recovery, settlement, reconciliation | payment orchestration: **99.9% monthly availability** unless the controlled registry is formally changed; provider-specific dependency limitations must be explicit | prevent incorrect, duplicate or lost money movement |
+| **Class A0: Financial integrity** | append-only ledger and financial source of truth | **integrity-first: no known unbalanced posting**; availability is measured separately from correctness | preserve balanced, traceable and recoverable financial truth |
+| **Class B: Transaction supporting** | identity checks required for transactions, billing/rating, communications required for OTP/critical notifications | use the controlled service-specific target; current identity target is **99.5% monthly availability** | preserve transaction completion and customer access |
+| **Class C: Operational/product** | analytics, reporting, admin tooling, non-critical campaigns, marketplace discovery | **99.5% monthly** unless the controlled registry defines a different target | preserve operator and product usefulness without compromising financial truth |
+
+The controlled service registry is authoritative for named-service targets. This document defines the classification model and operating rules; it MUST NOT silently override a registered SLO.
 
 A dependency-specific SLO MAY be lower than the platform target, but the difference must be visible rather than silently absorbed into a platform claim.
 
@@ -35,9 +38,11 @@ Metrics MUST use bounded-cardinality dimensions. Merchant IDs, transaction IDs a
 
 ## 3. Error budgets
 
-The monthly error budget is the allowable failure implied by the SLO. Class A and Class B services MUST use the budget to govern release risk.
+The monthly error budget is the allowable failure implied by an availability SLO. Integrity objectives such as the ledger's no-unbalanced-posting rule are zero-tolerance correctness controls and MUST NOT be converted into a conventional availability error budget.
 
-When a Class A service consumes 50% of its monthly error budget before the midpoint of the month, the owner MUST review change velocity and the dominant error source.
+Class A and Class B services with availability SLOs MUST use the budget to govern release risk.
+
+When such a service consumes 50% of its monthly error budget before the midpoint of the month, the owner MUST review change velocity and the dominant error source.
 
 When 100% of the error budget is consumed, non-essential risky changes to that service SHOULD pause until reliability is restored or an explicit executive risk acceptance is recorded.
 
@@ -45,7 +50,9 @@ Provider-caused failures MUST remain distinguishable from Cito-caused failures, 
 
 ## 4. Incident severity
 
-### SEV-1: Critical
+Persisted severity identifiers MUST use the canonical values `SEV1`, `SEV2`, `SEV3` and `SEV4`. User interfaces MAY display them as “SEV-1” etc., but API/database values must remain non-hyphenated.
+
+### SEV1: Critical
 
 Use for actual or credible risk of incorrect/duplicate money movement, widespread inability to transact, security compromise, material data loss, ledger inconsistency, or unrecoverable provider correlation failure.
 
@@ -56,7 +63,7 @@ Targets:
 - continuous active response until containment;
 - post-incident review mandatory.
 
-### SEV-2: High
+### SEV2: High
 
 Use for major degradation affecting a significant customer/provider segment, prolonged payment delays with recoverable state, material settlement/reconciliation backlog, or critical admin/operational workflows unavailable.
 
@@ -65,23 +72,25 @@ Targets:
 - owner and communication cadence established;
 - post-incident review required for repeated or systemic incidents.
 
-### SEV-3: Moderate
+### SEV3: Moderate
 
 Use for localized degradation, non-critical feature outage, elevated errors with a working workaround, or operational delays that do not threaten financial correctness.
 
-### SEV-4: Low
+### SEV4: Low
 
 Use for minor defects, cosmetic operational issues and low-impact improvements.
 
 ## 5. Incident roles
 
-For SEV-1/2 incidents, explicitly assign:
+For SEV1/SEV2 incidents, explicitly assign:
 
 - **Incident Commander:** owns priorities and coordination.
 - **Technical Lead:** owns diagnosis and remediation.
 - **Operations/Provider Lead:** handles provider, Railway/infrastructure or external dependency coordination.
 - **Finance/Reconciliation Lead:** required when money, settlement, billing or ledger evidence is involved.
-- **Communications Lead:** owns customer, executive and regulatory updates as applicable.
+- **Security Owner:** required for suspected or confirmed security compromise, credential exposure, abuse or unauthorized access.
+- **Compliance/Privacy Owner:** required where personal data, regulatory reporting or notification obligations may be involved; this role determines regulatory/privacy notification obligations with Legal where applicable.
+- **Communications Lead:** owns approved customer and executive updates and executes regulatory/customer messaging only after the responsible Compliance/Privacy/Legal decision where required.
 - **Scribe:** preserves timeline, decisions and evidence.
 
 One person may hold multiple roles for a small incident, but the responsibilities must remain explicit.
@@ -102,7 +111,7 @@ Do not "fix" an incident by deleting financial/reconciliation evidence that is i
 
 ## 7. Post-incident review
 
-A post-incident review for SEV-1 and material SEV-2 incidents MUST document:
+A post-incident review for SEV1 and material SEV2 incidents MUST document:
 
 - customer and financial impact;
 - exact start/detection/containment/recovery times;
@@ -144,7 +153,10 @@ All M1 evidence plus:
 - API contract documented;
 - runbook and rollback/containment path;
 - monitoring and alerting for critical failure modes;
-- backup/recovery dependency understood.
+- backup/recovery dependency understood;
+- **provider certification/acceptance evidence completed before production-ready status for every provider-backed capability where certification is applicable.**
+
+An uncertified provider-backed capability MUST NOT be classified M2 for production merely because the adapter or sandbox path works.
 
 ### M3 - Operationally proven
 
@@ -153,7 +165,6 @@ All M2 evidence plus:
 - SLI/SLO history available;
 - incident/recovery experience or tested game-day evidence;
 - reconciliation/financial controls proven where relevant;
-- provider certification evidence where relevant;
 - capacity and cost behavior understood;
 - no unresolved critical operational debt.
 
@@ -170,7 +181,9 @@ All M3 evidence plus:
 
 ## 9. Maturity evidence registry
 
-Cito's existing production-maturity validation-run APIs and readiness controls SHOULD be used to record validation evidence instead of maintaining an unrelated spreadsheet-only maturity claim.
+Cito's existing production-maturity validation-run APIs and readiness controls SHOULD be used to reference and organize validation evidence instead of maintaining an unrelated spreadsheet-only claim.
+
+Validation-run records are **evidence references, not self-approving maturity decisions**. Because administrators can create and complete validation runs, a run by itself MUST NOT establish or approve M2/M3/M4 status. Maturity approval requires the designated service owner and, for Class A/A0 or regulated capabilities, the applicable Operations, Finance, Security or Compliance approver to verify the underlying evidence independently.
 
 Each maturity assessment SHOULD reference:
 
@@ -181,11 +194,12 @@ Each maturity assessment SHOULD reference:
 - SLO/monitoring evidence;
 - runbook/ADR/API documents;
 - provider/certification evidence if applicable;
-- unresolved blockers.
+- unresolved blockers;
+- approving role(s) and approval date.
 
 ## 10. Release readiness
 
-A production release for Class A/B services MUST satisfy:
+A production release for Class A/A0/B services MUST satisfy:
 
 - exact-head CI green;
 - required OpenAPI and architecture/operations documentation current;
@@ -225,7 +239,7 @@ Every critical external dependency MUST have:
 
 ## 13. Review cadence
 
-- Class A service SLO/error budgets: weekly operational review.
+- Class A/A0 service SLO/integrity objectives and error budgets where applicable: weekly operational review.
 - Open SEV corrective actions: weekly until closed.
 - Service maturity: at least quarterly and before major market/provider expansion.
 - Restore/DR evidence: according to approved RPO/RTO risk class, with at least periodic isolated restore testing.
