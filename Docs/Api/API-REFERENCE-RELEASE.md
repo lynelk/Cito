@@ -35,18 +35,29 @@ Confirm runtime Flyway version, zero initial rates, deployed commit, invoice sta
 - Merchant OpenAPI 3.1 validation: 195 operations across 164 paths. Three generation/audience tests passed.
 - Frontend typecheck, focused API/landing-page tests (11) and production build passed. Markdown tables and code blocks render through a safe Markdown renderer.
 - Brand mirror checks passed. Browser visual verification remains pending because the browser blocked the local preview URL.
-- No live provider call, monetary transaction, database migration, staging deployment or production promotion was performed. MySQL concurrency and invoice-flow runtime checks remain required before release.
+- At initial local verification, no runtime migration or deployment had been performed. Subsequent staging evidence and remaining release gates are recorded below. No live provider call or monetary transaction was performed.
 
-## Staging provisioning and release blocker (10 September 2026)
+## Staging and release reconciliation (10 September 2026)
 
-The user authorized staging and deployment. Isolated Railway project **Cito Staging** (`c69c90a9-ab6f-48ff-8e04-1e10a10f92db`) was created with its own MySQL 8.4, backend and frontend service instances. Railway labels this separate project's default environment `production`; it is **not** the canonical Cito production project. Canonical IDs remain unchanged in `ops/environments/cito-environments.json`. Staging has fresh secrets, no copied data or provider credentials, SANDBOX gateway mode, secure cookies and private database networking. The database is disposable, without a persistent volume; do not store durable acceptance evidence or real customer data there.
+The user authorized deployment, staging, and resolution of all blockers. Canonical production has not been modified.
 
-Provisioning is incomplete: backend startup/migrations remain to be verified; the connector created the frontend repository source without its requested branch binding and cannot trigger its first deployment. Frontend domain creation also failed. Configure the existing frontend service's branch in Railway rather than creating replacement services. Do not mark staging ACTIVE until both services run the accepted revision, domains/proxy and authenticated access are verified, and billing concurrency/invoice-flow evidence is recorded. After feature acceptance, bind both services to main for automatic staging updates.
+An isolated Railway project **Cito Staging** (`c69c90a9-ab6f-48ff-8e04-1e10a10f92db`) contains a fresh MySQL database, backend and frontend. Its default environment is labelled `production` by Railway; this is **not** the canonical Cito production project. IDs and configuration are recorded in `ops/environments/cito-environments.json`. No production data, provider credentials or balances were copied. The database has no persistent volume and is disposable; retain acceptance evidence outside it.
 
-GitHub's `CI` workflow is `disabled_manually`. Re-enable the existing workflow to restore its clean-MySQL migration gate and successful-main-CI trigger for Promote Sandbox. The GitHub connector has no workflow enable/dispatch action, and the Railway assistant reports its usage limit reached. No release control was bypassed and no canonical production service was changed.
+Resolved deployment defects:
 
-Staging build correction: Railpack's default Maven install command failed because its source archive lacks Git metadata required by Spotless ratcheting. The staging packaging command uses `-Dspotless.skip=true`; formatting and tests remain mandatory in Git checkout/CI. The environment contract records the staging packaging commands; direct Railway service settings apply them. Railway rejected new Config-as-Code bindings as deprecated, so no new railway.json binding is used. Existing production configuration is unchanged. The initial root-level archive build also looked for the wrong target directory; each service now has its own application root.
+- Corrected backend/frontend build roots.
+- Corrected Git-dependent Spotless execution in source-archive packaging. Container packaging skips Spotless; full Git-backed Maven verify remains mandatory.
+- Applied the MySQL trigger capability required by the existing migration preflight.
+- Verified schema V123 and 115 validated migrations in backend runtime logs.
+- Added a dedicated staging profile retaining secure cookies, JDBC nonces, protected OpenAPI, SANDBOX gateway state and disabled EFRIS delivery. ProductionSafetyConfig remains unchanged.
+- Verified backend deployment `e96f299a-2a28-4270-acb0-e5b93189434e` and frontend deployment `cbe4ac9e-4382-488d-bc9a-75e3a5349a07` reached SUCCESS. These are different source revisions and are not release acceptance. The frontend defaults to main; the backend temporarily tracks the candidate branch.
+- Merged current main's Communications work (including V124) into this candidate, preserving both documentation workflows/contracts, and regenerated the portal reference. Combined Maven verify passed: 1,084 tests, zero failures/errors, one skipped. Frontend typecheck/build and OpenAPI validation passed.
 
-The backend Dockerfile now also skips only the Git-dependent Spotless step during image packaging. Railway selected the existing Dockerfile on a subsequent source push, so a Railpack-only command was insufficient. Maven verify in Git-backed CI remains the formatting/test gate; no runtime security setting changes.
+Outstanding gates:
 
-Staging migration evidence: backend deployment `0c51fcca-6787-4f92-b2ee-a4eea8a3a7c9` reports schema version 123 and 115 validated migrations. Its initial Railway SUCCESS status was insufficient: application-runner logs exposed a production-profile/SANDBOX mismatch. Staging now selects its own profile with secure cookies, JDBC nonces, protected OpenAPI and disabled EFRIS delivery. ProductionSafetyConfig remains unchanged and continues rejecting sandbox gateway state under production profiles. MySQL's required trigger capability is applied through its recorded startup command.
+1. GitHub's `CI` workflow is `disabled_manually`; re-enable the existing workflow to restore the clean-MySQL check and successful-main-CI trigger for Promote Sandbox. The connector has no enable/dispatch capability.
+2. Validate V124 and the combined candidate in staging, align both services to the exact accepted revision, and finish authenticated portal/access/billing concurrency/invoice-flow tests. Direct HTTP checks from the current session were stopped by the network approval layer.
+3. Complete staging frontend domain configuration. The generated domain request failed; the connector cannot rename the overlong generated service name or change its source branch. Railway's assistant reported its usage limit reached. Do not create duplicate replacement services.
+4. Record release acceptance, then use the established main/sandbox/production gates and verify both canonical production service SHAs. Do not infer deployment success from static documents, a transient healthcheck, or Railway status alone.
+
+New Config-as-Code bindings were rejected by Railway as deprecated. Staging currently uses direct service settings recorded in the environment contract. No new railway.json binding or unreviewed IaC apply was introduced; existing production configuration is unchanged.

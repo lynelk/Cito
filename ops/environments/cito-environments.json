@@ -43,7 +43,7 @@
       "isolationPolicy": "NO_PRODUCTION_SECRETS_OR_PROVIDER_BALANCES",
       "dataPolicy": "SYNTHETIC_OR_APPROVED_SANITIZED_DATA_ONLY",
       "promotionPolicy": "EXACT_STAGING_SHA_MUST_PASS_RELEASE_UAT_AND_SMOKE_GATES_BEFORE_PRODUCTION_PROMOTION",
-      "provisioningStatus": "SERVICES_CREATED_VALIDATION_PENDING",
+      "provisioningStatus": "SERVICES_RUNNING_REVISION_PARITY_AND_ACCEPTANCE_PENDING",
       "projectId": "c69c90a9-ab6f-48ff-8e04-1e10a10f92db",
       "projectName": "Cito Staging",
       "railwayEnvironmentLabel": "production",
@@ -55,12 +55,17 @@
           "buildCommand": "mvn -B -DskipTests -Dspotless.skip=true clean package --no-transfer-progress",
           "startCommand": "sh /app/start.sh",
           "publicDomain": "cito-staging-backend-production.up.railway.app",
-          "springProfile": "staging"
+          "springProfile": "staging",
+          "nonSecretOverrides": {
+            "CPAY_CLEANUP_ENABLED": "false",
+            "APP_BASE_URL": "https://cito-staging-backend-production.up.railway.app",
+            "CORS_ALLOWED_ORIGINS": "https://cito-staging-backend-production.up.railway.app"
+          }
         },
         "frontend": {
           "serviceId": "69ef3eaa-05b5-4504-8f5e-2bfaa27f3512",
           "rootDirectory": "clientside",
-          "sourceBranchBinding": "PENDING",
+          "sourceBranchBinding": "DEFAULT_MAIN",
           "builder": "DOCKERFILE",
           "startCommand": "/start.sh"
         },
