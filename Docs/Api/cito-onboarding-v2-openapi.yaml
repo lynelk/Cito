@@ -13,6 +13,7 @@ tags:
 paths:
   /api/v2/merchants/{merchantId}/onboarding:
     get:
+      operationId: getMerchantOnboardingReadiness
       tags: [Merchant Onboarding]
       summary: Get coherent merchant onboarding and readiness state
       description: |
@@ -41,6 +42,12 @@ paths:
           description: Merchant scope does not permit access to the requested merchant.
         '404':
           description: Merchant does not exist.
+        '503':
+          description: Live onboarding/readiness data is temporarily unavailable. No fallback state is substituted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataTemporarilyUnavailable'
 components:
   securitySchemes:
     merchantSession:
@@ -48,6 +55,18 @@ components:
       in: cookie
       name: SESSION
   schemas:
+    DataTemporarilyUnavailable:
+      type: object
+      required: [code, message, timestamp]
+      properties:
+        code:
+          type: string
+          const: DATA_TEMPORARILY_UNAVAILABLE
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
     OnboardingReadiness:
       type: object
       required:
@@ -94,7 +113,10 @@ components:
             additionalProperties: true
         goLive:
           type: object
+          required: [requestStatus]
           additionalProperties: true
+          properties:
+            requestStatus: { type: string }
         productionRollout:
           type: object
           additionalProperties: true
