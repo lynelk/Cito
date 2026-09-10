@@ -38,7 +38,6 @@ public class MerchantCommunicationService {
         this.smartSmsRoutingService = smartSmsRoutingService;
     }
 
-    /** Compatibility entry point retained for existing callers. */
     @Transactional
     public Map<String, Object> enqueueSms(
             long merchantId,
@@ -59,11 +58,6 @@ public class MerchantCommunicationService {
                 SmsOptions.defaults());
     }
 
-    /**
-     * Enqueues one SMS. Provider selection is deliberately deferred to dispatch unless an approved
-     * sender identity is provider-specific. That makes scheduled sends and retries react to live
-     * cost and provider health.
-     */
     @Transactional
     public Map<String, Object> enqueueSms(
             long merchantId,
@@ -92,7 +86,6 @@ public class MerchantCommunicationService {
             Map<String, Object> existing = findByIdempotency(merchantId, normalizedIdempotency);
             if (existing != null) return existing;
         }
-
         if ("MARKETING".equals(normalizedPurpose)
                 && isMarketingSuppressed(merchantId, normalizedRecipient)) {
             throw new IllegalArgumentException("Recipient has opted out of marketing SMS.");
@@ -114,7 +107,6 @@ public class MerchantCommunicationService {
                         : Math.max(60, Math.min(604800, expiresInSeconds));
         Instant expiresAt = scheduledAt.plusSeconds(ttl);
         var analysis = smsEncodingService.analyze(content);
-
         String pinnedProvider = sender == null ? null : sender.providerCode();
         boolean fallbackEnabled = safeOptions.fallbackEnabled() && pinnedProvider == null;
         String publicId = "COM-" + Common.randomUrlSafeToken(18);
@@ -236,7 +228,6 @@ public class MerchantCommunicationService {
         return findByPublicId(merchantId, publicId.trim());
     }
 
-    /** Cancel a message only while its durable outbox event is still pending. */
     @Transactional
     public Map<String, Object> cancelSms(long merchantId, String publicId) {
         if (merchantId <= 0 || blank(publicId))
@@ -254,14 +245,16 @@ public class MerchantCommunicationService {
         if (rows.isEmpty()) return null;
         String messageStatus = String.valueOf(rows.get(0).get("message_status"));
         if ("CANCELLED".equalsIgnoreCase(messageStatus)) return findByPublicId(merchantId, publicId);
-        Object outboxValue = rows.get(0).get("outbox_status");
-        String outboxStatus = outboxValue == null ? null : String.valueOf(outboxValue);
+        String outboxStatus =
+                rows.get(0).get("outbox_status") == null
+                        ? null
+                        : String.valueOf(rows.get(0).get("outbox_status"));
         if (!"PENDING".equalsIgnoreCase(outboxStatus)) {
             throw new IllegalArgumentException("Message can no longer be cancelled safely.");
         }
         long communicationId = ((Number) rows.get(0).get("communication_id")).longValue();
         jdbcTemplate.update(
-                "UPDATE communication_outbox SET status='CANCELLED',locked_until=NULL,locked_by=NULL,updated_at=NOW()"
+                "UPDATE communication_outbox SET status='CANCELLED',claimed_by=NULL,claimed_at=NULL,completed_at=NOW()"
                         + " WHERE communication_id=:id AND event_type='DISPATCH' AND status='PENDING'",
                 new MapSqlParameterSource("id", communicationId));
         jdbcTemplate.update(
@@ -273,7 +266,6 @@ public class MerchantCommunicationService {
         return findByPublicId(merchantId, publicId);
     }
 
-    /** Reschedule a message only while it is still safely pending in the durable outbox. */
     @Transactional
     public Map<String, Object> rescheduleSms(long merchantId, String publicId, String scheduledAt) {
         if (merchantId <= 0 || blank(publicId))
@@ -281,17 +273,19 @@ public class MerchantCommunicationService {
         if (blank(scheduledAt)) throw new IllegalArgumentException("scheduledAt is required.");
         List<Map<String, Object>> rows =
                 jdbcTemplate.queryForList(
-                        "SELECT m.id communication_id,m.status message_status,m.scheduled_at,m.expires_at,"
-                                + " o.status outbox_status FROM communication_messages m"
-                                + " LEFT JOIN communication_outbox o ON o.communication_id=m.id AND o.event_type='DISPATCH'"
+                        "SELECT m.id communication_id,m.scheduled_at,m.expires_at,o.status outbox_status"
+                                + " FROM communication_messages m LEFT JOIN communication_outbox o"
+                                + " ON o.communication_id=m.id AND o.event_type='DISPATCH'"
                                 + " WHERE m.merchant_id=:merchant AND m.public_id=:reference"
                                 + " ORDER BY o.id DESC LIMIT 1 FOR UPDATE",
                         new MapSqlParameterSource()
                                 .addValue("merchant", merchantId)
                                 .addValue("reference", publicId.trim()));
         if (rows.isEmpty()) return null;
-        Object outboxValue = rows.get(0).get("outbox_status");
-        String outboxStatus = outboxValue == null ? null : String.valueOf(outboxValue);
+        String outboxStatus =
+                rows.get(0).get("outbox_status") == null
+                        ? null
+                        : String.valueOf(rows.get(0).get("outbox_status"));
         if (!"PENDING".equalsIgnoreCase(outboxStatus)) {
             throw new IllegalArgumentException("Message can no longer be rescheduled safely.");
         }
@@ -301,7 +295,10 @@ public class MerchantCommunicationService {
         Timestamp oldExpires = (Timestamp) rows.get(0).get("expires_at");
         long ttl = defaultTtl("TRANSACTIONAL");
         if (oldScheduled != null && oldExpires != null) {
-            ttl = Math.max(60, oldExpires.toInstant().getEpochSecond() - oldScheduled.toInstant().getEpochSecond());
+            ttl = Math.max(
+                    60,
+                    oldExpires.toInstant().getEpochSecond()
+                            - oldScheduled.toInstant().getEpochSecond());
         }
         long communicationId = ((Number) rows.get(0).get("communication_id")).longValue();
         String status = newSchedule.isAfter(now.plusSeconds(2)) ? "SCHEDULED" : "RECEIVED";
@@ -317,7 +314,8 @@ public class MerchantCommunicationService {
                         + " WHERE id=:id AND merchant_id=:merchant",
                 params);
         jdbcTemplate.update(
-                "UPDATE communication_outbox SET next_attempt_at=:scheduled,attempts=0,last_error=NULL,updated_at=NOW()"
+                "UPDATE communication_outbox SET next_attempt_at=:scheduled,attempts=0,last_error_code=NULL,"
+                        + " last_error_safe=NULL,claimed_by=NULL,claimed_at=NULL,completed_at=NULL"
                         + " WHERE communication_id=:id AND event_type='DISPATCH' AND status='PENDING'",
                 params);
         return findByPublicId(merchantId, publicId);
@@ -371,7 +369,7 @@ public class MerchantCommunicationService {
                 Map<String, Object> parsed = objectMapper.readValue(String.valueOf(metadata), Map.class);
                 view.put("sms", parsed);
             } catch (Exception ignored) {
-                // Status remains usable even if optional metadata was malformed historically.
+                // Historical malformed metadata must not make status unreadable.
             }
         }
         return view;
