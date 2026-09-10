@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.citotech.cito.platform.CitoEntitlementService;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -26,17 +27,21 @@ public class MerchantOnboardingReadinessService {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final MerchantActivationLifecycleService lifecycleService;
+    private final CitoEntitlementService entitlementService;
 
     public MerchantOnboardingReadinessService(
             NamedParameterJdbcTemplate jdbcTemplate,
-            MerchantActivationLifecycleService lifecycleService) {
+            MerchantActivationLifecycleService lifecycleService,
+            CitoEntitlementService entitlementService) {
         this.jdbcTemplate = jdbcTemplate;
         this.lifecycleService = lifecycleService;
+        this.entitlementService = entitlementService;
     }
 
     @Transactional
     public Map<String, Object> readiness(long merchantId) {
         lifecycleService.ensure(merchantId);
+        entitlementService.ensureMerchantOrganization(merchantId);
         MapSqlParameterSource scope = new MapSqlParameterSource("merchantId", merchantId);
 
         Map<String, Object> lifecycle =
@@ -73,8 +78,7 @@ public class MerchantOnboardingReadinessService {
     }
 
     private Map<String, Object> progress(List<Map<String, Object>> steps) {
-        long required =
-                steps.stream().filter(step -> truthy(step.get("requiredForActivation"))).count();
+        long required = steps.stream().filter(step -> truthy(step.get("requiredForActivation"))).count();
         long completed =
                 steps.stream()
                         .filter(step -> truthy(step.get("requiredForActivation")))
@@ -129,9 +133,13 @@ public class MerchantOnboardingReadinessService {
     private List<Map<String, Object>> products(MapSqlParameterSource scope) {
         List<Map<String, Object>> rows =
                 jdbcTemplate.queryForList(
-                        "SELECT s.service_code AS serviceCode,s.service_name AS serviceName,"
-                                + "s.description,e.environment,e.status AS entitlementStatus,e.plan_code AS planCode,"
-                                + "e.starts_at AS startsAt,e.ends_at AS endsAt "
+                        "SELECT s.service_code AS serviceCode,s.service_name AS serviceName,s.description,"
+                                + "e.environment,"
+                                + "CASE WHEN e.status='ACTIVE' "
+                                + "AND (e.starts_at IS NULL OR e.starts_at<=CURRENT_TIMESTAMP) "
+                                + "AND (e.ends_at IS NULL OR e.ends_at>CURRENT_TIMESTAMP) "
+                                + "THEN 'ACTIVE' WHEN e.status='ACTIVE' THEN 'INACTIVE_WINDOW' ELSE e.status END AS entitlementStatus,"
+                                + "e.plan_code AS planCode,e.starts_at AS startsAt,e.ends_at AS endsAt "
                                 + "FROM cito_service_catalog s LEFT JOIN cito_organizations o ON o.merchant_id=:merchantId "
                                 + "LEFT JOIN cito_service_entitlements e ON e.organization_id=o.id AND e.service_code=s.service_code "
                                 + "WHERE s.status='ACTIVE' ORDER BY s.service_name,e.environment",
@@ -175,7 +183,7 @@ public class MerchantOnboardingReadinessService {
                                 + "FROM merchant_go_live_requests WHERE merchant_id=:merchantId "
                                 + "ORDER BY id DESC LIMIT 1",
                         scope);
-        return request.isEmpty() ? Map.of("status", "NOT_REQUESTED") : request;
+        return request.isEmpty() ? Map.of("requestStatus", "NOT_REQUESTED") : request;
     }
 
     private Map<String, Object> productionRollout(MapSqlParameterSource scope) {
@@ -194,13 +202,10 @@ public class MerchantOnboardingReadinessService {
         if ("LIVE".equals(text(lifecycle.get("status")))) {
             return true;
         }
-        return stepDone(steps, "KYB_REVIEW")
-                && stepDone(steps, "RISK_REVIEW")
-                && stepDone(steps, "COMMERCIAL_APPROVAL")
-                && stepDone(steps, "INTEGRATION_TESTED")
-                && stepDone(steps, "PROVIDER_CERTIFIED")
-                && stepDone(steps, "SETTLEMENT_CONFIGURED")
-                && stepDone(steps, "GO_LIVE_APPROVED")
+        return steps.stream()
+                        .filter(step -> truthy(step.get("requiredForActivation")))
+                        .filter(step -> !"PRODUCTION_ACTIVATED".equals(text(step.get("stepCode"))))
+                        .allMatch(step -> DONE_STATUSES.contains(text(step.get("status"))))
                 && blockers(steps).isEmpty();
     }
 
