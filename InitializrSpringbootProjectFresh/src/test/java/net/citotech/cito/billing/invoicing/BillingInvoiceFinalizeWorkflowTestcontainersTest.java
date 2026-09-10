@@ -29,9 +29,7 @@ import org.testcontainers.mysql.MySQLContainer;
  * happy path posts to the ledger and flips the invoice to FINALIZED, a post-finalize {@link
  * BillingInvoiceService#stageCharges} attempt is rejected (the immutability half of the Phase 3
  * exit criterion), finalize is blocked while the completeness gate is unapproved, and a
- * zero-subtotal approved draft fails at {@code DoubleEntryLedgerService}'s own entry validation
- * rather than a bespoke invoice-side check (see {@link BillingInvoiceService#finalizeInvoice}'s
- * javadoc for why that is deliberate).
+ * zero-subtotal approved draft fails the invoice positive-subtotal control before ledger posting.
  *
  * <p>Requires a running Docker daemon, so it is tagged {@code "docker"} and excluded from the
  * default {@code mvn test}/{@code mvn verify} run. Run explicitly with: {@code mvn test
@@ -129,7 +127,8 @@ class BillingInvoiceFinalizeWorkflowTestcontainersTest {
     }
 
     @Test
-    void finalizeInvoiceOfAZeroSubtotalApprovedDraftFailsAtTheLedgerAndLeavesTheInvoiceDraft() {
+    void
+            finalizeInvoiceOfAZeroSubtotalApprovedDraftIsRejectedBeforePostingAndLeavesTheInvoiceDraft() {
         NamedParameterJdbcTemplate jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
         BillingInvoiceRepository invoiceRepository = new BillingInvoiceRepository(jdbcTemplate);
         BillingInvoiceService invoiceService = invoiceService(jdbcTemplate, invoiceRepository);
@@ -147,7 +146,7 @@ class BillingInvoiceFinalizeWorkflowTestcontainersTest {
 
         assertThatThrownBy(() -> invoiceService.finalizeInvoice(invoiceId, "billing-finalizer"))
                 .isInstanceOf(PaymentGatewayException.class)
-                .hasMessageContaining("greater than zero");
+                .hasMessageContaining("positive subtotal");
         assertThat(invoiceRepository.find(invoiceId).orElseThrow().status()).isEqualTo("DRAFT");
     }
 
