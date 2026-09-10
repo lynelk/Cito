@@ -1,0 +1,62 @@
+name: Payment recovery validation
+on:
+  pull_request:
+    branches: [main, sandbox, production]
+    paths:
+      - 'InitializrSpringbootProjectFresh/**'
+      - 'clientside/**'
+      - '.github/workflows/payment-recovery-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: payment-recovery-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: clientside/package-lock.json
+      - name: Record exact source
+        run: |
+          mkdir -p /tmp/payment-recovery-evidence
+          git rev-parse HEAD > /tmp/payment-recovery-evidence/source-sha.txt
+      - name: Backend including Docker-backed financial tests
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B -ntp -Ddocker.tests.excludedGroups= verify
+      - name: Frontend checks and build
+        if: ${{ !cancelled() }}
+        working-directory: clientside
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+      - name: Export source and evidence
+        if: always()
+        run: git archive --format=tar.gz -o /tmp/payment-recovery-evidence/source.tar.gz HEAD
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: payment-recovery-evidence
+          path: |
+            /tmp/payment-recovery-evidence
+            InitializrSpringbootProjectFresh/target/surefire-reports
+            InitializrSpringbootProjectFresh/target/failsafe-reports
+          retention-days: 7
