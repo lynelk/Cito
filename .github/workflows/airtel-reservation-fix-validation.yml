@@ -1,0 +1,71 @@
+name: Airtel reservation fix validation
+on:
+  push:
+    branches: [feature/airtel-money-openapi-hardening-v3]
+    paths: ['.github/workflows/airtel-reservation-fix-validation.yml']
+permissions:
+  contents: write
+concurrency:
+  group: airtel-reservation-fix-validation
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.repository == 'lynelk/Cito' && github.ref == 'refs/heads/feature/airtel-money-openapi-hardening-v3'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: clientside/package-lock.json
+      - name: Apply bounded repair and format
+        run: |
+          set -euo pipefail
+          python3 ops/release/repair_recovery_gate_fixtures.py
+          mvn -B -ntp -f InitializrSpringbootProjectFresh/pom.xml spotless:apply
+          git diff --check
+      - name: Commit exact feature candidate
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm ops/release/repair_recovery_gate_fixtures.py .github/workflows/airtel-reservation-fix-validation.yml
+          git add InitializrSpringbootProjectFresh
+          git diff --cached --check
+          git commit -m 'Fix reservation snapshot race and supply synthetic invoice completeness evidence'
+          git push origin HEAD:refs/heads/feature/airtel-money-openapi-hardening-v3
+          mkdir -p /tmp/payment-recovery-evidence
+          git rev-parse HEAD | tee /tmp/payment-recovery-evidence/source-sha.txt
+          git archive --format=tar.gz -o /tmp/payment-recovery-evidence/source.tar.gz HEAD
+      - name: Backend including Docker financial regression tests
+        id: backend
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B -ntp -Ddocker.tests.excludedGroups= verify
+      - name: Frontend checks
+        if: ${{ !cancelled() && steps.backend.outcome != 'skipped' }}
+        working-directory: clientside
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airtel-reservation-verification
+          path: |
+            /tmp/payment-recovery-evidence
+            InitializrSpringbootProjectFresh/target/surefire-reports
+            InitializrSpringbootProjectFresh/target/failsafe-reports
+          retention-days: 7
