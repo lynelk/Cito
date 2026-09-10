@@ -2,11 +2,7 @@ import React from 'react';
 import { Badge, Card, Section } from '../ui';
 import ProviderTreasuryConsole from './ProviderTreasuryConsole';
 
-/**
- * Airtel-specific operational entry point. The underlying Provider Treasury console remains the
- * canonical control surface for credentials, balances, live tests and reconciliation; this page
- * makes the asynchronous Airtel lifecycle and its recovery semantics explicit to operators.
- */
+/** Airtel OpenAPI operations use the canonical treasury controls with a fixed provider scope. */
 export default function AirtelMoneyOperations(): React.ReactElement {
   return (
     <div>
@@ -14,25 +10,27 @@ export default function AirtelMoneyOperations(): React.ReactElement {
         <Card>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ margin: 0 }}>Airtel Money OpenAPI</h1>
-            <Badge tone="info">Provider-verified lifecycle</Badge>
+            <Badge tone="info">Authenticated status recovery</Badge>
           </div>
           <p>
-            Collections and payouts remain pending after network acceptance until Airtel returns an
-            explicit terminal status. Missing callbacks, rate limits, transport failures and 5xx
-            responses do not convert money movement to failed state.
+            Network acceptance is not settlement. Collections and payouts remain pending until an
+            authenticated Airtel status lookup returns an explicit final outcome. Missing callbacks,
+            rate limits, outages and ambiguous responses do not release funds or trigger another payment.
           </p>
           <p>
-            Pending merchant and CPay Shared Payments transactions are recovered by authenticated
-            status polling. Successful or failed provider evidence is then applied through the
-            canonical ledger and treasury reconciliation flow.
+            Recovery scans existing merchant transaction records and CPay Shared Payments reservations.
+            Scan progress survives restarts. Conflicting or duplicate references require reconciliation;
+            the system does not guess a successful or failed outcome.
           </p>
           <p>
-            Use the controls below to manage Airtel credentials, collection and disbursement float,
-            synchronize provider balances, run controlled live tests and reconcile provider state.
+            The controls below are restricted to Airtel OpenAPI. A running application does not prove
+            provider authentication or callback registration. Configure approved credentials, verify
+            callback registration with Airtel, and complete the required provider tests before launch.
+            Live transaction tests can move money and remain subject to MFA and independent approval.
           </p>
         </Card>
       </Section>
-      <ProviderTreasuryConsole />
+      <ProviderTreasuryConsole key="airtel_open_api" channelScope="airtel_open_api" />
     </div>
   );
 }
