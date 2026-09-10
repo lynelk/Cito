@@ -24,9 +24,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
- * Reconciles asynchronous Airtel Money OpenAPI collection and payout transactions against
- * Airtel's authenticated status resources. Provider acceptance, an absent callback, transport
- * failure, 429, or 5xx response is never treated as terminal financial evidence.
+ * Reconciles asynchronous Airtel Money OpenAPI collection and payout transactions against Airtel's
+ * authenticated status resources. Provider acceptance, an absent callback, transport failure, 429,
+ * or 5xx response is never treated as terminal financial evidence.
  */
 @Component
 public class AirtelOpenApiStatusPollScheduler {
@@ -58,13 +58,19 @@ public class AirtelOpenApiStatusPollScheduler {
     }
 
     @Scheduled(fixedDelayString = "${cpay.airtel.status-poll.delay-ms:60000}")
-    @SchedulerLock(name = "airtelOpenApiStatusPoll", lockAtMostFor = "PT55S", lockAtLeastFor = "PT5S")
+    @SchedulerLock(
+            name = "airtelOpenApiStatusPoll",
+            lockAtMostFor = "PT55S",
+            lockAtLeastFor = "PT5S")
     public void reconcilePendingAirtelTransactions() {
         try {
             reconcileLegacyBatch();
             reconcileSharedProviderBatch();
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Airtel OpenAPI status reconciliation failed: " + e.getMessage(), e);
+            logger.log(
+                    Level.SEVERE,
+                    "Airtel OpenAPI status reconciliation failed: " + e.getMessage(),
+                    e);
         }
     }
 
@@ -216,15 +222,11 @@ public class AirtelOpenApiStatusPollScheduler {
             gateway.setTransactionContext(environment, country, currency);
             gateway.setEndpointDetails(
                     valueOrDefault(credentials, "tokenPath", "/auth/oauth2/token"),
-                    valueOrDefault(credentials, "collectionsPath", "/merchant/v2/payments/"),
-                    valueOrDefault(
-                            credentials, "disbursementsPath", "/standard/v2/disbursements/"),
+                    valueOrDefault(credentials, "collectionPath", "/merchant/v2/payments/"),
+                    valueOrDefault(credentials, "payoutPath", "/standard/v2/disbursements/"),
                     valueOrDefault(credentials, "balancePath", "/standard/v2/users/balance"),
                     valueOrDefault(credentials, "collectionStatusPath", COLLECTION_STATUS_PATH),
-                    valueOrDefault(
-                            credentials,
-                            "disbursementStatusPath",
-                            DISBURSEMENT_STATUS_PATH));
+                    valueOrDefault(credentials, "payoutStatusPath", DISBURSEMENT_STATUS_PATH));
             gateway.setSegment("PAYOUT".equals(operation) ? "disbursement" : "collection");
 
             GateWayResponse provider = gateway.checkStatus(providerReference);
@@ -285,8 +287,7 @@ public class AirtelOpenApiStatusPollScheduler {
         return value == null ? "" : String.valueOf(value).trim();
     }
 
-    private String valueOrDefault(
-            Map<String, Object> values, String key, String defaultValue) {
+    private String valueOrDefault(Map<String, Object> values, String key, String defaultValue) {
         String value = value(values, key);
         return value.isBlank() ? defaultValue : value;
     }
