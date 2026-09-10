@@ -28,7 +28,15 @@ public final class SmsCommunicationProviderAdapter implements CommunicationProvi
 
     @Override
     public ProviderCapabilities capabilities() {
-        return ProviderCapabilities.builder().send(true).build();
+        return ProviderCapabilities.builder()
+                .send(
+                        !(delegate
+                                        instanceof
+                                        net.citotech.cito.communication.sms
+                                                        .SmsMobiloSmsGatewayAdapter
+                                                mobilo)
+                                || mobilo.isConfigured())
+                .build();
     }
 
     @Override

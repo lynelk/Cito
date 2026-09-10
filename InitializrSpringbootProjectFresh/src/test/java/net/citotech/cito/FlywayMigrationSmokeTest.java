@@ -41,7 +41,7 @@ class FlywayMigrationSmokeTest {
         assertTrue(result.migrationsExecuted > 0, "A clean schema must execute migrations");
 
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            assertEquals("113", latestSuccessfulVersion(connection));
+            assertEquals("124", latestSuccessfulVersion(connection));
             assertEquals(4, auditProtectionTriggerCount(connection));
             assertEquals(5, treasuryAccountRoleCount(connection, "MASTER"));
             assertEquals(5, treasuryAccountRoleCount(connection, "COLLECTION"));
@@ -55,6 +55,8 @@ class FlywayMigrationSmokeTest {
             assertEquals(0, defaultOperationalMerchantUserCount(connection));
             assertEquals(0, nonZeroDefaultOperationalBalanceCount(connection));
         }
+        net.citotech.cito.communication.outbox.NotificationMysqlScenario.run(
+                url, username, password);
     }
 
     private static String latestSuccessfulVersion(Connection connection) throws SQLException {

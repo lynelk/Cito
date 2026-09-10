@@ -77,9 +77,9 @@ public class CommunicationOutboxWorker {
         String claimToken = "worker-" + java.util.UUID.randomUUID();
         jdbcTemplate.update(
                 "UPDATE communication_outbox SET status='DISPATCHING', claimed_by=:claimed_by, claimed_at=NOW(), attempts=attempts+1"
-                        + " WHERE id IN (SELECT id FROM (SELECT id FROM communication_outbox"
+                        + " WHERE status='PENDING' AND id IN (SELECT id FROM (SELECT id FROM communication_outbox"
                         + " WHERE status='PENDING' AND next_attempt_at<=NOW()"
-                        + " ORDER BY priority ASC, next_attempt_at ASC, id ASC LIMIT :limit) t)",
+                        + " ORDER BY CASE priority WHEN 'URGENT' THEN 0 ELSE 1 END, next_attempt_at ASC, id ASC LIMIT :limit) t)",
                 new MapSqlParameterSource()
                         .addValue("claimed_by", claimToken)
                         .addValue("limit", limit));
@@ -132,7 +132,36 @@ public class CommunicationOutboxWorker {
                 return true;
             }
 
-            Map<String, Object> metadata = dispatchMetadata(row.communicationId());
+            Map<String, Object> metadata =
+                    new LinkedHashMap<>(dispatchMetadata(row.communicationId()));
+            metadata.put("communicationId", row.communicationId());
+            if ("MARKETING".equals(row.purpose())) {
+                Integer suppressed =
+                        jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM communication_sms_suppressions WHERE merchant_id=:merchant AND phone_e164=:phone AND scope='MARKETING' AND active_flag='Y'",
+                                Map.of("merchant", row.merchantId(), "phone", row.recipient()),
+                                Integer.class);
+                if (suppressed != null && suppressed > 0) {
+                    complete(row.id());
+                    markMessageStatus(row.communicationId(), "CANCELLED");
+                    return true;
+                }
+            }
+            if (metadata.containsKey("senderId")) {
+                Integer approved =
+                        jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM communication_sender_identities WHERE merchant_id=:merchant AND sender_id=:sender AND approval_status='APPROVED'",
+                                Map.of(
+                                        "merchant",
+                                        row.merchantId(),
+                                        "sender",
+                                        metadata.get("senderId")),
+                                Integer.class);
+                if (approved == null || approved == 0) {
+                    fail(row, "SENDER_NOT_APPROVED", "Sender approval no longer valid");
+                    return true;
+                }
+            }
             var outcome =
                     dispatcher.dispatch(
                             row.merchantId(),
@@ -150,6 +179,12 @@ public class CommunicationOutboxWorker {
                 markMessageStatus(row.communicationId(), outcome.status().name());
                 recordOutcome(outcome.providerCode(), channel, true);
                 return true;
+            }
+            if (outcome.status() == DeliveryStatus.UNKNOWN) {
+                complete(row.id());
+                markMessageStatus(row.communicationId(), "UNKNOWN");
+                return true; // Ambiguous provider acceptance must never trigger blind
+                // resend/fallback.
             }
             if (outcome.status() == DeliveryStatus.REJECTED) {
                 complete(row.id());

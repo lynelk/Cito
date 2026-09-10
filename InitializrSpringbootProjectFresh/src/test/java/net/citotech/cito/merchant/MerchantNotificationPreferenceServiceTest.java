@@ -30,18 +30,48 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 class MerchantNotificationPreferenceServiceTest {
 
     @Test
+    void smsWithoutAnExplicitAddressUsesPhoneInsteadOfEmail() {
+        NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("channel", "SMS");
+        row.put("notify_address", null);
+        when(jdbc.queryForList(
+                        contains("merchant_notification_preferences"),
+                        any(MapSqlParameterSource.class)))
+                .thenReturn(List.of(row));
+        when(jdbc.queryForObject(
+                        contains("SELECT phone FROM merchant_admins"),
+                        any(MapSqlParameterSource.class),
+                        eq(String.class)))
+                .thenReturn("+256700000001");
+        var result =
+                new MerchantNotificationPreferenceService(jdbc)
+                        .resolveChannel(42, "payment.completed");
+        assertThat(result.channel()).isEqualTo(MerchantNotificationPreferenceService.Channel.SMS);
+        assertThat(result.address()).isEqualTo("+256700000001");
+        assertThat(result.shouldSend()).isTrue();
+    }
+
+    @Test
     void resolveChannelDefaultsToEmailAtThePrimaryContactWhenNoPreferenceIsConfigured() {
         NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        when(jdbcTemplate.queryForList(contains("merchant_notification_preferences"), any(MapSqlParameterSource.class)))
-            .thenReturn(List.of());
-        when(jdbcTemplate.queryForObject(contains("merchant_admins"), any(MapSqlParameterSource.class), eq(String.class)))
-            .thenReturn("merchant-primary@example.com");
-        MerchantNotificationPreferenceService service = new MerchantNotificationPreferenceService(jdbcTemplate);
+        when(jdbcTemplate.queryForList(
+                        contains("merchant_notification_preferences"),
+                        any(MapSqlParameterSource.class)))
+                .thenReturn(List.of());
+        when(jdbcTemplate.queryForObject(
+                        contains("merchant_admins"),
+                        any(MapSqlParameterSource.class),
+                        eq(String.class)))
+                .thenReturn("merchant-primary@example.com");
+        MerchantNotificationPreferenceService service =
+                new MerchantNotificationPreferenceService(jdbcTemplate);
 
         MerchantNotificationPreferenceService.ResolvedNotification notification =
-            service.resolveChannel(42L, "payment.completed");
+                service.resolveChannel(42L, "payment.completed");
 
-        assertThat(notification.channel()).isEqualTo(MerchantNotificationPreferenceService.Channel.EMAIL);
+        assertThat(notification.channel())
+                .isEqualTo(MerchantNotificationPreferenceService.Channel.EMAIL);
         assertThat(notification.address()).isEqualTo("merchant-primary@example.com");
         assertThat(notification.shouldSend()).isTrue();
     }
@@ -49,22 +79,36 @@ class MerchantNotificationPreferenceServiceTest {
     @Test
     void listDefaultsEveryUnconfiguredCatalogEventToEmailAtThePrimaryContact() {
         NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        when(jdbcTemplate.queryForList(contains("merchant_notification_preferences"), any(MapSqlParameterSource.class)))
-            .thenReturn(List.of());
-        when(jdbcTemplate.queryForObject(contains("merchant_admins"), any(MapSqlParameterSource.class), eq(String.class)))
-            .thenReturn("merchant-primary@example.com");
-        MerchantNotificationPreferenceService service = new MerchantNotificationPreferenceService(jdbcTemplate);
+        when(jdbcTemplate.queryForList(
+                        contains("merchant_notification_preferences"),
+                        any(MapSqlParameterSource.class)))
+                .thenReturn(List.of());
+        when(jdbcTemplate.queryForObject(
+                        contains("merchant_admins"),
+                        any(MapSqlParameterSource.class),
+                        eq(String.class)))
+                .thenReturn("merchant-primary@example.com");
+        MerchantNotificationPreferenceService service =
+                new MerchantNotificationPreferenceService(jdbcTemplate);
 
         List<MerchantNotificationPreferenceService.Preference> preferences = service.list(42L);
 
         assertThat(preferences).isNotEmpty();
-        assertThat(preferences).allSatisfy(p -> {
-            assertThat(p.explicit()).isFalse();
-            assertThat(p.channel()).isEqualTo(MerchantNotificationPreferenceService.Channel.EMAIL);
-            assertThat(p.notifyAddress()).isEqualTo("merchant-primary@example.com");
-        });
-        assertThat(preferences).extracting(MerchantNotificationPreferenceService.Preference::eventType)
-            .contains("payment.completed", "payout.completed", "payout.failed", "refund.completed");
+        assertThat(preferences)
+                .allSatisfy(
+                        p -> {
+                            assertThat(p.explicit()).isFalse();
+                            assertThat(p.channel())
+                                    .isEqualTo(MerchantNotificationPreferenceService.Channel.EMAIL);
+                            assertThat(p.notifyAddress()).isEqualTo("merchant-primary@example.com");
+                        });
+        assertThat(preferences)
+                .extracting(MerchantNotificationPreferenceService.Preference::eventType)
+                .contains(
+                        "payment.completed",
+                        "payout.completed",
+                        "payout.failed",
+                        "refund.completed");
     }
 
     @Test
@@ -73,67 +117,86 @@ class MerchantNotificationPreferenceServiceTest {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("channel", "NONE");
         row.put("notify_address", null);
-        when(jdbcTemplate.queryForList(contains("merchant_notification_preferences"), any(MapSqlParameterSource.class)))
-            .thenReturn(List.of(row));
-        MerchantNotificationPreferenceService service = new MerchantNotificationPreferenceService(jdbcTemplate);
+        when(jdbcTemplate.queryForList(
+                        contains("merchant_notification_preferences"),
+                        any(MapSqlParameterSource.class)))
+                .thenReturn(List.of(row));
+        MerchantNotificationPreferenceService service =
+                new MerchantNotificationPreferenceService(jdbcTemplate);
 
         MerchantNotificationPreferenceService.ResolvedNotification notification =
-            service.resolveChannel(42L, "payout.failed");
+                service.resolveChannel(42L, "payout.failed");
 
-        assertThat(notification.channel()).isEqualTo(MerchantNotificationPreferenceService.Channel.NONE);
+        assertThat(notification.channel())
+                .isEqualTo(MerchantNotificationPreferenceService.Channel.NONE);
         assertThat(notification.shouldSend()).isFalse();
     }
 
     @Test
     void saveRejectsAnEventTypeNotInTheWebhookCatalog() {
         NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        MerchantNotificationPreferenceService service = new MerchantNotificationPreferenceService(jdbcTemplate);
+        MerchantNotificationPreferenceService service =
+                new MerchantNotificationPreferenceService(jdbcTemplate);
 
         assertThatThrownBy(() -> service.save(42L, "not.a.real.event", "EMAIL", null))
-            .isInstanceOf(PaymentGatewayException.class)
-            .hasMessageContaining("Unknown notification event type");
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("Unknown notification event type");
     }
 
     @Test
     void saveRejectsAnUnknownChannel() {
         NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        MerchantNotificationPreferenceService service = new MerchantNotificationPreferenceService(jdbcTemplate);
+        MerchantNotificationPreferenceService service =
+                new MerchantNotificationPreferenceService(jdbcTemplate);
 
         assertThatThrownBy(() -> service.save(42L, "payment.completed", "CARRIER_PIGEON", null))
-            .isInstanceOf(PaymentGatewayException.class)
-            .hasMessageContaining("Unknown notification channel");
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("Unknown notification channel");
     }
 
     @Test
     void saveUpsertsOnTheMerchantAndEventTypeUniqueKey() {
         NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
         when(jdbcTemplate.update(anyString(), any(MapSqlParameterSource.class))).thenReturn(1);
-        MerchantNotificationPreferenceService service = new MerchantNotificationPreferenceService(jdbcTemplate);
+        MerchantNotificationPreferenceService service =
+                new MerchantNotificationPreferenceService(jdbcTemplate);
 
         MerchantNotificationPreferenceService.Preference saved =
-            service.save(42L, "PAYOUT.COMPLETED", "sms", "+256770000000");
+                service.save(42L, "PAYOUT.COMPLETED", "sms", "+256770000000");
 
         assertThat(saved.eventType()).isEqualTo("payout.completed");
         assertThat(saved.channel()).isEqualTo(MerchantNotificationPreferenceService.Channel.SMS);
         assertThat(saved.notifyAddress()).isEqualTo("+256770000000");
-        verify(jdbcTemplate).update(
-            argThat(sql -> sql.contains("ON DUPLICATE KEY UPDATE") && sql.contains("INSERT INTO merchant_notification_preferences")),
-            any(MapSqlParameterSource.class));
+        verify(jdbcTemplate)
+                .update(
+                        argThat(
+                                sql ->
+                                        sql.contains("ON DUPLICATE KEY UPDATE")
+                                                && sql.contains(
+                                                        "INSERT INTO merchant_notification_preferences")),
+                        any(MapSqlParameterSource.class));
     }
 
     @Test
     void resolveChannelFallsBackToEmailWhenThePrimaryContactLookupFindsNoAdmin() {
         NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        when(jdbcTemplate.queryForList(contains("merchant_notification_preferences"), any(MapSqlParameterSource.class)))
-            .thenReturn(List.of());
-        when(jdbcTemplate.queryForObject(contains("merchant_admins"), any(MapSqlParameterSource.class), eq(String.class)))
-            .thenThrow(new EmptyResultDataAccessException(1));
-        MerchantNotificationPreferenceService service = new MerchantNotificationPreferenceService(jdbcTemplate);
+        when(jdbcTemplate.queryForList(
+                        contains("merchant_notification_preferences"),
+                        any(MapSqlParameterSource.class)))
+                .thenReturn(List.of());
+        when(jdbcTemplate.queryForObject(
+                        contains("merchant_admins"),
+                        any(MapSqlParameterSource.class),
+                        eq(String.class)))
+                .thenThrow(new EmptyResultDataAccessException(1));
+        MerchantNotificationPreferenceService service =
+                new MerchantNotificationPreferenceService(jdbcTemplate);
 
         MerchantNotificationPreferenceService.ResolvedNotification notification =
-            service.resolveChannel(42L, "refund.completed");
+                service.resolveChannel(42L, "refund.completed");
 
-        assertThat(notification.channel()).isEqualTo(MerchantNotificationPreferenceService.Channel.EMAIL);
+        assertThat(notification.channel())
+                .isEqualTo(MerchantNotificationPreferenceService.Channel.EMAIL);
         assertThat(notification.address()).isNull();
         assertThat(notification.shouldSend()).isFalse();
     }

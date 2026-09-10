@@ -172,3 +172,6 @@ Check, in order:
 ## Production preparation
 
 Installation success does not mean production readiness. Before live traffic, follow `Deployment.md`, the readiness gates under `Docs/Readiness/`, and the reconciliation/finance runbooks. The current Railway database must not be described as native HA until the planned three-data-node + two-HAProxy conversion and controlled failover test are actually completed.
+
+
+Communications notification policies, provider configuration, evidence and release checks: [Notification orchestration](Docs/Communications/Notification-Orchestration.md).

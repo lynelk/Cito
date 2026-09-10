@@ -109,3 +109,6 @@ Financial post-deploy checks should include health, database connectivity, sched
 ## Rollback principle
 
 Application rollback must respect forward-only financial history and schema evolution. Never roll back by deleting the production database/volume or by mutating already-posted ledger entries. Prefer forward corrections and explicit reversals.
+
+
+Communications notification policies, provider configuration, evidence and release checks: [Notification orchestration](Docs/Communications/Notification-Orchestration.md).

@@ -70,7 +70,10 @@ public class TwilioSmsGatewayAdapter implements SmsGatewayAdapter {
                     response == null ? "" : response.getResponse());
         }
         if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
-            return SmsSendResult.sent(response.toString(), response.getResponse());
+            return SmsSendResult.sent(
+                    response.toString(),
+                    response.getResponse(),
+                    SmsProviderMessageIdParser.twilio(response.getResponse()));
         }
         return SmsSendResult.rejected(response.toString(), response.getResponse());
     }

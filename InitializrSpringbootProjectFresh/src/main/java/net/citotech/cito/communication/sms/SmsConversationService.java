@@ -2,6 +2,10 @@ package net.citotech.cito.communication.sms;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -109,28 +113,61 @@ public class SmsConversationService {
             throw new IllegalArgumentException("providerMessageId is required.");
         String normalizedProvider = chooseProvider(providerCode, sender.providerCode());
         DeliveryStatus status = normalizeDeliveryStatus(providerStatus);
-        String eventKey = eventKey("DLR", normalizedProvider, providerMessageId, status.name(), "");
+        String eventKey =
+                eventKey(
+                        "DLR",
+                        normalizedProvider,
+                        providerMessageId,
+                        status.name(),
+                        String.valueOf(sender.merchantId()));
         Map<String, Object> duplicate = existingWebhook(eventKey);
         if (duplicate != null) return duplicate;
 
         String payloadJson = json(payload == null ? Map.of() : payload);
+        if (status == DeliveryStatus.PENDING) {
+            recordWebhook(
+                    eventKey, sender, normalizedProvider, "DLR", providerMessageId, payloadJson);
+            return Map.of(
+                    "accepted",
+                    true,
+                    "ignored",
+                    true,
+                    "matchedDeliveries",
+                    0,
+                    "status",
+                    status.name());
+        }
+
         int updated =
                 deliveryLogRepository.updateByProviderMessageId(
+                        sender.merchantId(),
                         normalizedProvider,
                         providerMessageId,
                         status,
                         "Provider delivery receipt: " + status,
                         payloadJson);
         if (updated > 0) {
+            MapSqlParameterSource params =
+                    new MapSqlParameterSource()
+                            .addValue("merchant", sender.merchantId())
+                            .addValue("status", status.name())
+                            .addValue("provider", normalizedProvider)
+                            .addValue("provider_message_id", providerMessageId.trim());
             jdbcTemplate.update(
                     "UPDATE communication_messages m JOIN communication_message_deliveries d"
                             + " ON d.communication_id=m.id SET m.status=:status"
                             + " WHERE d.provider_code=:provider AND d.provider_message_id=:provider_message_id"
-                            + " AND m.status<>'CANCELLED'",
-                    new MapSqlParameterSource()
-                            .addValue("status", status.name())
-                            .addValue("provider", normalizedProvider)
-                            .addValue("provider_message_id", providerMessageId.trim()));
+                            + " AND m.merchant_id=:merchant AND m.status NOT IN ('CANCELLED','DELIVERED')",
+                    params);
+            jdbcTemplate.update(
+                    "UPDATE communication_conversation_messages cm"
+                            + " JOIN communication_messages m ON m.public_id=cm.message_reference"
+                            + " JOIN communication_message_deliveries d ON d.communication_id=m.id"
+                            + " SET cm.status=:status,cm.provider_code=:provider,"
+                            + " cm.provider_message_id=:provider_message_id"
+                            + " WHERE cm.direction='OUTBOUND' AND m.merchant_id=:merchant AND cm.status<>'DELIVERED' AND d.provider_code=:provider"
+                            + " AND d.provider_message_id=:provider_message_id",
+                    params);
         }
         recordWebhook(eventKey, sender, normalizedProvider, "DLR", providerMessageId, payloadJson);
         return Map.of("accepted", true, "matchedDeliveries", updated, "status", status.name());
@@ -325,7 +362,7 @@ public class SmsConversationService {
         if (List.of("REJECTED", "BLOCKED").contains(value)) return DeliveryStatus.REJECTED;
         if (List.of("FAILED", "UNDELIVERED", "EXPIRED", "ERROR").contains(value))
             return DeliveryStatus.FAILED;
-        return DeliveryStatus.SENT;
+        return DeliveryStatus.PENDING;
     }
 
     private String chooseProvider(String requested, String configured) {
@@ -358,11 +395,18 @@ public class SmsConversationService {
             String type, String provider, String providerMessageId, String a, String b) {
         String providerId = trim(providerMessageId);
         if (!blank(providerId)) return type + ":" + provider + ":" + providerId;
-        return type
-                + ":"
-                + provider
-                + ":"
-                + Integer.toHexString((String.valueOf(a) + "|" + String.valueOf(b)).hashCode());
+        return type + ":" + provider + ":" + sha256(String.valueOf(a) + "|" + String.valueOf(b));
+    }
+
+    private String sha256(String value) {
+        try {
+            byte[] digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(value.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
     }
 
     private String json(Map<String, Object> payload) {

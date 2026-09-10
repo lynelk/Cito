@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ModuleNotificationPolicies from './ModuleNotificationPolicies';
 import {
   Table,
   Alert,
@@ -173,6 +174,7 @@ function ModuleCommunicationRouting({
 
   return (
     <div className="cito-service-workspace cpay-communication-routing">
+      <ModuleNotificationPolicies />
       {feedback ? <Alert variant={feedback.tone === 'success' ? 'success' : 'error'}>{feedback.message}</Alert> : null}
       {saveError ? <Alert variant="error">{errorMessage(saveError)}</Alert> : null}
       {rulesQuery.error ? <Alert variant="error">{errorMessage(rulesQuery.error)}</Alert> : null}

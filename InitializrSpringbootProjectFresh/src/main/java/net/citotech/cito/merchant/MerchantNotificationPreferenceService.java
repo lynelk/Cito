@@ -5,8 +5,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import net.citotech.cito.Common;
+import net.citotech.cito.communication.notification.NotificationEventCatalog;
 import net.citotech.cito.gateway.PaymentGatewayException;
-import net.citotech.cito.webhook.WebhookEventCatalog;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -18,23 +18,27 @@ import org.springframework.stereotype.Service;
  * previous implicit "always email the merchant's primary contact, no opt-out" behavior with an
  * explicit, per-event, per-merchant choice.
  *
- * <p>An event a merchant has never configured has no row in {@code merchant_notification_preferences}
- * and defaults to EMAIL at the merchant's primary contact (the earliest-created {@code
- * merchant_admins} row for that merchant) - existing merchants therefore see no behavior change
- * until they explicitly set a preference, including an explicit NONE to opt out entirely. Event
- * types are validated against {@link WebhookEventCatalog#isKnown(String)} rather than a second,
- * parallel list so the catalog stays the single source of truth for what a preference can be set
- * for.
+ * <p>An event a merchant has never configured has no row in {@code
+ * merchant_notification_preferences} and defaults to EMAIL at the merchant's primary contact (the
+ * earliest-created {@code merchant_admins} row for that merchant) - existing merchants therefore
+ * see no behavior change until they explicitly set a preference, including an explicit NONE to opt
+ * out entirely. Event types are validated against {@link WebhookEventCatalog#isKnown(String)}
+ * rather than a second, parallel list so the catalog stays the single source of truth for what a
+ * preference can be set for.
  */
 @Service
 public class MerchantNotificationPreferenceService {
 
     /** Delivery channel for a notification. NONE suppresses the notification entirely. */
-    public enum Channel { EMAIL, SMS, NONE }
+    public enum Channel {
+        EMAIL,
+        SMS,
+        NONE
+    }
 
     /** A single event's preference - explicit (a row a merchant chose) or defaulted. */
-    public record Preference(String eventType, Channel channel, String notifyAddress, boolean explicit) {
-    }
+    public record Preference(
+            String eventType, Channel channel, String notifyAddress, boolean explicit) {}
 
     /** What a send-site should do for one merchant+event: the channel, and the address to use. */
     public record ResolvedNotification(Channel channel, String address) {
@@ -51,22 +55,30 @@ public class MerchantNotificationPreferenceService {
 
     /**
      * Lists one {@link Preference} per event in the catalog: the merchant's explicit choice where
-     * one exists, otherwise a defaulted EMAIL-to-primary-contact entry marked {@code explicit=false}
-     * so a UI can show the merchant which rows are actually configured versus inherited defaults.
+     * one exists, otherwise a defaulted EMAIL-to-primary-contact entry marked {@code
+     * explicit=false} so a UI can show the merchant which rows are actually configured versus
+     * inherited defaults.
      */
     public List<Preference> list(long merchantId) {
         Map<String, Preference> configured = new LinkedHashMap<>();
         for (Map<String, Object> row : rawRows(merchantId)) {
             String eventType = String.valueOf(row.get("event_type"));
             Channel channel = Channel.valueOf(String.valueOf(row.get("channel")));
-            String address = row.get("notify_address") == null ? null : String.valueOf(row.get("notify_address"));
+            String address =
+                    row.get("notify_address") == null
+                            ? null
+                            : String.valueOf(row.get("notify_address"));
             configured.put(eventType, new Preference(eventType, channel, address, true));
         }
         String defaultAddress = primaryMerchantEmail(merchantId);
         List<Preference> result = new ArrayList<>();
-        for (WebhookEventCatalog.EventDefinition definition : WebhookEventCatalog.all()) {
+        for (NotificationEventCatalog.Definition definition : NotificationEventCatalog.all()) {
             Preference existing = configured.get(definition.type());
-            result.add(existing != null ? existing : new Preference(definition.type(), Channel.EMAIL, defaultAddress, false));
+            result.add(
+                    existing != null
+                            ? existing
+                            : new Preference(
+                                    definition.type(), Channel.EMAIL, defaultAddress, false));
         }
         return result;
     }
@@ -77,10 +89,13 @@ public class MerchantNotificationPreferenceService {
      * {@link WebhookEventCatalog} with a clear error rather than silently accepting a typo that
      * would then never match a real notification lookup.
      */
-    public Preference save(long merchantId, String eventType, String channel, String notifyAddress) {
-        if (!WebhookEventCatalog.isKnown(eventType)) {
+    public Preference save(
+            long merchantId, String eventType, String channel, String notifyAddress) {
+        if (!NotificationEventCatalog.isKnown(eventType)) {
             throw new PaymentGatewayException(
-                "Unknown notification event type: " + eventType + ". See GET /api/v2/webhooks/events for the catalog.");
+                    "Unknown notification event type: "
+                            + eventType
+                            + ". See GET /api/v2/webhooks/events for the catalog.");
         }
         Channel parsedChannel = parseChannel(channel);
         String normalizedAddress = isBlank(notifyAddress) ? null : notifyAddress.trim();
@@ -92,12 +107,15 @@ public class MerchantNotificationPreferenceService {
         p.addValue("channel", parsedChannel.name());
         p.addValue("notify_address", normalizedAddress);
         jdbcTemplate.update(
-            "INSERT INTO merchant_notification_preferences (merchant_id, event_type, channel, notify_address) "
-                + "VALUES (:merchant_id, :event_type, :channel, :notify_address) "
-                + "ON DUPLICATE KEY UPDATE channel=:channel, notify_address=:notify_address, updated_at=CURRENT_TIMESTAMP",
-            p);
+                "INSERT INTO merchant_notification_preferences (merchant_id, event_type, channel, notify_address) "
+                        + "VALUES (:merchant_id, :event_type, :channel, :notify_address) "
+                        + "ON DUPLICATE KEY UPDATE channel=:channel, notify_address=:notify_address, updated_at=CURRENT_TIMESTAMP",
+                p);
 
-        String effectiveAddress = normalizedAddress != null ? normalizedAddress : primaryMerchantEmail(merchantId);
+        String effectiveAddress =
+                normalizedAddress != null
+                        ? normalizedAddress
+                        : primaryMerchantAddress(merchantId, parsedChannel);
         return new Preference(normalizedEventType, parsedChannel, effectiveAddress, true);
     }
 
@@ -110,16 +128,17 @@ public class MerchantNotificationPreferenceService {
      * payment/payout/refund.
      */
     public ResolvedNotification resolveChannel(long merchantId, String eventType) {
-        if (!WebhookEventCatalog.isKnown(eventType)) {
+        if (!NotificationEventCatalog.isKnown(eventType)) {
             return new ResolvedNotification(Channel.EMAIL, primaryMerchantEmail(merchantId));
         }
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("merchant_id", merchantId);
         p.addValue("event_type", normalize(eventType));
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-            "SELECT channel, notify_address FROM merchant_notification_preferences "
-                + "WHERE merchant_id=:merchant_id AND event_type=:event_type LIMIT 1",
-            p);
+        List<Map<String, Object>> rows =
+                jdbcTemplate.queryForList(
+                        "SELECT channel, notify_address FROM merchant_notification_preferences "
+                                + "WHERE merchant_id=:merchant_id AND event_type=:event_type LIMIT 1",
+                        p);
         if (rows.isEmpty()) {
             return new ResolvedNotification(Channel.EMAIL, primaryMerchantEmail(merchantId));
         }
@@ -128,24 +147,43 @@ public class MerchantNotificationPreferenceService {
         if (channel == Channel.NONE) {
             return new ResolvedNotification(Channel.NONE, null);
         }
-        String address = row.get("notify_address") == null ? null : String.valueOf(row.get("notify_address"));
-        String resolvedAddress = isBlank(address) ? primaryMerchantEmail(merchantId) : address.trim();
+        String address =
+                row.get("notify_address") == null
+                        ? null
+                        : String.valueOf(row.get("notify_address"));
+        String resolvedAddress =
+                isBlank(address) ? primaryMerchantAddress(merchantId, channel) : address.trim();
         return new ResolvedNotification(channel, resolvedAddress);
     }
 
     private List<Map<String, Object>> rawRows(long merchantId) {
         return jdbcTemplate.queryForList(
-            "SELECT event_type, channel, notify_address FROM merchant_notification_preferences WHERE merchant_id=:merchant_id",
-            new MapSqlParameterSource("merchant_id", merchantId));
+                "SELECT event_type, channel, notify_address FROM merchant_notification_preferences WHERE merchant_id=:merchant_id",
+                new MapSqlParameterSource("merchant_id", merchantId));
     }
 
-    /** The merchant's earliest-created admin contact email - the same "primary contact" notion
-     *  used elsewhere in this codebase for merchant account/credential emails. */
+    /**
+     * The merchant's earliest-created admin contact email - the same "primary contact" notion used
+     * elsewhere in this codebase for merchant account/credential emails.
+     */
     private String primaryMerchantEmail(long merchantId) {
+        return primaryMerchantAddress(merchantId, Channel.EMAIL);
+    }
+
+    private String primaryMerchantAddress(long merchantId, Channel channel) {
+        if (channel == Channel.NONE) return null;
         try {
-            String sql = "SELECT email FROM " + Common.DB_TABLE_MERCHANT_USERS
-                + " WHERE merchant_id=:merchant_id ORDER BY id ASC LIMIT 1";
-            String value = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("merchant_id", merchantId), String.class);
+            String sql =
+                    "SELECT "
+                            + (channel == Channel.SMS ? "phone" : "email")
+                            + " FROM "
+                            + Common.DB_TABLE_MERCHANT_USERS
+                            + " WHERE merchant_id=:merchant_id ORDER BY id ASC LIMIT 1";
+            String value =
+                    jdbcTemplate.queryForObject(
+                            sql,
+                            new MapSqlParameterSource("merchant_id", merchantId),
+                            String.class);
             return isBlank(value) ? null : value.trim();
         } catch (DataAccessException e) {
             return null;
@@ -159,7 +197,8 @@ public class MerchantNotificationPreferenceService {
         try {
             return Channel.valueOf(channel.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new PaymentGatewayException("Unknown notification channel: " + channel + ". Use EMAIL, SMS, or NONE.");
+            throw new PaymentGatewayException(
+                    "Unknown notification channel: " + channel + ". Use EMAIL, SMS, or NONE.");
         }
     }
 

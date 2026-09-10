@@ -23,12 +23,22 @@ import org.springframework.transaction.annotation.Transactional;
 public class MerchantWebhookService {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final MerchantChannelCryptoService cryptoService;
+    private net.citotech.cito.communication.notification.NotificationOrchestrator notifications;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public MerchantWebhookService(
             NamedParameterJdbcTemplate jdbcTemplate, MerchantChannelCryptoService cryptoService) {
         this.jdbcTemplate = jdbcTemplate;
         this.cryptoService = cryptoService;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public MerchantWebhookService(
+            NamedParameterJdbcTemplate jdbcTemplate,
+            MerchantChannelCryptoService cryptoService,
+            net.citotech.cito.communication.notification.NotificationOrchestrator notifications) {
+        this(jdbcTemplate, cryptoService);
+        this.notifications = notifications;
     }
 
     @Transactional
@@ -123,6 +133,17 @@ public class MerchantWebhookService {
                                         new PaymentGatewayException(
                                                 "Unknown webhook event type: " + eventType));
         String envelopedPayload = envelope(definition, payloadJson);
+        // Capture once even when no external webhook endpoint is subscribed. Synthetic probes do
+        // not send SMS.
+        if (notifications != null
+                && !new JSONObject(envelopedPayload).optBoolean("test", false)
+                && eventReference != null
+                && !eventReference.startsWith("test-")) {
+            String identity =
+                    CanonicalRequestSigner.sha256Hex(
+                            normalizeEvent(eventType) + ":" + eventReference);
+            notifications.record(merchantId, identity, eventType, identity);
+        }
         List<EndpointRow> endpoints = activeEndpoints(merchantId, eventType);
         int queued = 0;
         for (EndpointRow endpoint : endpoints) {

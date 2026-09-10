@@ -164,3 +164,6 @@ Start with:
 ## Compatibility note
 
 The product name is **Cito**. `CPay` remains in some Java class names, database identifiers, URLs/settings examples and `CPAY_*` environment variables for backward compatibility. Rename those only through an explicit compatibility migration, not cosmetic search-and-replace. Payment platforms have enough exciting failure modes without manufacturing new ones in configuration names.
+
+
+Communications notification policies, provider configuration, evidence and release checks: [Notification orchestration](Docs/Communications/Notification-Orchestration.md).
