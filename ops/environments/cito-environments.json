@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "sourceOfTruth": {
+    "repository": "lynelk/Cito",
+    "policy": "All application, configuration-contract, workflow, runbook and release-marker changes must be committed to this repository. Runtime-only changes must be reconciled back to GitHub immediately and may not remain as undocumented drift."
+  },
+  "railway": {
+    "projectName": "Cito",
+    "projectId": "8d361df2-d17e-4d15-984e-435735f22f6c",
+    "production": {
+      "status": "ACTIVE",
+      "environmentId": "bec50941-04c7-426d-8bc3-883cbdece892",
+      "branch": "production",
+      "commitPolicy": "BACKEND_FRONTEND_MATCH_BRANCH_HEAD",
+      "services": {
+        "backend": {
+          "name": "cito-backend",
+          "serviceId": "ba6fd4b7-e61d-48d1-987d-7f6dc56c1e84",
+          "rootDirectory": "InitializrSpringbootProjectFresh",
+          "replicas": 2,
+          "region": "ams"
+        },
+        "frontend": {
+          "name": "cito-frontend",
+          "serviceId": "fc3dae0c-f602-4242-b66f-9ba7e1491f1f",
+          "rootDirectory": "clientside",
+          "replicas": 2,
+          "region": "ams",
+          "publicDomain": "cito.coresynergi.es"
+        },
+        "database": {
+          "name": "MySQL",
+          "serviceId": "26c20665-9b31-47b6-ac2c-a984c9b0c6d4"
+        }
+      }
+    },
+    "staging": {
+      "status": "PLANNED",
+      "environmentId": null,
+      "branch": "main",
+      "commitPolicy": "BACKEND_FRONTEND_MATCH_BRANCH_HEAD",
+      "autoDeploy": true,
+      "isolationPolicy": "NO_PRODUCTION_SECRETS_OR_PROVIDER_BALANCES",
+      "dataPolicy": "SYNTHETIC_OR_APPROVED_SANITIZED_DATA_ONLY",
+      "promotionPolicy": "EXACT_STAGING_SHA_MUST_PASS_RELEASE_UAT_AND_SMOKE_GATES_BEFORE_PRODUCTION_PROMOTION"
+    }
+  }
+}
