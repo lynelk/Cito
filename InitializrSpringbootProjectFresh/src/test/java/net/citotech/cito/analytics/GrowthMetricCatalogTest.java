@@ -19,9 +19,10 @@ class GrowthMetricCatalogTest {
     }
 
     @Test
-    void leavesNonCommercialSupportServicesOutsideAttachRate() {
+    void leavesPlatformAndSupportCapabilitiesOutsideAttachRate() {
         assertThat(GrowthMetricCatalog.familyForService("MERCHANT_ANALYTICS")).isNull();
         assertThat(GrowthMetricCatalog.familyForService("DEVELOPER_CONTROL_PLANE")).isNull();
+        assertThat(GrowthMetricCatalog.familyForService("INTEGRATIONS_MARKETPLACE")).isNull();
     }
 
     @Test
