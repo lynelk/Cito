@@ -78,13 +78,21 @@ public class CommunicationDeliveryDispatcher {
             String content,
             String providerCode,
             Long referenceId) {
-        return dispatch(merchantId, channel, recipient, subject, content, providerCode, referenceId, Map.of());
+        return dispatch(
+                merchantId,
+                channel,
+                recipient,
+                subject,
+                content,
+                providerCode,
+                referenceId,
+                Map.of());
     }
 
     /**
      * Delivers one message. When an SMS has no provider pinned, Cito selects the best currently
-     * eligible route at dispatch time. Scheduled traffic and retries therefore react to live
-     * cost, capability and provider health.
+     * eligible route at dispatch time. Scheduled traffic and retries therefore react to live cost,
+     * capability and provider health.
      */
     public DeliveryOutcome dispatch(
             long merchantId,
@@ -105,28 +113,37 @@ public class CommunicationDeliveryDispatcher {
                 && smartSmsRoutingService != null) {
             SmartSmsRoutingService.RouteDecision decision;
             if (referenceId != null) {
-                decision = smartSmsRoutingService.selectForMessage(referenceId, merchantId, content);
+                decision =
+                        smartSmsRoutingService.selectForMessage(referenceId, merchantId, content);
             } else {
-                decision = smartSmsRoutingService.preview(
-                        merchantId,
-                        content,
-                        text(safeMetadata, "countryCode"),
-                        text(safeMetadata, "currencyCode"),
-                        text(safeMetadata, "routingStrategy"),
-                        bool(safeMetadata, "requireDeliveryReceipts"),
-                        bool(safeMetadata, "requireInbound"));
+                decision =
+                        smartSmsRoutingService.preview(
+                                merchantId,
+                                content,
+                                text(safeMetadata, "countryCode"),
+                                text(safeMetadata, "currencyCode"),
+                                text(safeMetadata, "routingStrategy"),
+                                bool(safeMetadata, "requireDeliveryReceipts"),
+                                bool(safeMetadata, "requireInbound"));
             }
             resolvedProviderCode = decision.selectedProviderCode();
             routeExplanation = decision.explanation();
         }
 
-        long deliveryId = deliveryLogRepository.insert(
-                merchantId, normalizedChannel, resolvedProviderCode, null, referenceId, recipient);
+        long deliveryId =
+                deliveryLogRepository.insert(
+                        merchantId,
+                        normalizedChannel,
+                        resolvedProviderCode,
+                        null,
+                        referenceId,
+                        recipient);
 
         if ("SMS".equals(normalizedChannel) && resolvedProviderCode == null) {
-            String trace = routeExplanation == null || routeExplanation.isBlank()
-                    ? "No eligible SMS provider is currently available"
-                    : routeExplanation;
+            String trace =
+                    routeExplanation == null || routeExplanation.isBlank()
+                            ? "No eligible SMS provider is currently available"
+                            : routeExplanation;
             deliveryLogRepository.updateStatus(deliveryId, DeliveryStatus.FAILED, trace, "");
             return new DeliveryOutcome(deliveryId, DeliveryStatus.FAILED, null);
         }
@@ -136,46 +153,63 @@ public class CommunicationDeliveryDispatcher {
             String trace;
             String gwResponse;
             if ("EMAIL".equals(normalizedChannel)) {
-                EmailSendResult result = emailDeliveryService.send(new EmailSendRequest(recipient, subject, content));
-                status = result.status() == EmailSendResult.Status.SENT
-                        ? DeliveryStatus.SENT : DeliveryStatus.FAILED;
+                EmailSendResult result =
+                        emailDeliveryService.send(
+                                new EmailSendRequest(recipient, subject, content));
+                status =
+                        result.status() == EmailSendResult.Status.SENT
+                                ? DeliveryStatus.SENT
+                                : DeliveryStatus.FAILED;
                 trace = result.trace();
                 gwResponse = result.response();
             } else {
-                CommunicationChannel channelEnum = CommunicationChannel.fromString(normalizedChannel);
+                CommunicationChannel channelEnum =
+                        CommunicationChannel.fromString(normalizedChannel);
                 CommunicationProviderAdapter adapter =
                         providerRegistry.find(resolvedProviderCode, channelEnum).orElse(null);
                 if (adapter == null) {
                     status = DeliveryStatus.REJECTED;
-                    trace = normalizedChannel + " adapter not implemented for " + resolvedProviderCode;
+                    trace =
+                            normalizedChannel
+                                    + " adapter not implemented for "
+                                    + resolvedProviderCode;
                     gwResponse = "";
                 } else {
-                    ProviderSendResult result = adapter.send(
-                            new ProviderSendRequest(
-                                    referenceId == null ? 0L : referenceId,
-                                    deliveryId,
-                                    merchantId,
-                                    recipient,
-                                    subject,
-                                    content,
-                                    null,
-                                    Map.of(),
-                                    stringMetadata(safeMetadata)));
+                    ProviderSendResult result =
+                            adapter.send(
+                                    new ProviderSendRequest(
+                                            referenceId == null ? 0L : referenceId,
+                                            deliveryId,
+                                            merchantId,
+                                            recipient,
+                                            subject,
+                                            content,
+                                            null,
+                                            Map.of(),
+                                            stringMetadata(safeMetadata)));
                     status = mapProviderStatus(result);
                     trace = result == null ? "No provider result" : result.trace();
                     gwResponse = result == null ? "" : result.safeResponse();
                     if (result != null && result.providerMessageId() != null) {
-                        deliveryLogRepository.updateProviderMessageId(deliveryId, result.providerMessageId());
+                        deliveryLogRepository.updateProviderMessageId(
+                                deliveryId, result.providerMessageId());
                     }
                 }
             }
             deliveryLogRepository.updateStatus(deliveryId, status, trace, gwResponse);
             return new DeliveryOutcome(deliveryId, status, resolvedProviderCode);
         } catch (Exception ex) {
-            logger.log(Level.WARNING,
-                    "Delivery failed for channel " + normalizedChannel + " recipient " + recipient + ": " + ex.getMessage(),
+            logger.log(
+                    Level.WARNING,
+                    "Delivery failed for channel "
+                            + normalizedChannel
+                            + " recipient "
+                            + recipient
+                            + ": "
+                            + ex.getMessage(),
                     ex);
-            deliveryLogRepository.updateStatus(deliveryId, DeliveryStatus.FAILED, ex.getMessage(), "");
+            deliveryLogRepository.updateStatus(
+                    deliveryId, DeliveryStatus.FAILED, ex.getMessage(), "");
             return new DeliveryOutcome(deliveryId, DeliveryStatus.FAILED, resolvedProviderCode);
         }
     }
@@ -200,20 +234,25 @@ public class CommunicationDeliveryDispatcher {
 
     private String text(Map<String, Object> values, String key) {
         Object value = values.get(key);
-        return value == null || String.valueOf(value).isBlank() ? null : String.valueOf(value).trim();
+        return value == null || String.valueOf(value).isBlank()
+                ? null
+                : String.valueOf(value).trim();
     }
 
     private boolean bool(Map<String, Object> values, String key) {
         Object value = values.get(key);
-        return value instanceof Boolean b ? b : value != null && Boolean.parseBoolean(String.valueOf(value));
+        return value instanceof Boolean b
+                ? b
+                : value != null && Boolean.parseBoolean(String.valueOf(value));
     }
 
     private Map<String, String> stringMetadata(Map<String, Object> values) {
         if (values == null || values.isEmpty()) return Map.of();
         Map<String, String> converted = new LinkedHashMap<>();
-        values.forEach((key, value) -> {
-            if (key != null && value != null) converted.put(key, String.valueOf(value));
-        });
+        values.forEach(
+                (key, value) -> {
+                    if (key != null && value != null) converted.put(key, String.valueOf(value));
+                });
         return Map.copyOf(converted);
     }
 

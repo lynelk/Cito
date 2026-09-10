@@ -34,16 +34,19 @@ public final class SmsCommunicationProviderAdapter implements CommunicationProvi
     @Override
     public ProviderSendResult send(ProviderSendRequest request) {
         Object senderValue = request.metadata() == null ? null : request.metadata().get("senderId");
-        String senderId = senderValue == null || String.valueOf(senderValue).isBlank()
-                ? null : String.valueOf(senderValue).trim();
-        SmsSendResult result = delegate.send(
-                new SmsSendRequest(
-                        request.deliveryId(),
-                        request.merchantId(),
-                        request.content(),
-                        request.recipient(),
-                        providerCode,
-                        senderId));
+        String senderId =
+                senderValue == null || String.valueOf(senderValue).isBlank()
+                        ? null
+                        : String.valueOf(senderValue).trim();
+        SmsSendResult result =
+                delegate.send(
+                        new SmsSendRequest(
+                                request.deliveryId(),
+                                request.merchantId(),
+                                request.content(),
+                                request.recipient(),
+                                providerCode,
+                                senderId));
         return SmsResultMapper.toProviderResult(providerCode, result);
     }
 }

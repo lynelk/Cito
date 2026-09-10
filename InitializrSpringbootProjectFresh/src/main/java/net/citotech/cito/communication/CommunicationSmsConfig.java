@@ -32,9 +32,11 @@ public class CommunicationSmsConfig {
             TwilioSmsGatewayAdapter twilioSmsGatewayAdapter,
             SmsMobiloSmsGatewayAdapter smsMobiloSmsGatewayAdapter) {
         Map<String, SmsGatewayAdapter> adapters = new HashMap<>();
-        adapters.put(CommunicationSmsProviderCodes.LEGACY_SETTINGS, legacySettingsSmsGatewayAdapter);
+        adapters.put(
+                CommunicationSmsProviderCodes.LEGACY_SETTINGS, legacySettingsSmsGatewayAdapter);
         adapters.put(CommunicationSmsProviderCodes.YO_SMS, yoSmsGatewayAdapter);
-        adapters.put(CommunicationSmsProviderCodes.AFRICAS_TALKING, africastalkingSmsGatewayAdapter);
+        adapters.put(
+                CommunicationSmsProviderCodes.AFRICAS_TALKING, africastalkingSmsGatewayAdapter);
         adapters.put(CommunicationSmsProviderCodes.TWILIO_SMS, twilioSmsGatewayAdapter);
         adapters.put(CommunicationSmsProviderCodes.SMSMOBILO_SMS, smsMobiloSmsGatewayAdapter);
         return Map.copyOf(adapters);

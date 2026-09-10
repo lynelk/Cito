@@ -26,18 +26,27 @@ public class YoSmsGatewayAdapter implements SmsGatewayAdapter {
     public SmsSendResult send(SmsSendRequest request) {
         String username = settingValue("yo_sms_username");
         String password = settingValue("yo_sms_password");
-        String senderId = blank(request.senderId()) ? settingValue("yo_sms_sender_id") : request.senderId().trim();
+        String senderId =
+                blank(request.senderId())
+                        ? settingValue("yo_sms_sender_id")
+                        : request.senderId().trim();
         String apiUrl = settingValue("yo_sms_api_url");
         if (blank(username) || blank(password)) {
             return SmsSendResult.failed("yo_sms_username/yo_sms_password not configured", "");
         }
         if (blank(apiUrl)) apiUrl = DEFAULT_API_URL;
 
-        String payload = "origin=" + Common.urlEncodeValue(senderId)
-                + "&destinations=" + Common.urlEncodeValue(stripTrailingComma(request.recipients()))
-                + "&message=" + Common.urlEncodeValue(request.content())
-                + "&username=" + Common.urlEncodeValue(username)
-                + "&password=" + Common.urlEncodeValue(password);
+        String payload =
+                "origin="
+                        + Common.urlEncodeValue(senderId)
+                        + "&destinations="
+                        + Common.urlEncodeValue(stripTrailingComma(request.recipients()))
+                        + "&message="
+                        + Common.urlEncodeValue(request.content())
+                        + "&username="
+                        + Common.urlEncodeValue(username)
+                        + "&password="
+                        + Common.urlEncodeValue(password);
         Map<String, String> headers = new HashMap<>();
         headers.put("Content-Type", "application/x-www-form-urlencoded");
         return normalize(Common.doHttpRequest("POST", apiUrl, payload, headers));

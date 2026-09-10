@@ -16,24 +16,24 @@ import org.springframework.stereotype.Component;
 /**
  * SMSMobilo REST API adapter.
  *
- * <p>SMSMobilo documents a JSON API rooted at https://smsmobilo.com/api/v1, UTF-8 over HTTPS,
- * with Bearer authentication preferred and X-API-Key supported. Endpoint and payload-field names
- * are intentionally settings-driven because they are provider contract details and must not be
- * guessed in production code. The adapter remains unavailable until those settings and an API key
- * are configured.
+ * <p>SMSMobilo documents a JSON API rooted at https://smsmobilo.com/api/v1, UTF-8 over HTTPS, with
+ * Bearer authentication preferred and X-API-Key supported. Endpoint and payload-field names are
+ * intentionally settings-driven because they are provider contract details and must not be guessed
+ * in production code. The adapter remains unavailable until those settings and an API key are
+ * configured.
  */
 @Component
 public class SmsMobiloSmsGatewayAdapter implements SmsGatewayAdapter {
 
-    private static final Logger logger = Logger.getLogger(SmsMobiloSmsGatewayAdapter.class.getName());
+    private static final Logger logger =
+            Logger.getLogger(SmsMobiloSmsGatewayAdapter.class.getName());
     private static final String DEFAULT_BASE_URL = "https://smsmobilo.com/api/v1";
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
     public SmsMobiloSmsGatewayAdapter(
-            NamedParameterJdbcTemplate jdbcTemplate,
-            ObjectMapper objectMapper) {
+            NamedParameterJdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
     }
@@ -63,7 +63,10 @@ public class SmsMobiloSmsGatewayAdapter implements SmsGatewayAdapter {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put(recipientField.trim(), stripTrailingComma(request.recipients()));
         body.put(messageField.trim(), request.content());
-        String senderId = blank(request.senderId()) ? settingValue("smsmobilo_sms_sender_id") : request.senderId().trim();
+        String senderId =
+                blank(request.senderId())
+                        ? settingValue("smsmobilo_sms_sender_id")
+                        : request.senderId().trim();
         if (!blank(senderId) && !blank(senderField)) body.put(senderField.trim(), senderId);
 
         final String payload;
@@ -95,8 +98,10 @@ public class SmsMobiloSmsGatewayAdapter implements SmsGatewayAdapter {
         if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
             return SmsSendResult.sent(response.toString(), response.getResponse());
         }
-        if (response.getStatusCode() == 408 || response.getStatusCode() == 425
-                || response.getStatusCode() == 429 || response.getStatusCode() >= 500) {
+        if (response.getStatusCode() == 408
+                || response.getStatusCode() == 425
+                || response.getStatusCode() == 429
+                || response.getStatusCode() >= 500) {
             return SmsSendResult.failed(response.toString(), response.getResponse());
         }
         return SmsSendResult.rejected(response.toString(), response.getResponse());

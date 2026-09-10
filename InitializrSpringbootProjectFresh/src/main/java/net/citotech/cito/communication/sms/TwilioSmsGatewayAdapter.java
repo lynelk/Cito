@@ -29,8 +29,10 @@ public class TwilioSmsGatewayAdapter implements SmsGatewayAdapter {
     public SmsSendResult send(SmsSendRequest request) {
         String accountSid = settingValue("twilio_account_sid");
         String authToken = settingValue("twilio_auth_token");
-        String fromNumber = blank(request.senderId())
-                ? settingValue("twilio_from_number") : request.senderId().trim();
+        String fromNumber =
+                blank(request.senderId())
+                        ? settingValue("twilio_from_number")
+                        : request.senderId().trim();
         if (blank(accountSid) || blank(authToken) || blank(fromNumber)) {
             return SmsSendResult.failed(
                     "twilio_account_sid/twilio_auth_token/sender identity not configured", "");
@@ -41,13 +43,20 @@ public class TwilioSmsGatewayAdapter implements SmsGatewayAdapter {
 
         HttpRequestResponse lastResponse = null;
         for (String recipient : splitRecipients(stripTrailingComma(request.recipients()))) {
-            String payload = "From=" + Common.urlEncodeValue(fromNumber)
-                    + "&To=" + Common.urlEncodeValue(recipient)
-                    + "&Body=" + Common.urlEncodeValue(request.content());
+            String payload =
+                    "From="
+                            + Common.urlEncodeValue(fromNumber)
+                            + "&To="
+                            + Common.urlEncodeValue(recipient)
+                            + "&Body="
+                            + Common.urlEncodeValue(request.content());
             Map<String, String> headers = new HashMap<>();
             headers.put("Content-Type", "application/x-www-form-urlencoded");
-            String credentials = Base64.getEncoder().encodeToString(
-                    (accountSid + ":" + authToken).getBytes(StandardCharsets.UTF_8));
+            String credentials =
+                    Base64.getEncoder()
+                            .encodeToString(
+                                    (accountSid + ":" + authToken)
+                                            .getBytes(StandardCharsets.UTF_8));
             headers.put("Authorization", "Basic " + credentials);
             lastResponse = Common.doHttpRequest("POST", apiUrl, payload, headers);
         }
@@ -67,7 +76,9 @@ public class TwilioSmsGatewayAdapter implements SmsGatewayAdapter {
     }
 
     private String[] splitRecipients(String recipients) {
-        return recipients == null || recipients.isBlank() ? new String[] {""} : recipients.split(",");
+        return recipients == null || recipients.isBlank()
+                ? new String[] {""}
+                : recipients.split(",");
     }
 
     private String settingValue(String name) {

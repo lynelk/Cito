@@ -50,38 +50,43 @@ public class MerchantSmsOperationsController {
         MerchantUser user = merchantUser(request);
         if (user == null) return unauthorized();
         int safeLimit = Math.max(1, Math.min(limit, 250));
-        String sql = "SELECT c.id,c.name,c.status,c.total_recipients totalRecipients,"
-                + " c.processed_recipients processedRecipients,c.scheduled_at scheduledAt,c.created_at createdAt,c.updated_at updatedAt,"
-                + " SUM(CASE WHEN COALESCE(m.status,i.status) IN ('SENT','DELIVERED') THEN 1 ELSE 0 END) successful,"
-                + " SUM(CASE WHEN COALESCE(m.status,i.status) IN ('FAILED','REJECTED','EXPIRED') THEN 1 ELSE 0 END) failed,"
-                + " SUM(CASE WHEN i.status='SUPPRESSED' THEN 1 ELSE 0 END) suppressed"
-                + " FROM communication_campaigns c"
-                + " LEFT JOIN communication_campaign_items i ON i.campaign_id=c.id"
-                + " LEFT JOIN communication_messages m ON m.public_id=i.message_reference AND m.merchant_id=c.merchant_id"
-                + " WHERE c.merchant_id=:merchant AND c.channel='SMS'"
-                + " GROUP BY c.id,c.name,c.status,c.total_recipients,c.processed_recipients,c.scheduled_at,c.created_at,c.updated_at"
-                + " ORDER BY c.created_at DESC LIMIT :limit";
-        return ResponseEntity.ok(jdbcTemplate.queryForList(
-                sql,
-                new MapSqlParameterSource()
-                        .addValue("merchant", merchantId(user))
-                        .addValue("limit", safeLimit)));
+        String sql =
+                "SELECT c.id,c.name,c.status,c.total_recipients totalRecipients,"
+                        + " c.processed_recipients processedRecipients,c.scheduled_at scheduledAt,c.created_at createdAt,c.updated_at updatedAt,"
+                        + " SUM(CASE WHEN COALESCE(m.status,i.status) IN ('SENT','DELIVERED') THEN 1 ELSE 0 END) successful,"
+                        + " SUM(CASE WHEN COALESCE(m.status,i.status) IN ('FAILED','REJECTED','EXPIRED') THEN 1 ELSE 0 END) failed,"
+                        + " SUM(CASE WHEN i.status='SUPPRESSED' THEN 1 ELSE 0 END) suppressed"
+                        + " FROM communication_campaigns c"
+                        + " LEFT JOIN communication_campaign_items i ON i.campaign_id=c.id"
+                        + " LEFT JOIN communication_messages m ON m.public_id=i.message_reference AND m.merchant_id=c.merchant_id"
+                        + " WHERE c.merchant_id=:merchant AND c.channel='SMS'"
+                        + " GROUP BY c.id,c.name,c.status,c.total_recipients,c.processed_recipients,c.scheduled_at,c.created_at,c.updated_at"
+                        + " ORDER BY c.created_at DESC LIMIT :limit";
+        return ResponseEntity.ok(
+                jdbcTemplate.queryForList(
+                        sql,
+                        new MapSqlParameterSource()
+                                .addValue("merchant", merchantId(user))
+                                .addValue("limit", safeLimit)));
     }
 
     @PostMapping(path = "/campaigns", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> sendCampaign(@RequestBody CampaignRequest input, HttpServletRequest request) {
+    public ResponseEntity<?> sendCampaign(
+            @RequestBody CampaignRequest input, HttpServletRequest request) {
         MerchantUser user = merchantUser(request);
         if (user == null) return unauthorized();
         if (input == null || blank(input.name())) return bad("Campaign name is required.");
         if (blank(input.content())) return bad("Campaign message is required.");
-        if (!hasAudience(input)) return bad("Add recipients, contacts or at least one contact group.");
+        if (!hasAudience(input))
+            return bad("Add recipients, contacts or at least one contact group.");
 
         long merchantId = merchantId(user);
         try {
             LinkedHashMap<String, CampaignRecipient> unique = expandAudience(merchantId, input);
             if (unique.isEmpty()) return bad("No valid campaign recipients were found.");
             if (unique.size() > MAX_CAMPAIGN_RECIPIENTS) {
-                return bad("A campaign can contain at most 5,000 unique recipients per submission.");
+                return bad(
+                        "A campaign can contain at most 5,000 unique recipients per submission.");
             }
 
             Timestamp scheduled = scheduleTimestamp(input.scheduledAt());
@@ -108,31 +113,47 @@ public class MerchantSmsOperationsController {
             int suppressed = 0;
             int index = 0;
             List<Map<String, Object>> messages = new ArrayList<>();
-            String purpose = blank(input.purpose()) ? "MARKETING" : input.purpose().trim().toUpperCase(Locale.ROOT);
+            String purpose =
+                    blank(input.purpose())
+                            ? "MARKETING"
+                            : input.purpose().trim().toUpperCase(Locale.ROOT);
             for (CampaignRecipient recipient : unique.values()) {
                 String rendered = personalize(input.content(), recipient.variables());
                 if ("MARKETING".equals(purpose) && isSuppressed(merchantId, recipient.phone())) {
-                    insertCampaignItem(campaignId, recipient.phone(), null, rendered, "SUPPRESSED", "Marketing opt-out");
+                    insertCampaignItem(
+                            campaignId,
+                            recipient.phone(),
+                            null,
+                            rendered,
+                            "SUPPRESSED",
+                            "Marketing opt-out");
                     suppressed++;
                     index++;
                     continue;
                 }
                 String reference = "CMP-" + campaignId + ":" + index;
-                Map<String, Object> queued = communicationService.enqueueSms(
-                        merchantId,
-                        recipient.phone(),
-                        rendered,
-                        purpose,
-                        reference,
-                        reference,
-                        input.expiresInSeconds(),
-                        new MerchantCommunicationService.SmsOptions(
-                                input.senderId(), input.scheduledAt(), input.routingStrategy(),
-                                input.countryCode(), input.currencyCode(),
-                                input.requireDeliveryReceipts() == null || input.requireDeliveryReceipts(),
-                                Boolean.TRUE.equals(input.requireInbound()),
-                                input.fallbackEnabled() == null || input.fallbackEnabled()));
-                String messageReference = String.valueOf(queued.getOrDefault("messageReference", ""));
+                Map<String, Object> queued =
+                        communicationService.enqueueSms(
+                                merchantId,
+                                recipient.phone(),
+                                rendered,
+                                purpose,
+                                reference,
+                                reference,
+                                input.expiresInSeconds(),
+                                new MerchantCommunicationService.SmsOptions(
+                                        input.senderId(),
+                                        input.scheduledAt(),
+                                        input.routingStrategy(),
+                                        input.countryCode(),
+                                        input.currencyCode(),
+                                        input.requireDeliveryReceipts() == null
+                                                || input.requireDeliveryReceipts(),
+                                        Boolean.TRUE.equals(input.requireInbound()),
+                                        input.fallbackEnabled() == null
+                                                || input.fallbackEnabled()));
+                String messageReference =
+                        String.valueOf(queued.getOrDefault("messageReference", ""));
                 insertCampaignItem(
                         campaignId,
                         recipient.phone(),
@@ -177,19 +198,20 @@ public class MerchantSmsOperationsController {
         if (user == null) return unauthorized();
         try {
             int safeLimit = Math.max(1, Math.min(limit, 1000));
-            StringBuilder sql = new StringBuilder(
-                    "SELECT m.public_id messageReference,m.recipient,"
-                            + " JSON_UNQUOTE(JSON_EXTRACT(m.metadata_json,'$.senderId')) senderId,"
-                            + " COALESCE(d.status,m.status) status,COALESCE(d.provider_code,m.selected_provider_code) provider,"
-                            + " d.provider_message_id providerMessageId,d.charged_amount chargedAmount,d.billed_flag billed,"
-                            + " JSON_UNQUOTE(JSON_EXTRACT(m.metadata_json,'$.segments')) segments,"
-                            + " JSON_UNQUOTE(JSON_EXTRACT(m.metadata_json,'$.encoding')) encoding,"
-                            + " m.scheduled_at scheduledAt,m.created_at createdAt,d.updated_at deliveryUpdatedAt"
-                            + " FROM communication_messages m"
-                            + " LEFT JOIN communication_message_deliveries d ON d.id=(SELECT MAX(d2.id)"
-                            + " FROM communication_message_deliveries d2"
-                            + " WHERE d2.reference_id=m.id AND d2.merchant_id=m.merchant_id AND d2.channel='SMS')"
-                            + " WHERE m.merchant_id=:merchant AND m.selected_channel='SMS'");
+            StringBuilder sql =
+                    new StringBuilder(
+                            "SELECT m.public_id messageReference,m.recipient,"
+                                    + " JSON_UNQUOTE(JSON_EXTRACT(m.metadata_json,'$.senderId')) senderId,"
+                                    + " COALESCE(d.status,m.status) status,COALESCE(d.provider_code,m.selected_provider_code) provider,"
+                                    + " d.provider_message_id providerMessageId,d.charged_amount chargedAmount,d.billed_flag billed,"
+                                    + " JSON_UNQUOTE(JSON_EXTRACT(m.metadata_json,'$.segments')) segments,"
+                                    + " JSON_UNQUOTE(JSON_EXTRACT(m.metadata_json,'$.encoding')) encoding,"
+                                    + " m.scheduled_at scheduledAt,m.created_at createdAt,d.updated_at deliveryUpdatedAt"
+                                    + " FROM communication_messages m"
+                                    + " LEFT JOIN communication_message_deliveries d ON d.id=(SELECT MAX(d2.id)"
+                                    + " FROM communication_message_deliveries d2"
+                                    + " WHERE d2.reference_id=m.id AND d2.merchant_id=m.merchant_id AND d2.channel='SMS')"
+                                    + " WHERE m.merchant_id=:merchant AND m.selected_channel='SMS'");
             MapSqlParameterSource params = new MapSqlParameterSource("merchant", merchantId(user));
             if (!blank(from)) {
                 LocalDate date = LocalDate.parse(from.trim());
@@ -202,7 +224,8 @@ public class MerchantSmsOperationsController {
                 params.addValue("toDate", Timestamp.valueOf(date.atStartOfDay()));
             }
             if (!blank(senderId)) {
-                sql.append(" AND JSON_UNQUOTE(JSON_EXTRACT(m.metadata_json,'$.senderId'))=:senderId");
+                sql.append(
+                        " AND JSON_UNQUOTE(JSON_EXTRACT(m.metadata_json,'$.senderId'))=:senderId");
                 params.addValue("senderId", senderId.trim());
             }
             if (!blank(status)) {
@@ -223,38 +246,47 @@ public class MerchantSmsOperationsController {
         if (user == null) return unauthorized();
         long merchantId = merchantId(user);
         MapSqlParameterSource params = new MapSqlParameterSource("merchant", merchantId);
-        Map<String, Object> totals = jdbcTemplate.queryForMap(
-                "SELECT COUNT(*) deliveryAttempts,"
-                        + " SUM(CASE WHEN status IN ('SENT','DELIVERED') THEN 1 ELSE 0 END) successfulDeliveries,"
-                        + " SUM(CASE WHEN status IN ('FAILED','REJECTED') THEN 1 ELSE 0 END) failedDeliveries,"
-                        + " COALESCE(SUM(charged_amount),0) chargedAmount,"
-                        + " SUM(CASE WHEN billed_flag='Y' THEN 1 ELSE 0 END) billedAttempts"
-                        + " FROM communication_message_deliveries WHERE merchant_id=:merchant AND channel='SMS'",
-                params);
-        Map<String, Object> last30Days = jdbcTemplate.queryForMap(
-                "SELECT COUNT(*) deliveryAttempts,"
-                        + " SUM(CASE WHEN status IN ('SENT','DELIVERED') THEN 1 ELSE 0 END) successfulDeliveries,"
-                        + " COALESCE(SUM(charged_amount),0) chargedAmount"
-                        + " FROM communication_message_deliveries WHERE merchant_id=:merchant AND channel='SMS'"
-                        + " AND created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)",
-                params);
-        List<Map<String, Object>> providers = jdbcTemplate.queryForList(
-                "SELECT COALESCE(provider_code,'UNRESOLVED') provider,COUNT(*) attempts,"
-                        + " SUM(CASE WHEN status IN ('SENT','DELIVERED') THEN 1 ELSE 0 END) successful,"
-                        + " COALESCE(SUM(charged_amount),0) chargedAmount"
-                        + " FROM communication_message_deliveries WHERE merchant_id=:merchant AND channel='SMS'"
-                        + " GROUP BY provider_code ORDER BY attempts DESC",
-                params);
-        return ResponseEntity.ok(Map.of("allTime", totals, "last30Days", last30Days, "providers", providers));
+        Map<String, Object> totals =
+                jdbcTemplate.queryForMap(
+                        "SELECT COUNT(*) deliveryAttempts,"
+                                + " SUM(CASE WHEN status IN ('SENT','DELIVERED') THEN 1 ELSE 0 END) successfulDeliveries,"
+                                + " SUM(CASE WHEN status IN ('FAILED','REJECTED') THEN 1 ELSE 0 END) failedDeliveries,"
+                                + " COALESCE(SUM(charged_amount),0) chargedAmount,"
+                                + " SUM(CASE WHEN billed_flag='Y' THEN 1 ELSE 0 END) billedAttempts"
+                                + " FROM communication_message_deliveries WHERE merchant_id=:merchant AND channel='SMS'",
+                        params);
+        Map<String, Object> last30Days =
+                jdbcTemplate.queryForMap(
+                        "SELECT COUNT(*) deliveryAttempts,"
+                                + " SUM(CASE WHEN status IN ('SENT','DELIVERED') THEN 1 ELSE 0 END) successfulDeliveries,"
+                                + " COALESCE(SUM(charged_amount),0) chargedAmount"
+                                + " FROM communication_message_deliveries WHERE merchant_id=:merchant AND channel='SMS'"
+                                + " AND created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)",
+                        params);
+        List<Map<String, Object>> providers =
+                jdbcTemplate.queryForList(
+                        "SELECT COALESCE(provider_code,'UNRESOLVED') provider,COUNT(*) attempts,"
+                                + " SUM(CASE WHEN status IN ('SENT','DELIVERED') THEN 1 ELSE 0 END) successful,"
+                                + " COALESCE(SUM(charged_amount),0) chargedAmount"
+                                + " FROM communication_message_deliveries WHERE merchant_id=:merchant AND channel='SMS'"
+                                + " GROUP BY provider_code ORDER BY attempts DESC",
+                        params);
+        return ResponseEntity.ok(
+                Map.of("allTime", totals, "last30Days", last30Days, "providers", providers));
     }
 
     @PostMapping(path = "/sender-identities/request", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> requestSender(@RequestBody SenderEvidenceRequest input, HttpServletRequest request) {
+    public ResponseEntity<?> requestSender(
+            @RequestBody SenderEvidenceRequest input, HttpServletRequest request) {
         MerchantUser user = merchantUser(request);
         if (user == null) return unauthorized();
-        if (input == null || blank(input.senderId())) return bad("Sender ID or number is required.");
+        if (input == null || blank(input.senderId()))
+            return bad("Sender ID or number is required.");
         if (blank(input.useCase())) return bad("Describe the sender ID purpose or use case.");
-        String type = blank(input.senderType()) ? "ALPHANUMERIC" : input.senderType().trim().toUpperCase(Locale.ROOT);
+        String type =
+                blank(input.senderType())
+                        ? "ALPHANUMERIC"
+                        : input.senderType().trim().toUpperCase(Locale.ROOT);
         if (!List.of("ALPHANUMERIC", "LONG_NUMBER", "SHORT_CODE").contains(type)) {
             return bad("Unsupported sender type.");
         }
@@ -269,49 +301,74 @@ public class MerchantSmsOperationsController {
                         .addValue("merchant", merchantId(user))
                         .addValue("sender", input.senderId().trim())
                         .addValue("type", type)
-                        .addValue("provider", blank(input.providerCode()) ? null : input.providerCode().trim().toUpperCase(Locale.ROOT))
-                        .addValue("country", blank(input.countryCode()) ? null : input.countryCode().trim().toUpperCase(Locale.ROOT))
+                        .addValue(
+                                "provider",
+                                blank(input.providerCode())
+                                        ? null
+                                        : input.providerCode().trim().toUpperCase(Locale.ROOT))
+                        .addValue(
+                                "country",
+                                blank(input.countryCode())
+                                        ? null
+                                        : input.countryCode().trim().toUpperCase(Locale.ROOT))
                         .addValue("useCase", input.useCase().trim())
-                        .addValue("documentRef", blank(input.supportingDocumentRef()) ? null : input.supportingDocumentRef().trim())
+                        .addValue(
+                                "documentRef",
+                                blank(input.supportingDocumentRef())
+                                        ? null
+                                        : input.supportingDocumentRef().trim())
                         .addValue("notes", blank(input.notes()) ? null : input.notes().trim()));
-        return ResponseEntity.accepted().body(Map.of("requested", true, "approvalStatus", "PENDING"));
+        return ResponseEntity.accepted()
+                .body(Map.of("requested", true, "approvalStatus", "PENDING"));
     }
 
-    private LinkedHashMap<String, CampaignRecipient> expandAudience(long merchantId, CampaignRequest input) {
+    private LinkedHashMap<String, CampaignRecipient> expandAudience(
+            long merchantId, CampaignRequest input) {
         LinkedHashMap<String, CampaignRecipient> unique = new LinkedHashMap<>();
         if (input.recipients() != null) {
             for (CampaignRecipient row : input.recipients()) {
                 if (row == null) continue;
                 String phone = normalizePhone(row.phone());
-                unique.putIfAbsent(phone, new CampaignRecipient(phone, row.variables() == null ? Map.of() : row.variables()));
+                unique.putIfAbsent(
+                        phone,
+                        new CampaignRecipient(
+                                phone, row.variables() == null ? Map.of() : row.variables()));
             }
         }
         if (input.contactIds() != null && !input.contactIds().isEmpty()) {
-            List<Map<String, Object>> contacts = jdbcTemplate.queryForList(
-                    "SELECT phone_e164,display_name FROM communication_contacts"
-                            + " WHERE merchant_id=:merchant AND active_flag='Y' AND id IN (:ids)",
-                    new MapSqlParameterSource()
-                            .addValue("merchant", merchantId)
-                            .addValue("ids", input.contactIds()));
+            List<Map<String, Object>> contacts =
+                    jdbcTemplate.queryForList(
+                            "SELECT phone_e164,display_name FROM communication_contacts"
+                                    + " WHERE merchant_id=:merchant AND active_flag='Y' AND id IN (:ids)",
+                            new MapSqlParameterSource()
+                                    .addValue("merchant", merchantId)
+                                    .addValue("ids", input.contactIds()));
             for (Map<String, Object> row : contacts) {
                 String phone = normalizePhone(String.valueOf(row.get("phone_e164")));
-                String name = row.get("display_name") == null ? "" : String.valueOf(row.get("display_name"));
+                String name =
+                        row.get("display_name") == null
+                                ? ""
+                                : String.valueOf(row.get("display_name"));
                 unique.putIfAbsent(phone, new CampaignRecipient(phone, contactVariables(name)));
             }
         }
         if (input.groupIds() != null && !input.groupIds().isEmpty()) {
-            List<Map<String, Object>> members = jdbcTemplate.queryForList(
-                    "SELECT c.phone_e164,c.display_name FROM communication_contact_group_members gm"
-                            + " JOIN communication_contact_groups g ON g.id=gm.group_id"
-                            + " JOIN communication_contacts c ON c.id=gm.contact_id"
-                            + " WHERE g.merchant_id=:merchant AND c.merchant_id=:merchant AND c.active_flag='Y'"
-                            + " AND gm.group_id IN (:groups)",
-                    new MapSqlParameterSource()
-                            .addValue("merchant", merchantId)
-                            .addValue("groups", input.groupIds()));
+            List<Map<String, Object>> members =
+                    jdbcTemplate.queryForList(
+                            "SELECT c.phone_e164,c.display_name FROM communication_contact_group_members gm"
+                                    + " JOIN communication_contact_groups g ON g.id=gm.group_id"
+                                    + " JOIN communication_contacts c ON c.id=gm.contact_id"
+                                    + " WHERE g.merchant_id=:merchant AND c.merchant_id=:merchant AND c.active_flag='Y'"
+                                    + " AND gm.group_id IN (:groups)",
+                            new MapSqlParameterSource()
+                                    .addValue("merchant", merchantId)
+                                    .addValue("groups", input.groupIds()));
             for (Map<String, Object> row : members) {
                 String phone = normalizePhone(String.valueOf(row.get("phone_e164")));
-                String name = row.get("display_name") == null ? "" : String.valueOf(row.get("display_name"));
+                String name =
+                        row.get("display_name") == null
+                                ? ""
+                                : String.valueOf(row.get("display_name"));
                 unique.putIfAbsent(phone, new CampaignRecipient(phone, contactVariables(name)));
             }
         }
@@ -331,7 +388,12 @@ public class MerchantSmsOperationsController {
     }
 
     private void insertCampaignItem(
-            long campaignId, String phone, String messageReference, String body, String status, String trace) {
+            long campaignId,
+            String phone,
+            String messageReference,
+            String body,
+            String status,
+            String trace) {
         jdbcTemplate.update(
                 "INSERT INTO communication_campaign_items"
                         + " (campaign_id,recipient,message_reference,message_body,status,trace)"
@@ -357,13 +419,14 @@ public class MerchantSmsOperationsController {
     }
 
     private boolean isSuppressed(long merchantId, String phone) {
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM communication_sms_suppressions WHERE merchant_id=:merchant"
-                        + " AND phone_e164=:phone AND scope='MARKETING' AND active_flag='Y'",
-                new MapSqlParameterSource()
-                        .addValue("merchant", merchantId)
-                        .addValue("phone", phone),
-                Integer.class);
+        Integer count =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM communication_sms_suppressions WHERE merchant_id=:merchant"
+                                + " AND phone_e164=:phone AND scope='MARKETING' AND active_flag='Y'",
+                        new MapSqlParameterSource()
+                                .addValue("merchant", merchantId)
+                                .addValue("phone", phone),
+                        Integer.class);
         return count != null && count > 0;
     }
 
@@ -376,7 +439,8 @@ public class MerchantSmsOperationsController {
 
     private long merchantId(MerchantUser user) {
         Long value = user.getMerchant_id();
-        if (value == null || value <= 0) throw new IllegalStateException("Merchant session has no valid merchant id.");
+        if (value == null || value <= 0)
+            throw new IllegalStateException("Merchant session has no valid merchant id.");
         return value;
     }
 

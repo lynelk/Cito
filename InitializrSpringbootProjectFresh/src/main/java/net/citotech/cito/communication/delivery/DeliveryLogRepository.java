@@ -21,22 +21,32 @@ public class DeliveryLogRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public long insert(long merchantId, String channel, String providerCode, String referenceType, Long referenceId, String recipient) {
-        MapSqlParameterSource p = new MapSqlParameterSource()
-                .addValue("merchant_id", merchantId)
-                .addValue("channel", channel)
-                .addValue("provider_code", providerCode)
-                .addValue("reference_type", referenceType)
-                .addValue("reference_id", referenceId)
-                .addValue("recipient", recipient);
+    public long insert(
+            long merchantId,
+            String channel,
+            String providerCode,
+            String referenceType,
+            Long referenceId,
+            String recipient) {
+        MapSqlParameterSource p =
+                new MapSqlParameterSource()
+                        .addValue("merchant_id", merchantId)
+                        .addValue("channel", channel)
+                        .addValue("provider_code", providerCode)
+                        .addValue("reference_type", referenceType)
+                        .addValue("reference_id", referenceId)
+                        .addValue("recipient", recipient);
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(
                 "INSERT INTO communication_message_deliveries"
                         + " (merchant_id, channel, provider_code, reference_type, reference_id, recipient, status)"
                         + " VALUES (:merchant_id, :channel, :provider_code, :reference_type, :reference_id, :recipient, 'PENDING')",
-                p, keyHolder, new String[] {"id"});
+                p,
+                keyHolder,
+                new String[] {"id"});
         Number key = keyHolder.getKey();
-        if (key == null) throw new IllegalStateException("Inserted delivery row without a generated id");
+        if (key == null)
+            throw new IllegalStateException("Inserted delivery row without a generated id");
         return key.longValue();
     }
 
@@ -65,7 +75,10 @@ public class DeliveryLogRepository {
             DeliveryStatus status,
             String trace,
             String safeResponse) {
-        if (providerCode == null || providerCode.isBlank() || providerMessageId == null || providerMessageId.isBlank()) return 0;
+        if (providerCode == null
+                || providerCode.isBlank()
+                || providerMessageId == null
+                || providerMessageId.isBlank()) return 0;
         return jdbcTemplate.update(
                 "UPDATE communication_message_deliveries SET status=:status, trace=:trace,"
                         + " gw_response=:response, delivered_at=IF(:delivered, NOW(), delivered_at)"
@@ -86,27 +99,31 @@ public class DeliveryLogRepository {
     }
 
     public Optional<MessageDelivery> findById(long id) {
-        List<MessageDelivery> rows = jdbcTemplate.query(
-                "SELECT id, merchant_id, channel, provider_code, reference_type, reference_id, recipient,"
-                        + " status, trace, gw_response, charged_amount, billed_flag"
-                        + " FROM communication_message_deliveries WHERE id=:id",
-                new MapSqlParameterSource("id", id), this::mapRow);
+        List<MessageDelivery> rows =
+                jdbcTemplate.query(
+                        "SELECT id, merchant_id, channel, provider_code, reference_type, reference_id, recipient,"
+                                + " status, trace, gw_response, charged_amount, billed_flag"
+                                + " FROM communication_message_deliveries WHERE id=:id",
+                        new MapSqlParameterSource("id", id),
+                        this::mapRow);
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
     /** Billable accepted/final rows since the channel watermark. */
     public List<MessageDelivery> sentSince(String channel, long afterId, int limit) {
-        MapSqlParameterSource p = new MapSqlParameterSource()
-                .addValue("channel", channel)
-                .addValue("after_id", afterId)
-                .addValue("limit", Math.max(1, Math.min(limit, 500)));
+        MapSqlParameterSource p =
+                new MapSqlParameterSource()
+                        .addValue("channel", channel)
+                        .addValue("after_id", afterId)
+                        .addValue("limit", Math.max(1, Math.min(limit, 500)));
         return jdbcTemplate.query(
                 "SELECT id, merchant_id, channel, provider_code, reference_type, reference_id, recipient,"
                         + " status, trace, gw_response, charged_amount, billed_flag"
                         + " FROM communication_message_deliveries"
                         + " WHERE channel=:channel AND id>:after_id AND status IN ('SENT','DELIVERED') AND billed_flag='N'"
                         + " ORDER BY id ASC LIMIT :limit",
-                p, this::mapRow);
+                p,
+                this::mapRow);
     }
 
     public List<MessageDelivery> listForMerchant(long merchantId, int limit) {
@@ -132,7 +149,9 @@ public class DeliveryLogRepository {
                 DeliveryStatus.fromString(rs.getString("status")),
                 rs.getString("trace"),
                 rs.getString("gw_response"),
-                rs.getBigDecimal("charged_amount") == null ? BigDecimal.ZERO : rs.getBigDecimal("charged_amount"),
+                rs.getBigDecimal("charged_amount") == null
+                        ? BigDecimal.ZERO
+                        : rs.getBigDecimal("charged_amount"),
                 "Y".equals(rs.getString("billed_flag")));
     }
 }

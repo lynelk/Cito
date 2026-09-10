@@ -3,9 +3,9 @@ package net.citotech.cito.communication.sms;
 import org.springframework.stereotype.Service;
 
 /**
- * Calculates billable SMS segments using GSM 03.38 rules rather than Java character count.
- * GSM extension-table characters consume two septets; any non-GSM character switches the whole
- * message to UCS-2/UTF-16 segmentation (70 units for one segment, 67 for concatenated segments).
+ * Calculates billable SMS segments using GSM 03.38 rules rather than Java character count. GSM
+ * extension-table characters consume two septets; any non-GSM character switches the whole message
+ * to UCS-2/UTF-16 segmentation (70 units for one segment, 67 for concatenated segments).
  */
 @Service
 public class SmsEncodingService {

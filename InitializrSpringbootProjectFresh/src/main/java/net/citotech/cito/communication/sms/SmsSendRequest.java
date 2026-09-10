@@ -11,11 +11,7 @@ public record SmsSendRequest(
 
     /** Compatibility constructor for existing call sites that rely on provider defaults. */
     public SmsSendRequest(
-            long id,
-            long merchantId,
-            String content,
-            String recipients,
-            String gatewayName) {
+            long id, long merchantId, String content, String recipients, String gatewayName) {
         this(id, merchantId, content, recipients, gatewayName, null);
     }
 }

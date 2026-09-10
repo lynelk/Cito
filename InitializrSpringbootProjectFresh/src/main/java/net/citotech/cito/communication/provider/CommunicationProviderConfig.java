@@ -23,8 +23,7 @@ public class CommunicationProviderConfig {
     @Bean
     public CommunicationProviderAdapter yoSmsCommunicationProvider(
             @Lazy YoSmsGatewayAdapter delegate) {
-        return new SmsCommunicationProviderAdapter(
-                delegate, CommunicationSmsProviderCodes.YO_SMS);
+        return new SmsCommunicationProviderAdapter(delegate, CommunicationSmsProviderCodes.YO_SMS);
     }
 
     @Bean

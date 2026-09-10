@@ -49,8 +49,14 @@ public class MerchantCommunicationService {
             String idempotencyKey,
             Integer expiresInSeconds) {
         return enqueueSms(
-                merchantId, recipient, content, purpose, externalReference, idempotencyKey,
-                expiresInSeconds, SmsOptions.defaults());
+                merchantId,
+                recipient,
+                content,
+                purpose,
+                externalReference,
+                idempotencyKey,
+                expiresInSeconds,
+                SmsOptions.defaults());
     }
 
     /**
@@ -75,7 +81,8 @@ public class MerchantCommunicationService {
 
         SmsOptions safeOptions = options == null ? SmsOptions.defaults() : options.normalized();
         String normalizedPurpose = blank(purpose) ? "TRANSACTIONAL" : purpose.trim().toUpperCase();
-        if (!List.of("TRANSACTIONAL", "OTP", "SECURITY", "NOTIFICATION", "MARKETING").contains(normalizedPurpose)) {
+        if (!List.of("TRANSACTIONAL", "OTP", "SECURITY", "NOTIFICATION", "MARKETING")
+                .contains(normalizedPurpose)) {
             throw new IllegalArgumentException("Unsupported communication purpose.");
         }
         String normalizedExternal = trimToNull(externalReference, 128);
@@ -86,14 +93,20 @@ public class MerchantCommunicationService {
             if (existing != null) return existing;
         }
 
-        SenderIdentity sender = validateSenderIdentity(merchantId, safeOptions.senderId(), safeOptions.requireInbound());
+        SenderIdentity sender =
+                validateSenderIdentity(
+                        merchantId, safeOptions.senderId(), safeOptions.requireInbound());
         if (safeOptions.requireInbound() && sender == null) {
-            throw new IllegalArgumentException("A two-way capable sender identity is required for inbound SMS.");
+            throw new IllegalArgumentException(
+                    "A two-way capable sender identity is required for inbound SMS.");
         }
 
         Instant now = Instant.now();
         Instant scheduledAt = parseSchedule(safeOptions.scheduledAt(), now);
-        int ttl = expiresInSeconds == null ? defaultTtl(normalizedPurpose) : Math.max(60, Math.min(604800, expiresInSeconds));
+        int ttl =
+                expiresInSeconds == null
+                        ? defaultTtl(normalizedPurpose)
+                        : Math.max(60, Math.min(604800, expiresInSeconds));
         Instant expiresAt = scheduledAt.plusSeconds(ttl);
         var analysis = smsEncodingService.analyze(content);
 
@@ -103,19 +116,20 @@ public class MerchantCommunicationService {
         String metadataJson = metadata(content, analysis, safeOptions, sender);
         String status = scheduledAt.isAfter(now.plusSeconds(2)) ? "SCHEDULED" : "RECEIVED";
 
-        MapSqlParameterSource p = new MapSqlParameterSource()
-                .addValue("public_id", publicId)
-                .addValue("merchant_id", merchantId)
-                .addValue("external_reference", normalizedExternal)
-                .addValue("idempotency_key", normalizedIdempotency)
-                .addValue("purpose", normalizedPurpose)
-                .addValue("recipient", normalizedRecipient)
-                .addValue("provider", pinnedProvider)
-                .addValue("fallback", fallbackEnabled ? "Y" : "N")
-                .addValue("status", status)
-                .addValue("scheduled_at", Timestamp.from(scheduledAt))
-                .addValue("expires_at", Timestamp.from(expiresAt))
-                .addValue("metadata_json", metadataJson);
+        MapSqlParameterSource p =
+                new MapSqlParameterSource()
+                        .addValue("public_id", publicId)
+                        .addValue("merchant_id", merchantId)
+                        .addValue("external_reference", normalizedExternal)
+                        .addValue("idempotency_key", normalizedIdempotency)
+                        .addValue("purpose", normalizedPurpose)
+                        .addValue("recipient", normalizedRecipient)
+                        .addValue("provider", pinnedProvider)
+                        .addValue("fallback", fallbackEnabled ? "Y" : "N")
+                        .addValue("status", status)
+                        .addValue("scheduled_at", Timestamp.from(scheduledAt))
+                        .addValue("expires_at", Timestamp.from(expiresAt))
+                        .addValue("metadata_json", metadataJson);
         try {
             jdbcTemplate.update(
                     "INSERT INTO communication_messages "
@@ -135,10 +149,13 @@ public class MerchantCommunicationService {
             throw duplicate;
         }
 
-        Long communicationId = jdbcTemplate.queryForObject(
-                "SELECT id FROM communication_messages WHERE public_id=:public_id AND merchant_id=:merchant_id",
-                p, Long.class);
-        if (communicationId == null) throw new IllegalStateException("Communication could not be persisted.");
+        Long communicationId =
+                jdbcTemplate.queryForObject(
+                        "SELECT id FROM communication_messages WHERE public_id=:public_id AND merchant_id=:merchant_id",
+                        p,
+                        Long.class);
+        if (communicationId == null)
+            throw new IllegalStateException("Communication could not be persisted.");
         jdbcTemplate.update(
                 "INSERT INTO communication_outbox"
                         + " (communication_id,event_type,status,priority,attempts,next_attempt_at)"
@@ -163,12 +180,19 @@ public class MerchantCommunicationService {
         if (blank(content)) throw new IllegalArgumentException("content is required.");
         SenderIdentity sender = validateSenderIdentity(merchantId, senderId, requireInbound);
         if (requireInbound && sender == null) {
-            throw new IllegalArgumentException("A two-way capable sender identity is required for inbound SMS.");
+            throw new IllegalArgumentException(
+                    "A two-way capable sender identity is required for inbound SMS.");
         }
         var analysis = smsEncodingService.analyze(content);
-        var route = smartSmsRoutingService.preview(
-                merchantId, content, countryCode, currencyCode, routingStrategy,
-                requireDeliveryReceipts, requireInbound);
+        var route =
+                smartSmsRoutingService.preview(
+                        merchantId,
+                        content,
+                        countryCode,
+                        currencyCode,
+                        routingStrategy,
+                        requireDeliveryReceipts,
+                        requireInbound);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("encoding", analysis.encoding());
         result.put("characters", analysis.characters());
@@ -179,8 +203,11 @@ public class MerchantCommunicationService {
         result.put("longMessageWarning", analysis.longMessageWarning());
         result.put("routeDecisionReference", route.decisionReference());
         result.put("routable", route.routable());
-        result.put("selectedProvider", sender != null && sender.providerCode() != null
-                ? sender.providerCode() : route.selectedProviderCode());
+        result.put(
+                "selectedProvider",
+                sender != null && sender.providerCode() != null
+                        ? sender.providerCode()
+                        : route.selectedProviderCode());
         result.put("expectedProviderCost", route.expectedProviderCost());
         result.put("currencyCode", route.currencyCode());
         result.put("routingStrategy", route.strategy());
@@ -208,16 +235,24 @@ public class MerchantCommunicationService {
     }
 
     private Map<String, Object> findByIdempotency(long merchantId, String key) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(messageSelect()
-                        + " WHERE merchant_id=:merchant_id AND idempotency_key=:idempotency_key LIMIT 1",
-                new MapSqlParameterSource().addValue("merchant_id", merchantId).addValue("idempotency_key", key));
+        List<Map<String, Object>> rows =
+                jdbcTemplate.queryForList(
+                        messageSelect()
+                                + " WHERE merchant_id=:merchant_id AND idempotency_key=:idempotency_key LIMIT 1",
+                        new MapSqlParameterSource()
+                                .addValue("merchant_id", merchantId)
+                                .addValue("idempotency_key", key));
         return rows.isEmpty() ? null : view(rows.get(0));
     }
 
     private Map<String, Object> findByPublicId(long merchantId, String publicId) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(messageSelect()
-                        + " WHERE merchant_id=:merchant_id AND public_id=:public_id LIMIT 1",
-                new MapSqlParameterSource().addValue("merchant_id", merchantId).addValue("public_id", publicId));
+        List<Map<String, Object>> rows =
+                jdbcTemplate.queryForList(
+                        messageSelect()
+                                + " WHERE merchant_id=:merchant_id AND public_id=:public_id LIMIT 1",
+                        new MapSqlParameterSource()
+                                .addValue("merchant_id", merchantId)
+                                .addValue("public_id", publicId));
         return rows.isEmpty() ? null : view(rows.get(0));
     }
 
@@ -244,7 +279,8 @@ public class MerchantCommunicationService {
         if (metadata != null) {
             try {
                 @SuppressWarnings("unchecked")
-                Map<String, Object> parsed = objectMapper.readValue(String.valueOf(metadata), Map.class);
+                Map<String, Object> parsed =
+                        objectMapper.readValue(String.valueOf(metadata), Map.class);
                 view.put("sms", parsed);
             } catch (Exception ignored) {
                 // Status remains usable even if optional metadata was malformed historically.
@@ -253,21 +289,32 @@ public class MerchantCommunicationService {
         return view;
     }
 
-    private SenderIdentity validateSenderIdentity(long merchantId, String senderId, boolean requireInbound) {
+    private SenderIdentity validateSenderIdentity(
+            long merchantId, String senderId, boolean requireInbound) {
         if (blank(senderId)) return null;
-        List<SenderIdentity> rows = jdbcTemplate.query(
-                "SELECT sender_id, sender_type, provider_code, country_code, two_way_capable"
-                        + " FROM communication_sender_identities WHERE merchant_id=:merchant"
-                        + " AND sender_id=:sender AND approval_status='APPROVED'"
-                        + " ORDER BY default_flag DESC, id ASC LIMIT 1",
-                new MapSqlParameterSource().addValue("merchant", merchantId).addValue("sender", senderId.trim()),
-                (rs, rowNum) -> new SenderIdentity(
-                        rs.getString("sender_id"), rs.getString("sender_type"), rs.getString("provider_code"),
-                        rs.getString("country_code"), "Y".equals(rs.getString("two_way_capable"))));
-        if (rows.isEmpty()) throw new IllegalArgumentException("Sender identity is not approved for this merchant.");
+        List<SenderIdentity> rows =
+                jdbcTemplate.query(
+                        "SELECT sender_id, sender_type, provider_code, country_code, two_way_capable"
+                                + " FROM communication_sender_identities WHERE merchant_id=:merchant"
+                                + " AND sender_id=:sender AND approval_status='APPROVED'"
+                                + " ORDER BY default_flag DESC, id ASC LIMIT 1",
+                        new MapSqlParameterSource()
+                                .addValue("merchant", merchantId)
+                                .addValue("sender", senderId.trim()),
+                        (rs, rowNum) ->
+                                new SenderIdentity(
+                                        rs.getString("sender_id"),
+                                        rs.getString("sender_type"),
+                                        rs.getString("provider_code"),
+                                        rs.getString("country_code"),
+                                        "Y".equals(rs.getString("two_way_capable"))));
+        if (rows.isEmpty())
+            throw new IllegalArgumentException(
+                    "Sender identity is not approved for this merchant.");
         SenderIdentity identity = rows.get(0);
         if (requireInbound && !identity.twoWayCapable()) {
-            throw new IllegalArgumentException("Selected sender identity does not support two-way SMS.");
+            throw new IllegalArgumentException(
+                    "Selected sender identity does not support two-way SMS.");
         }
         return identity;
     }
@@ -285,9 +332,12 @@ public class MerchantCommunicationService {
         metadata.put("segments", analysis.segments());
         metadata.put("longMessageWarning", analysis.longMessageWarning());
         if (sender != null) metadata.put("senderId", sender.senderId());
-        if (!blank(options.countryCode())) metadata.put("countryCode", options.countryCode().trim().toUpperCase());
-        if (!blank(options.currencyCode())) metadata.put("currencyCode", options.currencyCode().trim().toUpperCase());
-        if (!blank(options.routingStrategy())) metadata.put("routingStrategy", options.routingStrategy().trim().toUpperCase());
+        if (!blank(options.countryCode()))
+            metadata.put("countryCode", options.countryCode().trim().toUpperCase());
+        if (!blank(options.currencyCode()))
+            metadata.put("currencyCode", options.currencyCode().trim().toUpperCase());
+        if (!blank(options.routingStrategy()))
+            metadata.put("routingStrategy", options.routingStrategy().trim().toUpperCase());
         metadata.put("requireDeliveryReceipts", options.requireDeliveryReceipts());
         metadata.put("requireInbound", options.requireInbound());
         try {
@@ -306,13 +356,16 @@ public class MerchantCommunicationService {
             } catch (DateTimeParseException e) {
                 parsed = OffsetDateTime.parse(value.trim()).toInstant();
             }
-            if (parsed.isBefore(now.minusSeconds(30))) throw new IllegalArgumentException("scheduledAt cannot be in the past.");
+            if (parsed.isBefore(now.minusSeconds(30)))
+                throw new IllegalArgumentException("scheduledAt cannot be in the past.");
             if (parsed.isAfter(now.plusSeconds(366L * 86400L))) {
-                throw new IllegalArgumentException("scheduledAt cannot be more than one year ahead.");
+                throw new IllegalArgumentException(
+                        "scheduledAt cannot be more than one year ahead.");
             }
             return parsed.isBefore(now) ? now : parsed;
         } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException("scheduledAt must be an ISO-8601 timestamp with timezone.");
+            throw new IllegalArgumentException(
+                    "scheduledAt must be an ISO-8601 timestamp with timezone.");
         }
     }
 
@@ -320,7 +373,8 @@ public class MerchantCommunicationService {
         if (blank(value)) throw new IllegalArgumentException("recipient is required.");
         String normalized = value.trim().replaceAll("[\\s()-]", "");
         if (!normalized.matches("\\+?[0-9]{7,15}")) {
-            throw new IllegalArgumentException("recipient must be a valid international phone number.");
+            throw new IllegalArgumentException(
+                    "recipient must be a valid international phone number.");
         }
         return normalized;
     }
@@ -339,7 +393,8 @@ public class MerchantCommunicationService {
     private String trimToNull(String value, int maxLength) {
         if (blank(value)) return null;
         String trimmed = value.trim();
-        if (trimmed.length() > maxLength) throw new IllegalArgumentException("Reference is too long.");
+        if (trimmed.length() > maxLength)
+            throw new IllegalArgumentException("Reference is too long.");
         return trimmed;
     }
 
@@ -359,15 +414,27 @@ public class MerchantCommunicationService {
         public static SmsOptions defaults() {
             return new SmsOptions(null, null, "BALANCED", null, "UGX", false, false, true);
         }
+
         SmsOptions normalized() {
-            String strategy = blankStatic(routingStrategy) ? "BALANCED" : routingStrategy.trim().toUpperCase();
-            if (!List.of("BALANCED", "LOWEST_COST", "RELIABILITY_FIRST", "PRIORITY").contains(strategy)) {
+            String strategy =
+                    blankStatic(routingStrategy)
+                            ? "BALANCED"
+                            : routingStrategy.trim().toUpperCase();
+            if (!List.of("BALANCED", "LOWEST_COST", "RELIABILITY_FIRST", "PRIORITY")
+                    .contains(strategy)) {
                 throw new IllegalArgumentException("Unsupported routing strategy.");
             }
-            return new SmsOptions(senderId, scheduledAt, strategy, countryCode,
+            return new SmsOptions(
+                    senderId,
+                    scheduledAt,
+                    strategy,
+                    countryCode,
                     blankStatic(currencyCode) ? "UGX" : currencyCode.trim().toUpperCase(),
-                    requireDeliveryReceipts, requireInbound, fallbackEnabled);
+                    requireDeliveryReceipts,
+                    requireInbound,
+                    fallbackEnabled);
         }
+
         private static boolean blankStatic(String value) {
             return value == null || value.trim().isEmpty();
         }

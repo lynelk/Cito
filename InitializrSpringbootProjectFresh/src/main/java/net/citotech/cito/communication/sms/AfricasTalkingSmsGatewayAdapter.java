@@ -14,8 +14,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class AfricasTalkingSmsGatewayAdapter implements SmsGatewayAdapter {
 
-    private static final Logger logger = Logger.getLogger(AfricasTalkingSmsGatewayAdapter.class.getName());
-    private static final String DEFAULT_API_URL = "https://api.africastalking.com/version1/messaging";
+    private static final Logger logger =
+            Logger.getLogger(AfricasTalkingSmsGatewayAdapter.class.getName());
+    private static final String DEFAULT_API_URL =
+            "https://api.africastalking.com/version1/messaging";
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public AfricasTalkingSmsGatewayAdapter(NamedParameterJdbcTemplate jdbcTemplate) {
@@ -26,18 +28,25 @@ public class AfricasTalkingSmsGatewayAdapter implements SmsGatewayAdapter {
     public SmsSendResult send(SmsSendRequest request) {
         String username = settingValue("africastalking_username");
         String apiKey = settingValue("africastalking_api_key");
-        String senderId = blank(request.senderId())
-                ? settingValue("africastalking_sender_id") : request.senderId().trim();
+        String senderId =
+                blank(request.senderId())
+                        ? settingValue("africastalking_sender_id")
+                        : request.senderId().trim();
         String apiUrl = settingValue("africastalking_sms_api_url");
         if (blank(username) || blank(apiKey)) {
-            return SmsSendResult.failed("africastalking_username/africastalking_api_key not configured", "");
+            return SmsSendResult.failed(
+                    "africastalking_username/africastalking_api_key not configured", "");
         }
         if (blank(apiUrl)) apiUrl = DEFAULT_API_URL;
 
-        StringBuilder payload = new StringBuilder()
-                .append("username=").append(Common.urlEncodeValue(username))
-                .append("&to=").append(Common.urlEncodeValue(stripTrailingComma(request.recipients())))
-                .append("&message=").append(Common.urlEncodeValue(request.content()));
+        StringBuilder payload =
+                new StringBuilder()
+                        .append("username=")
+                        .append(Common.urlEncodeValue(username))
+                        .append("&to=")
+                        .append(Common.urlEncodeValue(stripTrailingComma(request.recipients())))
+                        .append("&message=")
+                        .append(Common.urlEncodeValue(request.content()));
         if (!blank(senderId)) payload.append("&from=").append(Common.urlEncodeValue(senderId));
         payload.append("&bulkSMSMode=0");
 

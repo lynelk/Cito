@@ -18,10 +18,14 @@ import org.springframework.stereotype.Component;
 
 /** Durable, retryable communications outbox worker. */
 @Component
-@ConditionalOnProperty(value = "cpay.communication.outbox.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(
+        value = "cpay.communication.outbox.enabled",
+        havingValue = "true",
+        matchIfMissing = true)
 public class CommunicationOutboxWorker {
 
-    private static final Logger logger = Logger.getLogger(CommunicationOutboxWorker.class.getName());
+    private static final Logger logger =
+            Logger.getLogger(CommunicationOutboxWorker.class.getName());
     static final long[] BACKOFF_SECONDS = {5, 30, 120, 600, 1800};
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -34,8 +38,12 @@ public class CommunicationOutboxWorker {
             NamedParameterJdbcTemplate jdbcTemplate,
             CommunicationDeliveryDispatcher dispatcher,
             CommunicationProviderHealthService healthService,
-            @org.springframework.beans.factory.annotation.Value("${cpay.communication.outbox.batch-size:100}") int batchSize,
-            @org.springframework.beans.factory.annotation.Value("${cpay.communication.outbox.max-attempts:5}") int maxAttempts) {
+            @org.springframework.beans.factory.annotation.Value(
+                            "${cpay.communication.outbox.batch-size:100}")
+                    int batchSize,
+            @org.springframework.beans.factory.annotation.Value(
+                            "${cpay.communication.outbox.max-attempts:5}")
+                    int maxAttempts) {
         this.jdbcTemplate = jdbcTemplate;
         this.dispatcher = dispatcher;
         this.healthService = healthService;
@@ -44,11 +52,15 @@ public class CommunicationOutboxWorker {
     }
 
     @Scheduled(fixedDelayString = "${cpay.communication.outbox.fixed-delay-ms:1000}")
-    @SchedulerLock(name = "communicationOutboxWorker", lockAtMostFor = "PT2M", lockAtLeastFor = "PT1S")
+    @SchedulerLock(
+            name = "communicationOutboxWorker",
+            lockAtMostFor = "PT2M",
+            lockAtLeastFor = "PT1S")
     public void processDue() {
         try {
             int processed = processDue(batchSize);
-            if (processed > 0) logger.log(Level.INFO, "Communication outbox dispatched {0} message(s)", processed);
+            if (processed > 0)
+                logger.log(Level.INFO, "Communication outbox dispatched {0} message(s)", processed);
         } catch (Exception ex) {
             logger.log(Level.WARNING, "Communication outbox sweep failed: " + ex.getMessage(), ex);
         }
@@ -68,7 +80,9 @@ public class CommunicationOutboxWorker {
                         + " WHERE id IN (SELECT id FROM (SELECT id FROM communication_outbox"
                         + " WHERE status='PENDING' AND next_attempt_at<=NOW()"
                         + " ORDER BY priority ASC, next_attempt_at ASC, id ASC LIMIT :limit) t)",
-                new MapSqlParameterSource().addValue("claimed_by", claimToken).addValue("limit", limit));
+                new MapSqlParameterSource()
+                        .addValue("claimed_by", claimToken)
+                        .addValue("limit", limit));
         return jdbcTemplate.query(
                 "SELECT o.id, o.communication_id, m.merchant_id, m.recipient_type, m.recipient,"
                         + " m.purpose, m.requested_channels, m.selected_channel, m.selected_provider_code,"
@@ -76,14 +90,23 @@ public class CommunicationOutboxWorker {
                         + " FROM communication_outbox o JOIN communication_messages m ON m.id=o.communication_id"
                         + " WHERE o.claimed_by=:claimed_by AND o.status='DISPATCHING' ORDER BY o.id ASC",
                 new MapSqlParameterSource("claimed_by", claimToken),
-                (rs, rowNum) -> new OutboxRow(
-                        rs.getLong("id"), rs.getLong("communication_id"), rs.getLong("merchant_id"),
-                        rs.getString("recipient_type"), rs.getString("recipient"), rs.getString("purpose"),
-                        rs.getString("requested_channels"), rs.getString("selected_channel"),
-                        rs.getString("selected_provider_code"), rs.getString("template_key"),
-                        "Y".equals(rs.getString("fallback_enabled")),
-                        rs.getTimestamp("expires_at") == null ? null : rs.getTimestamp("expires_at").toInstant(),
-                        rs.getInt("attempts")));
+                (rs, rowNum) ->
+                        new OutboxRow(
+                                rs.getLong("id"),
+                                rs.getLong("communication_id"),
+                                rs.getLong("merchant_id"),
+                                rs.getString("recipient_type"),
+                                rs.getString("recipient"),
+                                rs.getString("purpose"),
+                                rs.getString("requested_channels"),
+                                rs.getString("selected_channel"),
+                                rs.getString("selected_provider_code"),
+                                rs.getString("template_key"),
+                                "Y".equals(rs.getString("fallback_enabled")),
+                                rs.getTimestamp("expires_at") == null
+                                        ? null
+                                        : rs.getTimestamp("expires_at").toInstant(),
+                                rs.getInt("attempts")));
     }
 
     private boolean processOne(OutboxRow row) {
@@ -94,8 +117,10 @@ public class CommunicationOutboxWorker {
                 return true;
             }
 
-            String channel = row.selectedChannel() == null || row.selectedChannel().isBlank()
-                    ? firstRequestedChannel(row.requestedChannels()) : row.selectedChannel();
+            String channel =
+                    row.selectedChannel() == null || row.selectedChannel().isBlank()
+                            ? firstRequestedChannel(row.requestedChannels())
+                            : row.selectedChannel();
             if (channel == null) {
                 fail(row, "NO_CHANNEL", "No deliverable channel on communication");
                 return true;
@@ -108,11 +133,19 @@ public class CommunicationOutboxWorker {
             }
 
             Map<String, Object> metadata = dispatchMetadata(row.communicationId());
-            var outcome = dispatcher.dispatch(
-                    row.merchantId(), channel, row.recipient(), subjectFor(row), content,
-                    row.selectedProviderCode(), row.communicationId(), metadata);
+            var outcome =
+                    dispatcher.dispatch(
+                            row.merchantId(),
+                            channel,
+                            row.recipient(),
+                            subjectFor(row),
+                            content,
+                            row.selectedProviderCode(),
+                            row.communicationId(),
+                            metadata);
 
-            if (outcome.status() == DeliveryStatus.SENT || outcome.status() == DeliveryStatus.DELIVERED) {
+            if (outcome.status() == DeliveryStatus.SENT
+                    || outcome.status() == DeliveryStatus.DELIVERED) {
                 complete(row.id());
                 markMessageStatus(row.communicationId(), outcome.status().name());
                 recordOutcome(outcome.providerCode(), channel, true);
@@ -127,25 +160,35 @@ public class CommunicationOutboxWorker {
             recordOutcome(outcome.providerCode(), channel, false);
             return handleFailure(row);
         } catch (Exception ex) {
-            logger.log(Level.WARNING, "Outbox processing failed for row " + row.id() + ": " + ex.getMessage(), ex);
+            logger.log(
+                    Level.WARNING,
+                    "Outbox processing failed for row " + row.id() + ": " + ex.getMessage(),
+                    ex);
             return handleFailure(row);
         }
     }
 
     private boolean handleFailure(OutboxRow row) {
         if (row.attempts() >= maxAttempts) {
-            fail(row, "MAX_ATTEMPTS_EXCEEDED", "Dispatch failed after " + row.attempts() + " attempts");
+            fail(
+                    row,
+                    "MAX_ATTEMPTS_EXCEEDED",
+                    "Dispatch failed after " + row.attempts() + " attempts");
             return true;
         }
-        long backoffSeconds = BACKOFF_SECONDS[Math.min(row.attempts() - 1, BACKOFF_SECONDS.length - 1)];
+        long backoffSeconds =
+                BACKOFF_SECONDS[Math.min(row.attempts() - 1, BACKOFF_SECONDS.length - 1)];
         jdbcTemplate.update(
                 "UPDATE communication_outbox SET status='PENDING', claimed_by=NULL, claimed_at=NULL,"
                         + " last_error_code='DISPATCH_RETRYABLE', last_error_safe='Retry scheduled',"
                         + " next_attempt_at=DATE_ADD(NOW(), INTERVAL :backoff SECOND) WHERE id=:id",
-                new MapSqlParameterSource().addValue("backoff", backoffSeconds).addValue("id", row.id()));
+                new MapSqlParameterSource()
+                        .addValue("backoff", backoffSeconds)
+                        .addValue("id", row.id()));
 
         if (row.fallbackEnabled()) {
-            // Re-evaluate provider health/cost on the next attempt instead of pinning the failed route.
+            // Re-evaluate provider health/cost on the next attempt instead of pinning the failed
+            // route.
             jdbcTemplate.update(
                     "UPDATE communication_messages SET selected_provider_code=NULL, status='FALLBACK_PENDING' WHERE id=:id",
                     new MapSqlParameterSource("id", row.communicationId()));
@@ -159,7 +202,10 @@ public class CommunicationOutboxWorker {
         jdbcTemplate.update(
                 "UPDATE communication_outbox SET status='FAILED', completed_at=NOW(),"
                         + " last_error_code=:code, last_error_safe=:safe WHERE id=:id",
-                new MapSqlParameterSource().addValue("code", errorCode).addValue("safe", safeMessage).addValue("id", row.id()));
+                new MapSqlParameterSource()
+                        .addValue("code", errorCode)
+                        .addValue("safe", safeMessage)
+                        .addValue("id", row.id()));
         markMessageStatus(row.communicationId(), "FAILED");
     }
 
@@ -173,7 +219,9 @@ public class CommunicationOutboxWorker {
     private void markMessageStatus(long communicationId, String status) {
         jdbcTemplate.update(
                 "UPDATE communication_messages SET status=:status WHERE id=:id AND status NOT IN ('DELIVERED','CANCELLED')",
-                new MapSqlParameterSource().addValue("status", status).addValue("id", communicationId));
+                new MapSqlParameterSource()
+                        .addValue("status", status)
+                        .addValue("id", communicationId));
     }
 
     private void recordOutcome(String providerCode, String channel, boolean success) {
@@ -181,21 +229,28 @@ public class CommunicationOutboxWorker {
         try {
             healthService.record(providerCode, channel, success);
         } catch (Exception ex) {
-            logger.log(Level.WARNING,
-                    "Provider health recording failed for " + providerCode + "/" + channel + ": " + ex.getMessage());
+            logger.log(
+                    Level.WARNING,
+                    "Provider health recording failed for "
+                            + providerCode
+                            + "/"
+                            + channel
+                            + ": "
+                            + ex.getMessage());
         }
     }
 
     private Map<String, Object> dispatchMetadata(long communicationId) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.senderId')) sender_id,"
-                        + " JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.countryCode')) country_code,"
-                        + " JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.currencyCode')) currency_code,"
-                        + " JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.routingStrategy')) routing_strategy,"
-                        + " JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.requireDeliveryReceipts')) require_dlr,"
-                        + " JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.requireInbound')) require_inbound"
-                        + " FROM communication_messages WHERE id=:id",
-                new MapSqlParameterSource("id", communicationId));
+        List<Map<String, Object>> rows =
+                jdbcTemplate.queryForList(
+                        "SELECT JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.senderId')) sender_id,"
+                                + " JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.countryCode')) country_code,"
+                                + " JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.currencyCode')) currency_code,"
+                                + " JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.routingStrategy')) routing_strategy,"
+                                + " JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.requireDeliveryReceipts')) require_dlr,"
+                                + " JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.requireInbound')) require_inbound"
+                                + " FROM communication_messages WHERE id=:id",
+                        new MapSqlParameterSource("id", communicationId));
         if (rows.isEmpty()) return Map.of();
         Map<String, Object> source = rows.get(0);
         Map<String, Object> metadata = new LinkedHashMap<>();
@@ -209,7 +264,9 @@ public class CommunicationOutboxWorker {
     }
 
     private void putText(Map<String, Object> target, String key, Object value) {
-        if (value != null && !String.valueOf(value).isBlank() && !"null".equalsIgnoreCase(String.valueOf(value))) {
+        if (value != null
+                && !String.valueOf(value).isBlank()
+                && !"null".equalsIgnoreCase(String.valueOf(value))) {
             target.put(key, String.valueOf(value));
         }
     }
@@ -221,18 +278,26 @@ public class CommunicationOutboxWorker {
     }
 
     private String resolveContent(OutboxRow row) {
-        List<String> bodies = jdbcTemplate.query(
-                "SELECT JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.body')) FROM communication_messages WHERE id=:id",
-                new MapSqlParameterSource("id", row.communicationId()), (rs, rowNum) -> rs.getString(1));
+        List<String> bodies =
+                jdbcTemplate.query(
+                        "SELECT JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.body')) FROM communication_messages WHERE id=:id",
+                        new MapSqlParameterSource("id", row.communicationId()),
+                        (rs, rowNum) -> rs.getString(1));
         String fromMetadata = bodies.isEmpty() ? null : bodies.get(0);
         if (fromMetadata != null && !fromMetadata.isBlank()) return fromMetadata;
         if (row.templateKey() == null || row.templateKey().isBlank()) return null;
         try {
-            var rendered = new net.citotech.cito.communication.template.TemplateService(jdbcTemplate)
-                    .render(row.templateKey(), row.selectedChannel(), Map.of());
+            var rendered =
+                    new net.citotech.cito.communication.template.TemplateService(jdbcTemplate)
+                            .render(row.templateKey(), row.selectedChannel(), Map.of());
             return rendered.body();
         } catch (Exception ex) {
-            logger.log(Level.WARNING, "Template render failed for communication " + row.communicationId() + ": " + ex.getMessage());
+            logger.log(
+                    Level.WARNING,
+                    "Template render failed for communication "
+                            + row.communicationId()
+                            + ": "
+                            + ex.getMessage());
             return null;
         }
     }
@@ -240,8 +305,9 @@ public class CommunicationOutboxWorker {
     private String subjectFor(OutboxRow row) {
         if (row.templateKey() == null || row.templateKey().isBlank()) return "";
         try {
-            var rendered = new net.citotech.cito.communication.template.TemplateService(jdbcTemplate)
-                    .render(row.templateKey(), row.selectedChannel(), Map.of());
+            var rendered =
+                    new net.citotech.cito.communication.template.TemplateService(jdbcTemplate)
+                            .render(row.templateKey(), row.selectedChannel(), Map.of());
             return rendered.subject() == null ? "" : rendered.subject();
         } catch (Exception ex) {
             return "";
@@ -250,7 +316,8 @@ public class CommunicationOutboxWorker {
 
     private String firstRequestedChannel(String requestedChannels) {
         if (requestedChannels == null || requestedChannels.isBlank()) return null;
-        for (String part : requestedChannels.split(",")) if (!part.isBlank()) return part.trim().toUpperCase();
+        for (String part : requestedChannels.split(","))
+            if (!part.isBlank()) return part.trim().toUpperCase();
         return null;
     }
 

@@ -44,12 +44,14 @@ public class SmsConversationService {
         String normalizedProvider = chooseProvider(providerCode, sender.providerCode());
         String normalizedFrom = normalizePhone(from);
         if (blank(body)) throw new IllegalArgumentException("Inbound SMS body is required.");
-        String eventKey = eventKey("INBOUND", normalizedProvider, providerMessageId, normalizedFrom, body);
+        String eventKey =
+                eventKey("INBOUND", normalizedProvider, providerMessageId, normalizedFrom, body);
         Map<String, Object> duplicate = existingWebhook(eventKey);
         if (duplicate != null) return duplicate;
 
         Long contactId = findContact(sender.merchantId(), normalizedFrom);
-        long conversationId = findOrCreateConversation(sender, normalizedProvider, normalizedFrom, contactId);
+        long conversationId =
+                findOrCreateConversation(sender, normalizedProvider, normalizedFrom, contactId);
         String messagePublicId = "MSG-" + Common.randomUrlSafeToken(18);
         String payloadJson = json(payload == null ? Map.of() : payload);
         try {
@@ -70,7 +72,8 @@ public class SmsConversationService {
                             .addValue("body", body)
                             .addValue("metadata", payloadJson));
         } catch (DuplicateKeyException duplicateKeyException) {
-            Map<String, Object> existing = existingProviderMessage(normalizedProvider, providerMessageId);
+            Map<String, Object> existing =
+                    existingProviderMessage(normalizedProvider, providerMessageId);
             if (existing != null) return existing;
             throw duplicateKeyException;
         }
@@ -80,13 +83,18 @@ public class SmsConversationService {
                         + " status='OPEN' WHERE id=:id",
                 new MapSqlParameterSource("id", conversationId));
         applyOptKeyword(sender.merchantId(), normalizedFrom, body);
-        recordWebhook(eventKey, sender, normalizedProvider, "INBOUND", providerMessageId, payloadJson);
+        recordWebhook(
+                eventKey, sender, normalizedProvider, "INBOUND", providerMessageId, payloadJson);
 
         return Map.of(
-                "accepted", true,
-                "conversationId", conversationPublicId(conversationId),
-                "messageId", messagePublicId,
-                "direction", "INBOUND");
+                "accepted",
+                true,
+                "conversationId",
+                conversationPublicId(conversationId),
+                "messageId",
+                messagePublicId,
+                "direction",
+                "INBOUND");
     }
 
     @Transactional
@@ -97,7 +105,8 @@ public class SmsConversationService {
             String providerStatus,
             Map<String, Object> payload) {
         Sender sender = requireSender(inboundToken, false);
-        if (blank(providerMessageId)) throw new IllegalArgumentException("providerMessageId is required.");
+        if (blank(providerMessageId))
+            throw new IllegalArgumentException("providerMessageId is required.");
         String normalizedProvider = chooseProvider(providerCode, sender.providerCode());
         DeliveryStatus status = normalizeDeliveryStatus(providerStatus);
         String eventKey = eventKey("DLR", normalizedProvider, providerMessageId, status.name(), "");
@@ -105,12 +114,13 @@ public class SmsConversationService {
         if (duplicate != null) return duplicate;
 
         String payloadJson = json(payload == null ? Map.of() : payload);
-        int updated = deliveryLogRepository.updateByProviderMessageId(
-                normalizedProvider,
-                providerMessageId,
-                status,
-                "Provider delivery receipt: " + status,
-                payloadJson);
+        int updated =
+                deliveryLogRepository.updateByProviderMessageId(
+                        normalizedProvider,
+                        providerMessageId,
+                        status,
+                        "Provider delivery receipt: " + status,
+                        payloadJson);
         if (updated > 0) {
             jdbcTemplate.update(
                     "UPDATE communication_messages m JOIN communication_message_deliveries d"
@@ -139,11 +149,15 @@ public class SmsConversationService {
                         .addValue("limit", Math.max(1, Math.min(limit, 200))));
     }
 
-    public List<Map<String, Object>> messages(long merchantId, String conversationPublicId, int limit) {
-        List<Long> ids = jdbcTemplate.query(
-                "SELECT id FROM communication_conversations WHERE merchant_id=:merchant AND public_id=:public_id LIMIT 1",
-                new MapSqlParameterSource().addValue("merchant", merchantId).addValue("public_id", conversationPublicId),
-                (rs, rowNum) -> rs.getLong(1));
+    public List<Map<String, Object>> messages(
+            long merchantId, String conversationPublicId, int limit) {
+        List<Long> ids =
+                jdbcTemplate.query(
+                        "SELECT id FROM communication_conversations WHERE merchant_id=:merchant AND public_id=:public_id LIMIT 1",
+                        new MapSqlParameterSource()
+                                .addValue("merchant", merchantId)
+                                .addValue("public_id", conversationPublicId),
+                        (rs, rowNum) -> rs.getLong(1));
         if (ids.isEmpty()) throw new IllegalArgumentException("Conversation was not found.");
         jdbcTemplate.update(
                 "UPDATE communication_conversations SET unread_count=0 WHERE id=:id",
@@ -162,13 +176,18 @@ public class SmsConversationService {
         if (blank(inboundToken) || inboundToken.length() < 24) {
             throw new IllegalArgumentException("Invalid SMS webhook token.");
         }
-        List<Sender> rows = jdbcTemplate.query(
-                "SELECT id,merchant_id,sender_id,provider_code,two_way_capable FROM communication_sender_identities"
-                        + " WHERE inbound_token=:token AND approval_status='APPROVED' LIMIT 1",
-                new MapSqlParameterSource("token", inboundToken.trim()),
-                (rs, rowNum) -> new Sender(
-                        rs.getLong("id"), rs.getLong("merchant_id"), rs.getString("sender_id"),
-                        rs.getString("provider_code"), "Y".equals(rs.getString("two_way_capable"))));
+        List<Sender> rows =
+                jdbcTemplate.query(
+                        "SELECT id,merchant_id,sender_id,provider_code,two_way_capable FROM communication_sender_identities"
+                                + " WHERE inbound_token=:token AND approval_status='APPROVED' LIMIT 1",
+                        new MapSqlParameterSource("token", inboundToken.trim()),
+                        (rs, rowNum) ->
+                                new Sender(
+                                        rs.getLong("id"),
+                                        rs.getLong("merchant_id"),
+                                        rs.getString("sender_id"),
+                                        rs.getString("provider_code"),
+                                        "Y".equals(rs.getString("two_way_capable"))));
         if (rows.isEmpty()) throw new IllegalArgumentException("SMS webhook token is not active.");
         Sender sender = rows.get(0);
         if (requireTwoWay && !sender.twoWayCapable()) {
@@ -177,15 +196,17 @@ public class SmsConversationService {
         return sender;
     }
 
-    private long findOrCreateConversation(Sender sender, String provider, String phone, Long contactId) {
-        List<Long> rows = jdbcTemplate.query(
-                "SELECT id FROM communication_conversations WHERE merchant_id=:merchant AND phone_e164=:phone"
-                        + " AND sender_identity_id=:sender AND status='OPEN' ORDER BY id DESC LIMIT 1",
-                new MapSqlParameterSource()
-                        .addValue("merchant", sender.merchantId())
-                        .addValue("phone", phone)
-                        .addValue("sender", sender.id()),
-                (rs, rowNum) -> rs.getLong(1));
+    private long findOrCreateConversation(
+            Sender sender, String provider, String phone, Long contactId) {
+        List<Long> rows =
+                jdbcTemplate.query(
+                        "SELECT id FROM communication_conversations WHERE merchant_id=:merchant AND phone_e164=:phone"
+                                + " AND sender_identity_id=:sender AND status='OPEN' ORDER BY id DESC LIMIT 1",
+                        new MapSqlParameterSource()
+                                .addValue("merchant", sender.merchantId())
+                                .addValue("phone", phone)
+                                .addValue("sender", sender.id()),
+                        (rs, rowNum) -> rs.getLong(1));
         if (!rows.isEmpty()) return rows.get(0);
         String publicId = "CONV-" + Common.randomUrlSafeToken(18);
         jdbcTemplate.update(
@@ -201,15 +222,19 @@ public class SmsConversationService {
                         .addValue("provider", provider));
         return jdbcTemplate.queryForObject(
                 "SELECT id FROM communication_conversations WHERE public_id=:public_id",
-                new MapSqlParameterSource("public_id", publicId), Long.class);
+                new MapSqlParameterSource("public_id", publicId),
+                Long.class);
     }
 
     private Long findContact(long merchantId, String phone) {
-        List<Long> rows = jdbcTemplate.query(
-                "SELECT id FROM communication_contacts WHERE merchant_id=:merchant AND phone_e164=:phone"
-                        + " AND active_flag='Y' LIMIT 1",
-                new MapSqlParameterSource().addValue("merchant", merchantId).addValue("phone", phone),
-                (rs, rowNum) -> rs.getLong(1));
+        List<Long> rows =
+                jdbcTemplate.query(
+                        "SELECT id FROM communication_contacts WHERE merchant_id=:merchant AND phone_e164=:phone"
+                                + " AND active_flag='Y' LIMIT 1",
+                        new MapSqlParameterSource()
+                                .addValue("merchant", merchantId)
+                                .addValue("phone", phone),
+                        (rs, rowNum) -> rs.getLong(1));
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -221,20 +246,25 @@ public class SmsConversationService {
                             + " (merchant_id,phone_e164,scope,reason,source,active_flag)"
                             + " VALUES (:merchant,:phone,'MARKETING','OPT_OUT','INBOUND_SMS','Y')"
                             + " ON DUPLICATE KEY UPDATE active_flag='Y',reason='OPT_OUT',source='INBOUND_SMS',updated_at=NOW()",
-                    new MapSqlParameterSource().addValue("merchant", merchantId).addValue("phone", phone));
+                    new MapSqlParameterSource()
+                            .addValue("merchant", merchantId)
+                            .addValue("phone", phone));
         } else if (List.of("START", "YES", "UNSTOP").contains(keyword)) {
             jdbcTemplate.update(
                     "UPDATE communication_sms_suppressions SET active_flag='N',reason='OPT_IN',updated_at=NOW()"
                             + " WHERE merchant_id=:merchant AND phone_e164=:phone AND scope='MARKETING'",
-                    new MapSqlParameterSource().addValue("merchant", merchantId).addValue("phone", phone));
+                    new MapSqlParameterSource()
+                            .addValue("merchant", merchantId)
+                            .addValue("phone", phone));
         }
     }
 
     private Map<String, Object> existingWebhook(String eventKey) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT event_key,event_type,provider_message_id,created_at FROM communication_sms_webhook_events"
-                        + " WHERE event_key=:event_key LIMIT 1",
-                new MapSqlParameterSource("event_key", eventKey));
+        List<Map<String, Object>> rows =
+                jdbcTemplate.queryForList(
+                        "SELECT event_key,event_type,provider_message_id,created_at FROM communication_sms_webhook_events"
+                                + " WHERE event_key=:event_key LIMIT 1",
+                        new MapSqlParameterSource("event_key", eventKey));
         if (rows.isEmpty()) return null;
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("accepted", true);
@@ -245,11 +275,14 @@ public class SmsConversationService {
 
     private Map<String, Object> existingProviderMessage(String provider, String providerMessageId) {
         if (blank(providerMessageId)) return null;
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT c.public_id conversationId,m.public_id messageId,m.direction,m.status"
-                        + " FROM communication_conversation_messages m JOIN communication_conversations c ON c.id=m.conversation_id"
-                        + " WHERE m.provider_code=:provider AND m.provider_message_id=:provider_message_id LIMIT 1",
-                new MapSqlParameterSource().addValue("provider", provider).addValue("provider_message_id", providerMessageId));
+        List<Map<String, Object>> rows =
+                jdbcTemplate.queryForList(
+                        "SELECT c.public_id conversationId,m.public_id messageId,m.direction,m.status"
+                                + " FROM communication_conversation_messages m JOIN communication_conversations c ON c.id=m.conversation_id"
+                                + " WHERE m.provider_code=:provider AND m.provider_message_id=:provider_message_id LIMIT 1",
+                        new MapSqlParameterSource()
+                                .addValue("provider", provider)
+                                .addValue("provider_message_id", providerMessageId));
         if (rows.isEmpty()) return null;
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("accepted", true);
@@ -285,16 +318,21 @@ public class SmsConversationService {
 
     private DeliveryStatus normalizeDeliveryStatus(String status) {
         String value = blank(status) ? "UNKNOWN" : status.trim().toUpperCase();
-        if (List.of("DELIVERED", "DELIVERY_SUCCESS", "SUCCESS").contains(value)) return DeliveryStatus.DELIVERED;
-        if (List.of("SENT", "QUEUED", "ACCEPTED", "SUBMITTED").contains(value)) return DeliveryStatus.SENT;
+        if (List.of("DELIVERED", "DELIVERY_SUCCESS", "SUCCESS").contains(value))
+            return DeliveryStatus.DELIVERED;
+        if (List.of("SENT", "QUEUED", "ACCEPTED", "SUBMITTED").contains(value))
+            return DeliveryStatus.SENT;
         if (List.of("REJECTED", "BLOCKED").contains(value)) return DeliveryStatus.REJECTED;
-        if (List.of("FAILED", "UNDELIVERED", "EXPIRED", "ERROR").contains(value)) return DeliveryStatus.FAILED;
+        if (List.of("FAILED", "UNDELIVERED", "EXPIRED", "ERROR").contains(value))
+            return DeliveryStatus.FAILED;
         return DeliveryStatus.SENT;
     }
 
     private String chooseProvider(String requested, String configured) {
         String provider = blank(requested) ? configured : requested;
-        if (blank(provider)) throw new IllegalArgumentException("providerCode is required for this sender identity.");
+        if (blank(provider))
+            throw new IllegalArgumentException(
+                    "providerCode is required for this sender identity.");
         if (!blank(configured) && !configured.equalsIgnoreCase(provider)) {
             throw new IllegalArgumentException("Provider does not match sender identity.");
         }
@@ -304,20 +342,27 @@ public class SmsConversationService {
     private String normalizePhone(String value) {
         if (blank(value)) throw new IllegalArgumentException("Inbound sender phone is required.");
         String normalized = value.trim().replaceAll("[\\s()-]", "");
-        if (!normalized.matches("\\+?[0-9]{7,15}")) throw new IllegalArgumentException("Invalid inbound sender phone.");
+        if (!normalized.matches("\\+?[0-9]{7,15}"))
+            throw new IllegalArgumentException("Invalid inbound sender phone.");
         return normalized;
     }
 
     private String conversationPublicId(long conversationId) {
         return jdbcTemplate.queryForObject(
                 "SELECT public_id FROM communication_conversations WHERE id=:id",
-                new MapSqlParameterSource("id", conversationId), String.class);
+                new MapSqlParameterSource("id", conversationId),
+                String.class);
     }
 
-    private String eventKey(String type, String provider, String providerMessageId, String a, String b) {
+    private String eventKey(
+            String type, String provider, String providerMessageId, String a, String b) {
         String providerId = trim(providerMessageId);
         if (!blank(providerId)) return type + ":" + provider + ":" + providerId;
-        return type + ":" + provider + ":" + Integer.toHexString((String.valueOf(a) + "|" + String.valueOf(b)).hashCode());
+        return type
+                + ":"
+                + provider
+                + ":"
+                + Integer.toHexString((String.valueOf(a) + "|" + String.valueOf(b)).hashCode());
     }
 
     private String json(Map<String, Object> payload) {
@@ -336,5 +381,10 @@ public class SmsConversationService {
         return value == null || value.trim().isEmpty();
     }
 
-    private record Sender(long id, long merchantId, String senderId, String providerCode, boolean twoWayCapable) {}
+    private record Sender(
+            long id,
+            long merchantId,
+            String senderId,
+            String providerCode,
+            boolean twoWayCapable) {}
 }
