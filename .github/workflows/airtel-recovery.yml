@@ -1,0 +1,43 @@
+name: Airtel recovery release tests
+on:
+  pull_request:
+    paths:
+      - 'InitializrSpringbootProjectFresh/**'
+      - '.github/workflows/airtel-recovery.yml'
+  push:
+    branches: [main, sandbox, production]
+    paths:
+      - 'InitializrSpringbootProjectFresh/**'
+      - '.github/workflows/airtel-recovery.yml'
+permissions:
+  contents: read
+concurrency:
+  group: airtel-recovery-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Record exact tested tree
+        run: git rev-parse HEAD > airtel-recovery-tested-sha.txt
+      - name: Recovery and MySQL financial lifecycle regression
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B -ntp -Ddocker.tests.excludedGroups= -Dtest=AirtelStatusClientTest,AirtelRecoveryInvariantTest,AirtelRecoveryStoreTestcontainersTest,DoubleEntryLedgerServiceTestcontainersTest verify
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airtel-recovery-release-evidence
+          path: |
+            airtel-recovery-tested-sha.txt
+            InitializrSpringbootProjectFresh/target/surefire-reports
+          retention-days: 14
