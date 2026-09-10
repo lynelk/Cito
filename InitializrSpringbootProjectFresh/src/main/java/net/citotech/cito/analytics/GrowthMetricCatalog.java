@@ -26,6 +26,21 @@ public final class GrowthMetricCatalog {
                             "Merchants whose canonical activation lifecycle status is LIVE.",
                             "merchant_activation_lifecycles.status"),
                     new MetricDefinition(
+                            "DAY_7_RETENTION",
+                            "Day 7 retention",
+                            "Merchants activated at least seven days ago with durable production usage on or after activation plus seven days, divided by all merchants eligible for that observation.",
+                            "merchant_activation_lifecycles + merchant_production_usage"),
+                    new MetricDefinition(
+                            "DAY_30_RETENTION",
+                            "Day 30 retention",
+                            "Merchants activated at least thirty days ago with durable production usage on or after activation plus thirty days, divided by all merchants eligible for that observation.",
+                            "merchant_activation_lifecycles + merchant_production_usage"),
+                    new MetricDefinition(
+                            "DAY_90_RETENTION",
+                            "Day 90 retention",
+                            "Merchants activated at least ninety days ago with durable production usage on or after activation plus ninety days, divided by all merchants eligible for that observation.",
+                            "merchant_activation_lifecycles + merchant_production_usage"),
+                    new MetricDefinition(
                             "WEEKLY_ACTIVE_MERCHANTS",
                             "Weekly active merchants",
                             "Distinct merchants with durable production usage during the last seven days.",
