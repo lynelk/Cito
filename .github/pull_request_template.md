@@ -2,10 +2,23 @@
 
 Describe the change, the user/operational problem it solves, and the measurable acceptance criteria.
 
+## Frontend/backend parity
+
+Every PR must declare the actual application-surface impact. One-sided behavior-bearing changes require an approved exception reference; otherwise update both surfaces in the same PR.
+
+Frontend/backend parity: [BOTH | BACKEND_ONLY | FRONTEND_ONLY | NONE]
+
+Parity rationale: [explain why the declared surfaces are correct and how feature/function/process flow remains coherent]
+
+Parity evidence: [tests, API contract, screenshots/browser evidence, or explicit non-applicability]
+
+Parity exception: [None, or approved issue/ADR/decision reference for a justified one-sided behavior change]
+
 ## Verification
 
 - [ ] Backend build/tests pass for affected code.
 - [ ] Frontend typecheck/tests/build pass for affected UI.
+- [ ] Frontend and backend implement the same user/operator capability, state, permissions and process flow where the change is parity-sensitive.
 - [ ] Flyway versions are unique and migrations are additive/reversible or have a tested recovery plan where applicable.
 - [ ] Security, tenant isolation, money movement and audit implications were reviewed.
 - [ ] Post-deployment verification and rollback/containment steps are documented.
@@ -73,11 +86,14 @@ Every production capability should have a sandbox test path unless an explicit r
 - [ ] Breaking changes include migration/versioning guidance.
 - [ ] IMS/control/risk/service/supplier records are updated when the change affects them.
 - [ ] Evidence references do not contain production secrets, raw identity documents or restricted payment-authentication data.
+- [ ] Any Railway/runtime configuration change is reflected in repository-controlled environment/runbook records before the work is declared complete.
 
 ## Deployment
 
-- [ ] The change is safe to advance `main` → `sandbox` after CI.
-- [ ] Sandbox/staging verification evidence is recorded before manual promotion to production.
+- [ ] The change is safe to advance to `main` after CI.
+- [ ] When staging exists, `main` auto-deploys to staging and backend/frontend staging deployments resolve to the exact same `main` SHA.
+- [ ] Staging verification evidence is recorded before manual promotion to production.
+- [ ] Production backend and frontend resolve to the exact same accepted `production` SHA.
 - [ ] Production configuration changes are peer-reviewed and secret values remain outside source control.
 - [ ] High-risk or emergency changes identify the required retrospective problem/CAPA review.
 
