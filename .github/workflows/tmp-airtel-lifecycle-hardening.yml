@@ -26,6 +26,7 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
 
           root = Path('.')
           gateway = root / 'InitializrSpringbootProjectFresh/src/main/java/net/citotech/cito/Model/AirtelMoneyOpenApiPaymentGateway.java'
@@ -33,24 +34,20 @@ jobs:
           original = text
 
           text = text.replace('    String env = "mtnuganda";\n', '')
-
           text = text.replace(
               '            if (response.getStatusCode() == 200) {\n                applySuccessResponse(gatewayResponse, response);\n            } else {\n                gatewayResponse.setStatus("ERROR");\n                gatewayResponse.setTransactionStatus("FAILED");',
               '            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {\n                applySuccessResponse(gatewayResponse, response);\n            } else {\n                gatewayResponse.setStatus("ERROR");\n                gatewayResponse.setTransactionStatus(\n                        "GET".equalsIgnoreCase(method) || isRetryableTransportStatus(response.getStatusCode())\n                                ? "UNDETERMINED"\n                                : "FAILED");'
           )
-
           text = text.replace(
               '            } else if ("TA".equalsIgnoreCase(status)) {\n                gatewayResponse.setTransactionStatus("UNDETERMINED");\n            }',
               '            } else if ("TA".equalsIgnoreCase(status)) {\n                gatewayResponse.setTransactionStatus("PENDING");\n            }'
           )
-
           marker = '    private Boolean isFailedErrorList(String error) {'
           helper = '''    /** Transport failures during provider status reconciliation are never terminal evidence. */\n    private boolean isRetryableTransportStatus(int statusCode) {\n        return statusCode == 408\n                || statusCode == 409\n                || statusCode == 425\n                || statusCode == 429\n                || statusCode >= 500;\n    }\n\n'''
           if helper.strip() not in text:
               if marker not in text:
                   raise SystemExit('Could not locate Airtel error-list insertion point')
               text = text.replace(marker, helper + marker)
-
           if text == original:
               raise SystemExit('Airtel gateway patch made no changes')
           gateway.write_text(text)
@@ -63,12 +60,12 @@ jobs:
           if len(candidates) != 1:
               raise SystemExit(f'Expected one TransactionTimeoutScheduler, found {len(candidates)}')
           timeout_path, timeout = candidates[0]
-          old_guard = '''            if (LegacyGatewayIds.MTN_MOMO.equals(gatewayId)) {\n                continue;\n            }'''
-          new_guard = '''            if (LegacyGatewayIds.MTN_MOMO.equals(gatewayId)\n                    || LegacyGatewayIds.AIRTEL_OPEN_API.equals(gatewayId)) {\n                continue;\n            }'''
-          if new_guard not in timeout:
-              if old_guard not in timeout:
-                  raise SystemExit('Could not locate MTN timeout exclusion guard')
-              timeout = timeout.replace(old_guard, new_guard)
+          if 'LegacyGatewayIds.AIRTEL_OPEN_API.equals(gatewayId)' not in timeout:
+              pattern = r'if\s*\(\s*LegacyGatewayIds\.MTN_MOMO\.equals\(gatewayId\)\s*\)\s*\{\s*continue;\s*\}'
+              replacement = '''if (LegacyGatewayIds.MTN_MOMO.equals(gatewayId)\n                    || LegacyGatewayIds.AIRTEL_OPEN_API.equals(gatewayId)) {\n                continue;\n            }'''
+              timeout, count = re.subn(pattern, replacement, timeout, count=1)
+              if count != 1:
+                  raise SystemExit('Could not locate semantic MTN timeout exclusion guard')
               timeout_path.write_text(timeout)
 
           note = root / 'Docs/Payments/AIRTEL_MTN_LIFECYCLE_HARDENING_20260910.md'
