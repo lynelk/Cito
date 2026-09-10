@@ -7,7 +7,7 @@ const base = '/api/v2/admin/communication/notifications';
 interface Definition { type: string; classification: string; severity: string; description: string }
 interface Policy { event_type: string; enabled_flag: string; dedup_seconds: number; max_per_hour: number; escalation_seconds: number }
 interface Group { group_code: string; display_name: string }
-interface Recipient { group_code: string; admin_id: number; name: string; escalation_level: number; active_flag: string }
+interface Recipient { group_code: string; admin_id: number | null; phone_e164: string | null; phone: string; name: string; escalation_level: number; active_flag: string }
 interface Evidence { id: number; event_id: string; event_type: string; recipient: string | null; outcome: string | null; communication_status: string | null; provider_code: string | null; provider_message_id: string | null }
 
 export default function ModuleNotificationPolicies(): React.ReactElement {
@@ -15,6 +15,8 @@ export default function ModuleNotificationPolicies(): React.ReactElement {
   const [search, setSearch] = useState('');
   const [group, setGroup] = useState('PLATFORM_OPERATIONS');
   const [admin, setAdmin] = useState('');
+  const [phone, setPhone] = useState('');
+  const [recipientType, setRecipientType] = useState('phone');
   const [level, setLevel] = useState('0');
   const [quietStart, setQuietStart] = useState('');
   const [quietEnd, setQuietEnd] = useState('');
@@ -46,13 +48,14 @@ export default function ModuleNotificationPolicies(): React.ReactElement {
       {(catalogue.data ?? []).filter(row => `${row.type} ${row.description}`.toLowerCase().includes(search.toLowerCase())).map(row => <tr key={row.type}><td>{row.type}</td><td>{row.classification}</td><td>{row.severity}</td><td>{row.description}</td></tr>)}
     </tbody></table></div>
     <h3>Recipient and escalation groups</h3>
-    <p>Use an existing active platform administrator. Manage team membership in the platform Team area.</p>
+    <p>Add an international phone number for alert testing or an existing active administrator. Phone recipients receive alerts without platform access. Manage team membership in the platform Team area.</p>
     <Select id="notification-group" label="Alert group" value={group} onValueChange={setGroup} options={(groups.data?.groups ?? []).map(row => ({ value: row.group_code, label: row.display_name }))} />
-    <TextField id="notification-admin" label="Administrator ID" value={admin} onValueChange={setAdmin} />
+    <Select id="notification-recipient-type" label="Recipient type" value={recipientType} onValueChange={setRecipientType} options={[{ value: 'phone', label: 'Phone number' }, { value: 'admin', label: 'Administrator' }]} />
+    {recipientType === 'phone' ? <TextField id="notification-phone" label="International phone number" value={phone} onValueChange={setPhone} /> : <TextField id="notification-admin" label="Administrator ID" value={admin} onValueChange={setAdmin} />}
     <TextField id="notification-level" label="Escalation level (0–5)" value={level} onValueChange={setLevel} />
-    <Button disabled={saving || !admin} onClick={() => void save(`/groups/${group}/recipients`, { adminId: Number(admin), escalationLevel: Number(level), active: true })}>Save recipient</Button>
+    <Button disabled={saving || !(recipientType === 'phone' ? phone : admin)} onClick={() => void save(`/groups/${group}/recipients`, { ...(recipientType === 'phone' ? { phone } : { adminId: Number(admin) }), escalationLevel: Number(level), active: true })}>Save recipient</Button>
     {(groups.data?.recipients ?? []).length === 0 ? <p>No alert recipients configured. Add recipients before enabling production alerts.</p> : null}
-    <ul>{(groups.data?.recipients ?? []).map(row => <li key={`${row.group_code}:${row.admin_id}`}>{row.group_code}: {row.name}, level {row.escalation_level}, {row.active_flag === 'Y' ? 'Active' : 'Inactive'} <Button disabled={saving} variant="ghost" onClick={() => void save(`/groups/${row.group_code}/recipients`, { adminId: row.admin_id, escalationLevel: row.escalation_level, active: row.active_flag !== 'Y' })}>{row.active_flag === 'Y' ? 'Deactivate' : 'Activate'}</Button></li>)}</ul>
+    <ul>{(groups.data?.recipients ?? []).map(row => <li key={`${row.group_code}:${row.admin_id ?? row.phone_e164}`}>{row.group_code}: {row.name} ({row.phone}), level {row.escalation_level}, {row.active_flag === 'Y' ? 'Active' : 'Inactive'} <Button disabled={saving} variant="ghost" onClick={() => void save(`/groups/${row.group_code}/recipients`, { ...(row.admin_id === null ? { phone: row.phone_e164 } : { adminId: row.admin_id }), escalationLevel: row.escalation_level, active: row.active_flag !== 'Y' })}>{row.active_flag === 'Y' ? 'Deactivate' : 'Activate'}</Button></li>)}</ul>
     <h3>Group quiet hours</h3>
     <TextField id="notification-quiet-start" label="Quiet start (HH:mm, blank to clear)" value={quietStart} onValueChange={setQuietStart} />
     <TextField id="notification-quiet-end" label="Quiet end (HH:mm)" value={quietEnd} onValueChange={setQuietEnd} />
