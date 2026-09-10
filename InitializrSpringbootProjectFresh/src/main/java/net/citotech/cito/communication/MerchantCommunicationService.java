@@ -93,6 +93,11 @@ public class MerchantCommunicationService {
             if (existing != null) return existing;
         }
 
+        if ("MARKETING".equals(normalizedPurpose)
+                && isMarketingSuppressed(merchantId, normalizedRecipient)) {
+            throw new IllegalArgumentException("Recipient has opted out of marketing SMS.");
+        }
+
         SenderIdentity sender =
                 validateSenderIdentity(
                         merchantId, safeOptions.senderId(), safeOptions.requireInbound());
@@ -167,6 +172,7 @@ public class MerchantCommunicationService {
         return findByPublicId(merchantId, publicId);
     }
 
+    /** Merchant-safe preview: internal provider cost and candidate scoring are never exposed. */
     public Map<String, Object> previewSms(
             long merchantId,
             String content,
@@ -192,7 +198,8 @@ public class MerchantCommunicationService {
                         currencyCode,
                         routingStrategy,
                         requireDeliveryReceipts,
-                        requireInbound);
+                        requireInbound,
+                        sender == null ? null : sender.providerCode());
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("encoding", analysis.encoding());
         result.put("characters", analysis.characters());
@@ -203,16 +210,11 @@ public class MerchantCommunicationService {
         result.put("longMessageWarning", analysis.longMessageWarning());
         result.put("routeDecisionReference", route.decisionReference());
         result.put("routable", route.routable());
-        result.put(
-                "selectedProvider",
-                sender != null && sender.providerCode() != null
-                        ? sender.providerCode()
-                        : route.selectedProviderCode());
-        result.put("expectedProviderCost", route.expectedProviderCost());
+        result.put("selectedProvider", route.selectedProviderCode());
+        result.put("estimatedCharge", route.expectedCustomerCharge());
         result.put("currencyCode", route.currencyCode());
         result.put("routingStrategy", route.strategy());
-        result.put("explanation", route.explanation());
-        result.put("candidates", route.candidates());
+        result.put("explanation", merchantRouteExplanation(route, sender));
         return result;
     }
 
@@ -232,6 +234,93 @@ public class MerchantCommunicationService {
     public Map<String, Object> status(long merchantId, String publicId) {
         if (merchantId <= 0 || blank(publicId)) return null;
         return findByPublicId(merchantId, publicId.trim());
+    }
+
+    /** Cancel a message only while its durable outbox event is still pending. */
+    @Transactional
+    public Map<String, Object> cancelSms(long merchantId, String publicId) {
+        if (merchantId <= 0 || blank(publicId))
+            throw new IllegalArgumentException("messageReference is required.");
+        List<Map<String, Object>> rows =
+                jdbcTemplate.queryForList(
+                        "SELECT m.id communication_id,m.status message_status,o.status outbox_status"
+                                + " FROM communication_messages m LEFT JOIN communication_outbox o"
+                                + " ON o.communication_id=m.id AND o.event_type='DISPATCH'"
+                                + " WHERE m.merchant_id=:merchant AND m.public_id=:reference"
+                                + " ORDER BY o.id DESC LIMIT 1 FOR UPDATE",
+                        new MapSqlParameterSource()
+                                .addValue("merchant", merchantId)
+                                .addValue("reference", publicId.trim()));
+        if (rows.isEmpty()) return null;
+        String messageStatus = String.valueOf(rows.get(0).get("message_status"));
+        if ("CANCELLED".equalsIgnoreCase(messageStatus)) return findByPublicId(merchantId, publicId);
+        Object outboxValue = rows.get(0).get("outbox_status");
+        String outboxStatus = outboxValue == null ? null : String.valueOf(outboxValue);
+        if (!"PENDING".equalsIgnoreCase(outboxStatus)) {
+            throw new IllegalArgumentException("Message can no longer be cancelled safely.");
+        }
+        long communicationId = ((Number) rows.get(0).get("communication_id")).longValue();
+        jdbcTemplate.update(
+                "UPDATE communication_outbox SET status='CANCELLED',locked_until=NULL,locked_by=NULL,updated_at=NOW()"
+                        + " WHERE communication_id=:id AND event_type='DISPATCH' AND status='PENDING'",
+                new MapSqlParameterSource("id", communicationId));
+        jdbcTemplate.update(
+                "UPDATE communication_messages SET status='CANCELLED',updated_at=NOW()"
+                        + " WHERE id=:id AND merchant_id=:merchant",
+                new MapSqlParameterSource()
+                        .addValue("id", communicationId)
+                        .addValue("merchant", merchantId));
+        return findByPublicId(merchantId, publicId);
+    }
+
+    /** Reschedule a message only while it is still safely pending in the durable outbox. */
+    @Transactional
+    public Map<String, Object> rescheduleSms(long merchantId, String publicId, String scheduledAt) {
+        if (merchantId <= 0 || blank(publicId))
+            throw new IllegalArgumentException("messageReference is required.");
+        if (blank(scheduledAt)) throw new IllegalArgumentException("scheduledAt is required.");
+        List<Map<String, Object>> rows =
+                jdbcTemplate.queryForList(
+                        "SELECT m.id communication_id,m.status message_status,m.scheduled_at,m.expires_at,"
+                                + " o.status outbox_status FROM communication_messages m"
+                                + " LEFT JOIN communication_outbox o ON o.communication_id=m.id AND o.event_type='DISPATCH'"
+                                + " WHERE m.merchant_id=:merchant AND m.public_id=:reference"
+                                + " ORDER BY o.id DESC LIMIT 1 FOR UPDATE",
+                        new MapSqlParameterSource()
+                                .addValue("merchant", merchantId)
+                                .addValue("reference", publicId.trim()));
+        if (rows.isEmpty()) return null;
+        Object outboxValue = rows.get(0).get("outbox_status");
+        String outboxStatus = outboxValue == null ? null : String.valueOf(outboxValue);
+        if (!"PENDING".equalsIgnoreCase(outboxStatus)) {
+            throw new IllegalArgumentException("Message can no longer be rescheduled safely.");
+        }
+        Instant now = Instant.now();
+        Instant newSchedule = parseSchedule(scheduledAt, now);
+        Timestamp oldScheduled = (Timestamp) rows.get(0).get("scheduled_at");
+        Timestamp oldExpires = (Timestamp) rows.get(0).get("expires_at");
+        long ttl = defaultTtl("TRANSACTIONAL");
+        if (oldScheduled != null && oldExpires != null) {
+            ttl = Math.max(60, oldExpires.toInstant().getEpochSecond() - oldScheduled.toInstant().getEpochSecond());
+        }
+        long communicationId = ((Number) rows.get(0).get("communication_id")).longValue();
+        String status = newSchedule.isAfter(now.plusSeconds(2)) ? "SCHEDULED" : "RECEIVED";
+        MapSqlParameterSource params =
+                new MapSqlParameterSource()
+                        .addValue("id", communicationId)
+                        .addValue("merchant", merchantId)
+                        .addValue("scheduled", Timestamp.from(newSchedule))
+                        .addValue("expires", Timestamp.from(newSchedule.plusSeconds(ttl)))
+                        .addValue("status", status);
+        jdbcTemplate.update(
+                "UPDATE communication_messages SET scheduled_at=:scheduled,expires_at=:expires,status=:status,updated_at=NOW()"
+                        + " WHERE id=:id AND merchant_id=:merchant",
+                params);
+        jdbcTemplate.update(
+                "UPDATE communication_outbox SET next_attempt_at=:scheduled,attempts=0,last_error=NULL,updated_at=NOW()"
+                        + " WHERE communication_id=:id AND event_type='DISPATCH' AND status='PENDING'",
+                params);
+        return findByPublicId(merchantId, publicId);
     }
 
     private Map<String, Object> findByIdempotency(long merchantId, String key) {
@@ -279,8 +368,7 @@ public class MerchantCommunicationService {
         if (metadata != null) {
             try {
                 @SuppressWarnings("unchecked")
-                Map<String, Object> parsed =
-                        objectMapper.readValue(String.valueOf(metadata), Map.class);
+                Map<String, Object> parsed = objectMapper.readValue(String.valueOf(metadata), Map.class);
                 view.put("sms", parsed);
             } catch (Exception ignored) {
                 // Status remains usable even if optional metadata was malformed historically.
@@ -317,6 +405,29 @@ public class MerchantCommunicationService {
                     "Selected sender identity does not support two-way SMS.");
         }
         return identity;
+    }
+
+    private boolean isMarketingSuppressed(long merchantId, String phone) {
+        Integer count =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM communication_sms_suppressions WHERE merchant_id=:merchant"
+                                + " AND phone_e164=:phone AND scope='MARKETING' AND active_flag='Y'",
+                        new MapSqlParameterSource()
+                                .addValue("merchant", merchantId)
+                                .addValue("phone", phone),
+                        Integer.class);
+        return count != null && count > 0;
+    }
+
+    private String merchantRouteExplanation(
+            SmartSmsRoutingService.RouteDecision route, SenderIdentity sender) {
+        if (!route.routable()) {
+            return "No eligible SMS route is currently available for the requested capability set.";
+        }
+        if (sender != null && sender.providerCode() != null) {
+            return "The approved provider-specific sender identity is currently eligible. Availability and capability are rechecked before dispatch.";
+        }
+        return "Smart routing selected the best eligible provider using configured cost, availability, capability and reliability rules. The route is rechecked before dispatch.";
     }
 
     private String metadata(
