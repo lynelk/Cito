@@ -25,7 +25,16 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
 
-OPENER = urllib.request.build_opener(NoRedirect(), urllib.request.HTTPSHandler(context=ssl.create_default_context()))
+
+def tls_context():
+    context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.check_hostname = True
+    context.verify_mode = ssl.CERT_REQUIRED
+    return context
+
+
+OPENER = urllib.request.build_opener(NoRedirect(), urllib.request.HTTPSHandler(context=tls_context()))
 
 def emit(data):
     print(json.dumps(data, sort_keys=True), flush=True)
@@ -57,7 +66,7 @@ def callback_check(credentials):
     if parsed.scheme == "https" and parsed.hostname == "cito.coresynergi.es" and parsed.port in (None, 443):
         try:
             with socket.create_connection((parsed.hostname, 443), timeout=10) as sock:
-                with ssl.create_default_context().wrap_socket(sock, server_hostname=parsed.hostname):
+                with tls_context().wrap_socket(sock, server_hostname=parsed.hostname):
                     outcome["callbackTlsVerified"] = True
         except Exception:
             outcome["callbackTlsVerified"] = False
