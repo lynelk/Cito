@@ -51,14 +51,16 @@ public class NotificationAdminController {
     @GetMapping("/evidence")
     public List<Map<String, Object>> evidence(@RequestParam(defaultValue = "0") long afterId) {
         return jdbc.queryForList(
-                "SELECT e.id,e.event_id,e.merchant_id,e.event_type,e.source_reference,e.status event_status,e.last_error_safe,"
-                        + "n.audience,n.recipient,n.template_key,n.template_version,n.template_snapshot,n.outcome,"
+                "SELECT e.id,e.event_id,e.merchant_id,e.event_type,e.source_reference,e.status event_status,e.created_at event_created_at,e.processed_at,e.acknowledged_at,e.last_error_safe,"
+                        + "n.audience,n.recipient,n.template_key,n.template_version,n.template_snapshot,n.outcome,u.id usage_event_id,rc.id rated_charge_id,rc.rated_amount,rc.currency charge_currency,rc.computed_at charge_computed_at,"
                         + "m.public_id communication_reference,m.status communication_status,m.metadata_json,m.created_at,m.updated_at,"
                         + "d.provider_code,d.provider_message_id,d.attempt_no,d.status delivery_status,d.sent_at,d.delivered_at, d.billed_flag,CONCAT('COMM_DELIVERY:',d.id) billing_source_reference, r.decision_reference,r.sms_segments,r.expected_provider_cost,r.currency_code,r.explanation routing_explanation"
                         + " FROM notification_events e LEFT JOIN notification_evidence n ON n.event_row_id=e.id"
                         + " LEFT JOIN communication_messages m ON m.id=n.communication_id"
                         + " LEFT JOIN communication_message_deliveries d ON d.communication_id=m.id"
                         + " LEFT JOIN communication_routing_decisions r ON r.id=(SELECT MAX(r2.id) FROM communication_routing_decisions r2 WHERE r2.communication_id=m.id AND r2.selected_provider_code=d.provider_code)"
+                        + " LEFT JOIN billing_usage_events u ON u.source_reference=CONCAT('COMM_DELIVERY:',d.id) AND u.service_code='SMS'"
+                        + " LEFT JOIN billing_rated_charges rc ON rc.source_reference=u.source_reference AND rc.billing_tenant_id=u.billing_tenant_id AND rc.service_code=u.service_code AND rc.meter_code=u.meter_code"
                         + " WHERE e.id>:after ORDER BY e.id DESC,n.id,d.id LIMIT 200",
                 Map.of("after", Math.max(0, afterId)));
     }

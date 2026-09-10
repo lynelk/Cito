@@ -8,11 +8,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import net.citotech.cito.admin.AdminAuditService;
 import net.citotech.cito.communication.MerchantCommunicationService;
 import net.citotech.cito.communication.delivery.CommunicationDeliveryDispatcher;
 import net.citotech.cito.communication.delivery.DeliveryLogRepository;
 import net.citotech.cito.communication.domain.CommunicationChannel;
 import net.citotech.cito.communication.email.EmailDeliveryService;
+import net.citotech.cito.communication.notification.NotificationAdminController;
 import net.citotech.cito.communication.notification.NotificationAlertMonitor;
 import net.citotech.cito.communication.notification.NotificationOrchestrator;
 import net.citotech.cito.communication.preference.PreferenceService;
@@ -196,6 +198,11 @@ public final class NotificationMysqlScenario {
                                 options));
         worker.processDue(100);
         assertEquals(2, second.calls.get(), "Future schedule must not dispatch early");
+        var adminApi = new NotificationAdminController(jdbc, mock(AdminAuditService.class));
+        assertFalse(
+                adminApi.evidence(0).isEmpty(),
+                "Auditable evidence query must work on migrated schema");
+        assertEquals(5, ((List<?>) adminApi.groups().get("groups")).size());
         var unapproved =
                 new MerchantCommunicationService.SmsOptions(
                         "NotApproved", null, "BALANCED", null, "UGX", false, false, true);

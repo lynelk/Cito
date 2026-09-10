@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main, production]
   push:
-    branches: [feature/communications-completion-20260910]
+    branches: [main, sandbox, production, feature/communications-completion-20260910]
 permissions:
   contents: read
 jobs:

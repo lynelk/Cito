@@ -53,3 +53,5 @@ V122 is unchanged. V124 adds only the notification policy/evidence schema and ca
 Run full Maven verify, clean MySQL migration, frontend lint/typecheck/tests/build, dependency/security, API/docs, brand/parity, container and browser gates on the release head. Reconcile current main immediately before merge; promote only the tested release through the required branch workflow. Verify deployed SHA, Flyway, health, APIs and two configured replicas in canonical Railway project `8d361df2-d17e-4d15-984e-435735f22f6c`. Do not accept unrelated staged Railway changes. Provider credentials and code presence are not external provider certification.
 
 The existing float monitor also records `balance.threshold` through the shared orchestrator, using its configured gateway thresholds. SMS alerting does not require the legacy alert email setting. Threshold comparisons use decimal amounts.
+
+Audit evidence links the canonical usage event and rated charge, including charge ID, amount, currency and computation timestamp. Unrated usage remains explicitly null rather than being reported as a zero charge. Release branches run the same full backend and clean MySQL gates.
