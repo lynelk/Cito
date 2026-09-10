@@ -41,7 +41,7 @@ class FlywayMigrationSmokeTest {
         assertTrue(result.migrationsExecuted > 0, "A clean schema must execute migrations");
 
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            assertEquals("125", latestSuccessfulVersion(connection));
+            assertEquals("126", latestSuccessfulVersion(connection));
             assertEquals(4, auditProtectionTriggerCount(connection));
             assertEquals(6, treasuryAccountRoleCount(connection, "MASTER"));
             assertEquals(6, treasuryAccountRoleCount(connection, "COLLECTION"));

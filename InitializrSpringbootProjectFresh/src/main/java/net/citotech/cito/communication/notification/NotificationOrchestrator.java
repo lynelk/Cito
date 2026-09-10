@@ -204,10 +204,10 @@ public class NotificationOrchestrator {
         }
         var recipients =
                 jdbc.queryForList(
-                        "SELECT a.phone,CASE WHEN r.group_code='EXECUTIVE' THEN GREATEST(1,r.escalation_level) ELSE r.escalation_level END escalation_level,g.quiet_start,g.quiet_end,g.timezone"
-                                + " FROM notification_admin_recipients r JOIN admins a ON a.id=r.admin_id"
+                        "SELECT COALESCE(r.phone_e164,a.phone) phone,CASE WHEN r.group_code='EXECUTIVE' THEN GREATEST(1,r.escalation_level) ELSE r.escalation_level END escalation_level,g.quiet_start,g.quiet_end,g.timezone"
+                                + " FROM notification_admin_recipients r LEFT JOIN admins a ON a.id=r.admin_id"
                                 + " JOIN notification_admin_groups g ON g.group_code=r.group_code"
-                                + " WHERE (r.group_code=:group OR (r.group_code='EXECUTIVE' AND :critical=true)) AND r.active_flag='Y' AND a.status='ACTIVE'",
+                                + " WHERE (r.group_code=:group OR (r.group_code='EXECUTIVE' AND :critical=true)) AND r.active_flag='Y' AND (r.admin_id IS NULL OR a.status='ACTIVE')",
                         Map.of(
                                 "group",
                                 policy.get("group_code"),

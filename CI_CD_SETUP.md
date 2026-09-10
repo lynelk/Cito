@@ -114,3 +114,5 @@ Application rollback must respect forward-only financial history and schema evol
 Communications notification policies, provider configuration, evidence and release checks: [Notification orchestration](Docs/Communications/Notification-Orchestration.md).
 
 SMTP transport, mailbox configuration and the optional connection-only production diagnostic: [Administrator email recovery](Docs/Api/admin-password-recovery.md#smtp-configuration). Password-reset and Communications emails share TLS settings and bounded timeouts; application health alone does not verify delivery.
+
+Alert group phone recipients: V125 extends existing memberships to accept either an active administrator ID or an international phone number through the notification API and Communications UI. Phone recipients receive alerts without an administrator account. Repeated saves update membership; deactivate recipients after testing. Apply Flyway through V125 before deploying the corresponding UI. The clean-database release scenario verifies phone normalization, duplicate saves, disabled recipients and critical-alert delivery through the fake provider.

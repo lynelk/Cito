@@ -83,7 +83,7 @@ class MobileMoneyExecutionServiceTest {
         String migration =
                 Files.readString(
                         Path.of(
-                                "src/main/resources/db/migration/V125__mobile_money_execution_integrity.sql"));
+                                "src/main/resources/db/migration/V126__mobile_money_execution_integrity.sql"));
         jdbc.getJdbcTemplate().execute(migration.substring(0, migration.indexOf("ALTER TABLE")));
         merchant.setId(10L);
         merchant.setAccount_number("M10");
