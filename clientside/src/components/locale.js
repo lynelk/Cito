@@ -89,6 +89,7 @@ const strings = new LocalizedStrings({
         verification_new_password_required: "Verification code and new password are required.",
         password_mismatch: "The new password does not match the confirmation.",
         verification_code_sent: "Verification code sent.",
+        password_reset_request_received: "Reset request received. Check your email for the code. If it does not arrive, contact support.",
         unable_request_password_reset: "Unable to request password reset.",
         password_reset_complete: "Password reset complete.",
         unable_reset_password: "Unable to reset password.",

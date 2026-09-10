@@ -58,8 +58,9 @@ not print credentials, reset tokens or message contents. Disable the setting aft
 - A requested legacy email now logs either `Cito email accepted by SMTP` or
   `Cito email delivery failed`, with a masked recipient and the originating request correlation.
 
-The portal currently acknowledges the reset request before the asynchronous SMTP send completes.
-Its success banner and HTTP 200 are not delivery evidence. After a successful probe, request one fresh
+The admin and merchant portals show a neutral “Reset request received” status before the asynchronous
+SMTP send completes. They do not describe request acceptance as successful email delivery.
+The request acknowledgement and HTTP 200 are not delivery evidence. After a successful probe, request one fresh
 code and correlate the send outcome with that request. SMTP acceptance is not proof of inbox delivery;
 check provider delivery/bounce evidence and the recipient mailbox before declaring delivery restored.
 Communications email continues to return `FAILED` (refundable) on transport/configuration errors and
