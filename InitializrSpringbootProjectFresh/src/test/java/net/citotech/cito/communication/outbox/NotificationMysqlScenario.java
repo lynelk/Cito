@@ -85,6 +85,10 @@ public final class NotificationMysqlScenario {
                         Map.of("merchant", merchant),
                         Long.class);
         tx.executeWithoutResult(status -> orchestrator.process(event));
+        // Database DATETIME rounds fractional instants; advance the fixture's due time explicitly.
+        jdbc.update(
+                "UPDATE communication_outbox SET next_attempt_at=DATE_SUB(NOW(),INTERVAL 1 SECOND) WHERE status='PENDING'",
+                Map.of());
         worker.processDue(100); // Fake first provider fails definitively.
         jdbc.update(
                 "UPDATE communication_outbox SET next_attempt_at=NOW() WHERE status='PENDING'",
@@ -152,6 +156,9 @@ public final class NotificationMysqlScenario {
                         Map.of(),
                         Long.class);
         tx.executeWithoutResult(status -> orchestrator.process(alert));
+        jdbc.update(
+                "UPDATE communication_outbox SET next_attempt_at=DATE_SUB(NOW(),INTERVAL 1 SECOND) WHERE status='PENDING'",
+                Map.of());
         worker.processDue(100);
         jdbc.update(
                 "UPDATE communication_outbox SET next_attempt_at=NOW() WHERE status='PENDING'",
