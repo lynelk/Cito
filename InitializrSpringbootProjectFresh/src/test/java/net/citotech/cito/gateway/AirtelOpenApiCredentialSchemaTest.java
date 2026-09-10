@@ -49,6 +49,22 @@ class AirtelOpenApiCredentialSchemaTest {
         assertTrue(error.getMessage().contains("country"));
     }
 
+    @Test
+    void collectionOnlyCredentialsAreAcceptedButCannotAuthorizePayouts() {
+        Map<String, Object> values = credentials(AirtelOpenApiCredentialSchema.PRODUCTION_BASE_URL);
+        values.remove("apiPin");
+        values.remove("publicKey");
+        assertDoesNotThrow(
+                () ->
+                        AirtelOpenApiCredentialSchema.validateForOperation(
+                                values, "PRODUCTION", "UG", "UGX", "COLLECT"));
+        assertThrows(
+                PaymentGatewayException.class,
+                () ->
+                        AirtelOpenApiCredentialSchema.validateForOperation(
+                                values, "PRODUCTION", "UG", "UGX", "PAYOUT"));
+    }
+
     private Map<String, Object> credentials(String baseUrl) {
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("baseUrl", baseUrl);

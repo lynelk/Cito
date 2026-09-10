@@ -1,677 +1,121 @@
-import React from 'react';
-import Messager from '../../StableMessager';
-import { withRouter } from '../../../shared/router/compat';
-import common from '../../Common';
-import strings from '../../locale';
-import { replaceSmsColumnToken } from './smsTemplate';
-import ReactExport from '../../../shared/export/ExcelExport';
-import {
-  Badge, Button, Card, Checkbox, DateField, FileButton, Icons, SearchField,
-  Select, Sheet, Table, TextArea, TextField, Toolbar,
-} from '../../../ui';
-
+import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../../../shared/api/httpClient';
 import { apiUrl } from '../../../shared/config';
 import { readStoredUser } from '../../../shared/useAuth';
+import './MerchantModuleSms.css';
+import './MerchantModuleSmsEnhancements.css';
 
-const ExcelFile = ReactExport.ExcelFile;
-const ExcelSheet = ReactExport.ExcelFile.ExcelSheet;
-const ExcelColumn = ReactExport.ExcelFile.ExcelColumn;
-
-const toOptions = (arr) => (Array.isArray(arr) ? arr.map((item) => ({ value: item.value, label: item.text })) : []);
-
-const SEARCH_CATEGORIES = [
-  { value: 'all', label: 'All Fields' },
-  { value: 'recipients', label: 'Recipient' },
-  { value: 'status', label: 'Status' },
-  { value: 'content', label: 'Content' },
+const TABS = [
+  ['overview', 'Overview'], ['compose', 'Send SMS'], ['campaigns', 'Campaigns'], ['reports', 'Delivery Reports'],
+  ['conversations', 'Conversations'], ['scheduled', 'Scheduled'], ['contacts', 'Contacts'], ['groups', 'Groups'],
+  ['senders', 'Sender IDs'], ['templates', 'Templates'], ['drafts', 'Drafts'], ['billing', 'Usage & Billing'],
 ];
-
-const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'PENDING', label: 'PENDING' },
-  { value: 'PROCESSING', label: 'PROCESSING' },
-  { value: 'DONE', label: 'DONE' },
-  { value: 'STOPPED', label: 'STOPPED' },
-  { value: 'CANCELLED', label: 'CANCELLED' },
+const PROVIDERS = [
+  ['YO_SMS', 'Yo! SMS'], ['AFRICAS_TALKING', "Africa's Talking"], ['TWILIO_SMS', 'Twilio'], ['SMSMOBILO_SMS', 'SMSMobilo'],
 ];
+const GSM_BASIC = "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà";
+const GSM_EXTENDED = '^{}\\[~]|€\f';
 
-function defaultSearchRules() {
-  return {
-    start_date: common.formatDate(common.getDateMonthsBefore(new Date(), 6)),
-    end_date: common.formatDate(new Date()),
-    status: '',
-    tx_type: '',
-  };
+function analyzeSms(message = '') {
+  let gsm = true; let units = 0;
+  for (const char of message) {
+    if (GSM_BASIC.includes(char)) units += 1;
+    else if (GSM_EXTENDED.includes(char)) units += 2;
+    else { gsm = false; break; }
+  }
+  if (!gsm) units = message.length;
+  const single = gsm ? 160 : 70; const joined = gsm ? 153 : 67;
+  const segments = units === 0 ? 0 : units <= single ? 1 : Math.ceil(units / joined);
+  const limit = segments <= 1 ? single : joined; const used = segments <= 1 ? units : units % joined;
+  return { encoding: gsm ? 'GSM-7' : 'UCS-2', characters: message.length, segments, remaining: units === 0 ? single : (used === 0 && segments > 1 ? 0 : limit - used) };
 }
-
-function dateTimeToNative(value) {
-  if (!value) return '';
-  return String(value).replace(' ', 'T').slice(0, 16);
+function truthyFlag(v) { return v === true || v === 'Y' || v === 'YES' || v === 1 || v === '1'; }
+function fmtDate(v) { if (!v) return '—'; const d = new Date(v); return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString(); }
+function money(v, currency = 'UGX') { const n = Number(v || 0); return `${currency} ${Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'}`; }
+function statusTone(v) { const s = String(v || '').toUpperCase(); if (['DELIVERED','SENT','COMPLETED','APPROVED'].includes(s)) return 'good'; if (['FAILED','REJECTED','CANCELLED','EXPIRED'].includes(s)) return 'bad'; if (['SCHEDULED','PENDING','QUEUED','RECEIVED','RETRY_PENDING'].includes(s)) return 'warn'; return 'neutral'; }
+function parseCsvLine(line) { const cells=[]; let value=''; let quoted=false; for(let i=0;i<line.length;i+=1){const ch=line[i]; if(ch==='"'){if(quoted&&line[i+1]==='"'){value+='"';i+=1;}else quoted=!quoted;}else if(ch===','&&!quoted){cells.push(value.trim());value='';}else value+=ch;} cells.push(value.trim()); return cells; }
+function parseCsv(text='') {
+  const lines = text.split(/\r?\n/).map((v)=>v.trim()).filter(Boolean); if (!lines.length) return { rows: [], headers: [] };
+  const first = parseCsvLine(lines[0]); const hasHeader = first.some((v)=>/^(phone|recipient|mobile|msisdn)$/i.test(v));
+  if (!hasHeader) return { rows: lines.flatMap((line)=>line.split(/[,;\s]+/).filter(Boolean).map((phone)=>({ phone, variables:{} }))), headers: [] };
+  const headers = first.map((v)=>v.trim()); const phoneIndex = headers.findIndex((v)=>/^(phone|recipient|mobile|msisdn)$/i.test(v));
+  const rows = lines.slice(1).map((line)=>{ const cells=parseCsvLine(line); const variables={}; headers.forEach((h,i)=>{ if(i!==phoneIndex&&h) variables[h]=cells[i]||''; }); return { phone: cells[phoneIndex] || '', variables }; }).filter((r)=>r.phone);
+  return { rows, headers: headers.filter((_,i)=>i!==phoneIndex) };
 }
-
-function nativeToDateTime(value) {
-  if (!value) return '';
-  return `${value.replace('T', ' ')}:00`;
+async function readJson(path, options={}) {
+  const response = await apiFetch(apiUrl(path), { credentials:'include', headers:{'Content-Type':'application/json', ...(options.headers||{})}, ...options });
+  const body = await response.json().catch(()=>({}));
+  if (response.status === 401) throw new Error('Your merchant session has expired.');
+  if (!response.ok) throw new Error(body.message || body.code || 'The SMS request could not be completed.');
+  return body;
 }
+function Metric({label,value,hint}) { return <div className="sms-metric"><span>{label}</span><strong>{value ?? 0}</strong>{hint?<small>{hint}</small>:null}</div>; }
+function Status({value}) { return <span className={`sms-status sms-status--${statusTone(value)}`}>{value || 'UNKNOWN'}</span>; }
+function Empty({children}) { return <div className="sms-empty">{children}</div>; }
+function SectionHeader({title,description,action}) { return <div className="sms-section-heading"><div><h3>{title}</h3>{description?<p>{description}</p>:null}</div>{action||null}</div>; }
 
-function statusTone(status) {
-  if (status === 'DONE') return 'success';
-  if (status === 'STOPPED' || status === 'CANCELLED') return 'danger';
-  if (status === 'PROCESSING') return 'info';
-  if (status === 'PENDING') return 'warning';
-  return 'neutral';
+export default function MerchantModuleSms({ loader=()=>{} }) {
+  const [tab,setTab]=useState('overview'); const [mode,setMode]=useState('single');
+  const [overview,setOverview]=useState({metrics:{},recent:[]}); const [contacts,setContacts]=useState([]); const [groups,setGroups]=useState([]);
+  const [senders,setSenders]=useState([]); const [templates,setTemplates]=useState([]); const [drafts,setDrafts]=useState([]); const [history,setHistory]=useState([]);
+  const [campaigns,setCampaigns]=useState([]); const [reports,setReports]=useState([]); const [billing,setBilling]=useState({allTime:{},last30Days:{},providers:[]});
+  const [conversations,setConversations]=useState([]); const [conversationMessages,setConversationMessages]=useState([]); const [selectedConversation,setSelectedConversation]=useState(null);
+  const [routePreview,setRoutePreview]=useState(null); const [notice,setNotice]=useState(''); const [error,setError]=useState(''); const [saving,setSaving]=useState(false); const [reply,setReply]=useState('');
+  const [contactForm,setContactForm]=useState({displayName:'',phone:'',email:''}); const [groupForm,setGroupForm]=useState({groupName:'',description:''});
+  const [senderForm,setSenderForm]=useState({senderId:'',senderType:'ALPHANUMERIC',providerCode:'',countryCode:'UG',useCase:'',supportingDocumentRef:'',notes:''});
+  const [filters,setFilters]=useState({from:'',to:'',senderId:'',status:''}); const [csvRows,setCsvRows]=useState([]); const [csvHeaders,setCsvHeaders]=useState([]); const [pasteAudience,setPasteAudience]=useState('');
+  const [compose,setCompose]=useState({recipients:'',contactIds:[],groupIds:[],senderId:'',purpose:'NOTIFICATION',content:'',routingStrategy:'BALANCED',countryCode:'UG',currencyCode:'UGX',scheduledAt:'',requireDeliveryReceipts:true,requireInbound:false,fallbackEnabled:true});
+  const [campaign,setCampaign]=useState({name:'',contactIds:[],groupIds:[],senderId:'',purpose:'MARKETING',content:'',routingStrategy:'BALANCED',countryCode:'UG',currencyCode:'UGX',scheduledAt:'',requireDeliveryReceipts:true,requireInbound:false,fallbackEnabled:true});
+  const analysis=useMemo(()=>analyzeSms(mode==='bulk'?campaign.content:compose.content),[mode,campaign.content,compose.content]);
+  const approvedSenders=useMemo(()=>senders.filter((s)=>String(s.approvalStatus||'').toUpperCase()==='APPROVED'),[senders]);
+  const user=readStoredUser('merchant')||{}; const privileges=new Set((user.privileges||[]).map((p)=>p.privilege)); const canSend=privileges.size===0||privileges.has('SEND_SMS')||privileges.has('CREATE_BATCH_TX');
+
+  const work=async(fn)=>{setError('');setNotice('');loader('START');try{return await fn();}catch(e){setError(e.message||'SMS operation failed.');return null;}finally{loader('STOP');}};
+  const loadOverview=()=>work(async()=>setOverview(await readJson('/api/v2/merchant/communication/sms/overview')));
+  const loadContacts=()=>work(async()=>setContacts(await readJson('/api/v2/merchant/communication/sms/contacts')));
+  const loadGroups=()=>work(async()=>setGroups(await readJson('/api/v2/merchant/communication/sms/groups')));
+  const loadSenders=()=>work(async()=>setSenders(await readJson('/api/v2/merchant/communication/sms/sender-identities')));
+  const loadTemplates=()=>work(async()=>setTemplates(await readJson('/api/v2/merchant/communication/sms/templates')));
+  const loadDrafts=()=>work(async()=>setDrafts(await readJson('/api/v2/merchant/communication/sms/drafts')));
+  const loadCampaigns=()=>work(async()=>setCampaigns(await readJson('/api/v2/merchant/communication/sms/campaigns')));
+  const loadBilling=()=>work(async()=>setBilling(await readJson('/api/v2/merchant/communication/sms/billing-summary')));
+  const loadConversations=()=>work(async()=>setConversations(await readJson('/api/v2/merchant/communication/sms/conversations')));
+  const loadHistory=(status='')=>work(async()=>setHistory(await readJson(`/api/v2/merchant/communication/sms/history${status?`?status=${encodeURIComponent(status)}`:''}`)));
+  const loadReports=()=>work(async()=>{const q=new URLSearchParams(); Object.entries(filters).forEach(([k,v])=>{if(v)q.set(k,v);}); setReports(await readJson(`/api/v2/merchant/communication/sms/delivery-reports?${q.toString()}`));});
+
+  useEffect(()=>{loadOverview(); Promise.all([loadContacts(),loadGroups(),loadSenders(),loadTemplates(),loadCampaigns(),loadBilling()]); /* eslint-disable-next-line react-hooks/exhaustive-deps */},[]);
+  useEffect(()=>{if(tab==='campaigns')loadCampaigns(); if(tab==='reports')loadReports(); if(tab==='billing')loadBilling(); if(tab==='scheduled'){loadHistory('SCHEDULED');loadCampaigns();} if(tab==='contacts')loadContacts(); if(tab==='groups')loadGroups(); if(tab==='senders')loadSenders(); if(tab==='templates')loadTemplates(); if(tab==='drafts')loadDrafts(); if(tab==='conversations')loadConversations(); /* eslint-disable-next-line react-hooks/exhaustive-deps */},[tab]);
+  useEffect(()=>{const current=mode==='bulk'?campaign:compose; if(!current.content){setRoutePreview(null);return undefined;} const timer=setTimeout(async()=>{try{setRoutePreview(await readJson('/api/v2/merchant/communication/sms/preview',{method:'POST',body:JSON.stringify({content:current.content,senderId:current.senderId||null,routingStrategy:current.routingStrategy,countryCode:current.countryCode,currencyCode:current.currencyCode,requireDeliveryReceipts:current.requireDeliveryReceipts,requireInbound:current.requireInbound})}));}catch(e){setRoutePreview({routable:false,explanation:e.message});}},450); return()=>clearTimeout(timer);},[mode,compose,campaign]);
+
+  const toggle=(setter,name,id)=>setter((current)=>{const values=new Set(current[name]); if(values.has(id))values.delete(id);else values.add(id);return{...current,[name]:Array.from(values)};});
+  const submitSingle=async()=>{if(!canSend)return setError('Your role does not include SMS sending permission.'); const recipients=compose.recipients.split(/[\n,;]+/).map((v)=>v.trim()).filter(Boolean); if(!compose.content.trim())return setError('Write a message before sending.'); if(!recipients.length&&!compose.contactIds.length&&!compose.groupIds.length)return setError('Add a phone number, contact or group.'); setSaving(true); const result=await work(()=>readJson('/api/v2/merchant/communication/sms/send',{method:'POST',body:JSON.stringify({...compose,recipients,scheduledAt:compose.scheduledAt?new Date(compose.scheduledAt).toISOString():null})})); setSaving(false); if(result){setNotice(`${result.accepted} SMS message(s) accepted.${result.suppressed?` ${result.suppressed} opt-out recipient(s) skipped.`:''}`);setCompose((c)=>({...c,recipients:'',contactIds:[],groupIds:[],content:'',scheduledAt:''}));loadOverview();}};
+  const submitCampaign=async()=>{if(!canSend)return setError('Your role does not include SMS sending permission.'); if(!campaign.name.trim())return setError('Campaign name is required.'); if(!campaign.content.trim())return setError('Write a campaign message.'); const pasted=parseCsv(pasteAudience).rows; const recipients=[...csvRows,...pasted]; if(!recipients.length&&!campaign.contactIds.length&&!campaign.groupIds.length)return setError('Add recipients, contacts or a contact group.'); setSaving(true); const result=await work(()=>readJson('/api/v2/merchant/communication/sms/campaigns',{method:'POST',body:JSON.stringify({...campaign,recipients,scheduledAt:campaign.scheduledAt?new Date(campaign.scheduledAt).toISOString():null})})); setSaving(false); if(result){setNotice(`Campaign ${result.name} accepted: ${result.accepted} queued, ${result.suppressed} suppressed.`);setCampaign((c)=>({...c,name:'',contactIds:[],groupIds:[],content:'',scheduledAt:''}));setPasteAudience('');setCsvRows([]);setCsvHeaders([]);loadCampaigns();loadOverview();}};
+  const handleCsv=(file)=>{if(!file)return; const reader=new FileReader(); reader.onload=()=>{const parsed=parseCsv(String(reader.result||''));setCsvRows(parsed.rows);setCsvHeaders(parsed.headers);}; reader.readAsText(file);};
+  const saveDraft=async()=>{const current=mode==='bulk'?campaign:compose;if(!current.content.trim())return setError('Write a message before saving a draft.');const result=await work(()=>readJson('/api/v2/merchant/communication/sms/drafts',{method:'POST',body:JSON.stringify({title:(current.name||current.content).slice(0,60),recipientMode:mode==='bulk'?'CAMPAIGN':'MIXED',recipientPayloadJson:JSON.stringify(mode==='bulk'?{contactIds:campaign.contactIds,groupIds:campaign.groupIds,csvRows,pasteAudience}:{recipients:compose.recipients,contactIds:compose.contactIds,groupIds:compose.groupIds}),senderId:current.senderId,purpose:current.purpose,messageBody:current.content,routingStrategy:current.routingStrategy,scheduledAt:current.scheduledAt||null})}));if(result)setNotice('Draft saved.');};
+  const saveContact=async()=>{const r=await work(()=>readJson('/api/v2/merchant/communication/sms/contacts',{method:'POST',body:JSON.stringify(contactForm)}));if(r){setContactForm({displayName:'',phone:'',email:''});setNotice('Contact saved.');loadContacts();}};
+  const saveGroup=async()=>{const r=await work(()=>readJson('/api/v2/merchant/communication/sms/groups',{method:'POST',body:JSON.stringify(groupForm)}));if(r){setGroupForm({groupName:'',description:''});setNotice('Group saved.');loadGroups();}};
+  const requestSender=async()=>{const r=await work(()=>readJson('/api/v2/merchant/communication/sms/sender-identities/request',{method:'POST',body:JSON.stringify(senderForm)}));if(r){setSenderForm({senderId:'',senderType:'ALPHANUMERIC',providerCode:'',countryCode:'UG',useCase:'',supportingDocumentRef:'',notes:''});setNotice('Sender identity submitted for approval.');loadSenders();}};
+  const openConversation=async(c)=>{setSelectedConversation(c);setReply('');const rows=await work(()=>readJson(`/api/v2/merchant/communication/sms/conversations/${encodeURIComponent(c.conversationId)}/messages`));if(rows)setConversationMessages([...rows].reverse());};
+  const replyConversation=async()=>{if(!selectedConversation||!reply.trim())return;const r=await work(()=>readJson(`/api/v2/merchant/communication/sms/conversations/${encodeURIComponent(selectedConversation.conversationId)}/reply`,{method:'POST',body:JSON.stringify({content:reply})}));if(r){setReply('');setNotice('Reply queued.');openConversation(selectedConversation);}};
+
+  const table=(rows,columns,empty='Nothing here yet.')=>rows.length?<div className="sms-table-wrap"><table className="sms-table"><thead><tr>{columns.map((c)=><th key={c.key}>{c.label}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={r.id||r.messageReference||r.conversationId||r.draftId||i}>{columns.map((c)=><td key={c.key}>{c.render?c.render(r):(r[c.key]??'—')}</td>)}</tr>)}</tbody></table></div>:<Empty>{empty}</Empty>;
+  const senderSelect=(current,setter)=><select value={current.senderId} onChange={(e)=>setter((c)=>({...c,senderId:e.target.value}))}><option value="">Provider default</option>{approvedSenders.map((s)=><option key={s.id} value={s.senderId}>{s.senderId} · {s.senderType}</option>)}</select>;
+  const commonOptions=(current,setter)=><><div className="sms-form-grid"><label className="sms-field"><span>Sender ID</span>{senderSelect(current,setter)}</label><label className="sms-field"><span>Purpose</span><select value={current.purpose} onChange={(e)=>setter((c)=>({...c,purpose:e.target.value}))}><option>NOTIFICATION</option><option>TRANSACTIONAL</option><option>OTP</option><option>SECURITY</option><option>MARKETING</option></select></label></div><label className="sms-field sms-message-field"><span>Message</span><textarea rows="8" value={current.content} onChange={(e)=>setter((c)=>({...c,content:e.target.value}))} placeholder={mode==='bulk'?'Hello {{first_name}}, your update is ready.':'Write your message…'} /><div className="sms-counter"><span>{analysis.encoding}</span><span>{analysis.characters} characters</span><span>{analysis.segments} segment{analysis.segments===1?'':'s'}</span><span>{analysis.remaining} remaining</span></div></label><div className="sms-form-grid"><label className="sms-field"><span>Send</span><input type="datetime-local" value={current.scheduledAt} onChange={(e)=>setter((c)=>({...c,scheduledAt:e.target.value}))}/><small>Leave blank to send now.</small></label><label className="sms-field"><span>Routing strategy</span><select value={current.routingStrategy} onChange={(e)=>setter((c)=>({...c,routingStrategy:e.target.value}))}><option value="BALANCED">Balanced · recommended</option><option value="LOWEST_COST">Lowest cost</option><option value="RELIABILITY_FIRST">Reliability first</option><option value="PRIORITY">Configured priority</option></select></label></div><div className="sms-options"><label><input type="checkbox" checked={current.requireDeliveryReceipts} onChange={(e)=>setter((c)=>({...c,requireDeliveryReceipts:e.target.checked}))}/> Delivery receipts</label><label><input type="checkbox" checked={current.fallbackEnabled} onChange={(e)=>setter((c)=>({...c,fallbackEnabled:e.target.checked}))}/> Automatic fallback</label></div></>;
+
+  const renderOverview=()=>{const m=overview.metrics||{}, b=billing.last30Days||{};return <div className="sms-stack"><div className="sms-metrics"><Metric label="Messages" value={m.totalMessages} hint="All SMS activity"/><Metric label="Scheduled" value={m.scheduledMessages} hint="Waiting to send"/><Metric label="Contacts" value={m.contacts} hint={`${m.contactGroups||0} groups`}/><Metric label="Unread" value={m.unreadConversations} hint="Two-way conversations"/><Metric label="30-day deliveries" value={b.successfulDeliveries||0} hint={money(b.chargedAmount||0)}/></div><div className="sms-card"><SectionHeader title="Quick actions" description="The common jobs are one click away, rather than hidden behind administrative plumbing."/><div className="sms-quick-actions"><button className="sms-quick-action" onClick={()=>{setMode('single');setTab('compose');}}><strong>Send single SMS</strong><span>One number, contacts or groups</span></button><button className="sms-quick-action" onClick={()=>{setMode('bulk');setTab('compose');}}><strong>Start campaign</strong><span>CSV, pasted numbers and personalization</span></button><button className="sms-quick-action" onClick={()=>setTab('reports')}><strong>Delivery reports</strong><span>Filter by date, sender and status</span></button><button className="sms-quick-action" onClick={()=>setTab('senders')}><strong>Request sender ID</strong><span>Purpose and evidence captured</span></button></div></div><div className="sms-card"><SectionHeader title="Provider fabric" description="Cito smart routing evaluates cost, health and capability before dispatch. SMSMobilo is included but remains unavailable for live routing until its exact production send contract and credentials are configured."/><div className="sms-provider-badges">{PROVIDERS.map(([code,label])=><span key={code} className={`sms-provider-badge ${code==='SMSMOBILO_SMS'?'is-disabled':''}`}>{label}{code==='SMSMOBILO_SMS'?' · configuration pending':''}</span>)}</div></div><div className="sms-card"><SectionHeader title="Recent messages"/>{table(overview.recent||[],[{key:'messageReference',label:'Reference'},{key:'recipient',label:'Recipient'},{key:'status',label:'Status',render:(r)=><Status value={r.status}/>},{key:'provider',label:'Route'},{key:'createdAt',label:'Created',render:(r)=>fmtDate(r.createdAt)}])}</div></div>;};
+  const renderCompose=()=>{const current=mode==='bulk'?campaign:compose,setter=mode==='bulk'?setCampaign:setCompose;return <div className="sms-compose-layout"><div className="sms-card sms-compose-main"><SectionHeader title="Send SMS" description="Use the same smart-routing and delivery controls for one message or a full campaign." action={<div className="sms-mode-switch"><button className={mode==='single'?'is-active':''} onClick={()=>setMode('single')}>Single</button><button className={mode==='bulk'?'is-active':''} onClick={()=>setMode('bulk')}>Bulk / Campaign</button></div>}/>{mode==='single'?<><label className="sms-field"><span>Direct recipients</span><textarea rows="3" value={compose.recipients} onChange={(e)=>setCompose((c)=>({...c,recipients:e.target.value}))} placeholder="+256700000000, +2567… or one number per line"/></label><div className="sms-picker-row"><div><span className="sms-field-label">Contacts</span><div className="sms-chip-list">{contacts.slice(0,30).map((c)=><button key={c.id} type="button" className={`sms-chip ${compose.contactIds.includes(c.id)?'is-selected':''}`} onClick={()=>toggle(setCompose,'contactIds',c.id)}>{c.displayName||c.phone}</button>)}</div></div><div><span className="sms-field-label">Groups</span><div className="sms-chip-list">{groups.map((g)=><button key={g.id} type="button" className={`sms-chip ${compose.groupIds.includes(g.id)?'is-selected':''}`} onClick={()=>toggle(setCompose,'groupIds',g.id)}>{g.groupName} <small>{g.memberCount||0}</small></button>)}</div></div></div></>:<><label className="sms-field"><span>Campaign name</span><input value={campaign.name} onChange={(e)=>setCampaign((c)=>({...c,name:e.target.value}))} placeholder="September customer update"/></label><div className="sms-form-grid"><label className="sms-field"><span>Paste phone numbers</span><textarea rows="5" value={pasteAudience} onChange={(e)=>setPasteAudience(e.target.value)} placeholder="One number per line, or comma separated"/></label><label className="sms-field sms-upload"><span>Upload CSV</span><input type="file" accept=".csv,text/csv" onChange={(e)=>handleCsv(e.target.files?.[0])}/><small>Use a phone/recipient column. Other columns become personalization variables.</small><div className="sms-audience-summary"><span>{csvRows.length} CSV recipients</span>{csvHeaders.map((h)=><span key={h}>{`{{${h}}}`}</span>)}</div></label></div><div className="sms-picker-row"><div><span className="sms-field-label">Contacts</span><div className="sms-chip-list">{contacts.slice(0,30).map((c)=><button key={c.id} type="button" className={`sms-chip ${campaign.contactIds.includes(c.id)?'is-selected':''}`} onClick={()=>toggle(setCampaign,'contactIds',c.id)}>{c.displayName||c.phone}</button>)}</div></div><div><span className="sms-field-label">Contact groups</span><div className="sms-chip-list">{groups.map((g)=><button key={g.id} type="button" className={`sms-chip ${campaign.groupIds.includes(g.id)?'is-selected':''}`} onClick={()=>toggle(setCampaign,'groupIds',g.id)}>{g.groupName} <small>{g.memberCount||0}</small></button>)}</div></div></div></>}{commonOptions(current,setter)}{analysis.segments>10?<div className="sms-callout sms-callout--warning">This message uses {analysis.segments} SMS segments per recipient. Shortening it can materially reduce cost.</div>:null}<div className="sms-actions"><button className="sms-btn" onClick={saveDraft}>Save draft</button><button className="sms-btn sms-btn--primary" disabled={saving||!canSend} onClick={mode==='bulk'?submitCampaign:submitSingle}>{current.scheduledAt?'Schedule':'Send'} {mode==='bulk'?'campaign':'SMS'}</button></div></div><aside className="sms-card sms-route-card"><SectionHeader title="Route & cost" description="Preview only. The route is re-checked when the message actually dispatches."/>{routePreview?<><div className="sms-route-result"><span>Recommended</span><strong>{routePreview.selectedProvider||'No eligible route'}</strong><Status value={routePreview.routable?'AVAILABLE':'UNAVAILABLE'}/></div><dl><div><dt>Segments</dt><dd>{routePreview.segments??analysis.segments}</dd></div><div><dt>Estimated provider cost</dt><dd>{routePreview.expectedProviderCost==null?'Rate not configured':money(routePreview.expectedProviderCost,routePreview.currencyCode||current.currencyCode)}</dd></div></dl><p className="sms-route-explanation">{routePreview.explanation}</p>{Array.isArray(routePreview.candidates)&&routePreview.candidates.length?<details><summary>Routing candidates</summary>{routePreview.candidates.map((c)=><div className="sms-candidate" key={c.providerCode}><strong>{c.providerCode}</strong><span>{c.eligible?`${c.healthState} · score ${c.score??'—'}`:c.exclusionReason}</span></div>)}</details>:null}</>:<Empty>Write a message to preview route and cost.</Empty>}</aside></div>;};
+  const renderCampaigns=()=> <div className="sms-card"><SectionHeader title="Campaigns" description="Bulk sends remain traceable as campaigns while each recipient is still a durable, independently retryable SMS." action={<button className="sms-btn sms-btn--primary" onClick={()=>{setMode('bulk');setTab('compose');}}>New campaign</button>}/>{table(campaigns,[{key:'name',label:'Campaign'},{key:'status',label:'Status',render:(r)=><Status value={r.status}/>},{key:'totalRecipients',label:'Audience'},{key:'health',label:'Outcome',render:(r)=><div className="sms-campaign-health"><span>{r.successful||0} success</span><span>{r.failed||0} failed</span><span>{r.suppressed||0} suppressed</span></div>},{key:'scheduledAt',label:'Scheduled',render:(r)=>fmtDate(r.scheduledAt)},{key:'createdAt',label:'Created',render:(r)=>fmtDate(r.createdAt)}],'No campaigns yet.')}</div>;
+  const renderReports=()=> <div className="sms-card"><SectionHeader title="Delivery reports" description="Filter delivery evidence by period, sender ID and final state."/><div className="sms-filter-grid"><label className="sms-field"><span>From</span><input type="date" value={filters.from} onChange={(e)=>setFilters({...filters,from:e.target.value})}/></label><label className="sms-field"><span>To</span><input type="date" value={filters.to} onChange={(e)=>setFilters({...filters,to:e.target.value})}/></label><label className="sms-field"><span>Sender ID</span><select value={filters.senderId} onChange={(e)=>setFilters({...filters,senderId:e.target.value})}><option value="">All senders</option>{senders.map((s)=><option key={s.id} value={s.senderId}>{s.senderId}</option>)}</select></label><label className="sms-field"><span>Status</span><select value={filters.status} onChange={(e)=>setFilters({...filters,status:e.target.value})}><option value="">All statuses</option>{['SCHEDULED','SENT','DELIVERED','FAILED','REJECTED'].map((s)=><option key={s}>{s}</option>)}</select></label><button className="sms-btn sms-btn--primary" onClick={loadReports}>Apply filters</button></div><hr className="sms-section-divider"/>{table(reports,[{key:'messageReference',label:'Reference'},{key:'recipient',label:'Recipient'},{key:'senderId',label:'Sender'},{key:'status',label:'Status',render:(r)=><Status value={r.status}/>},{key:'provider',label:'Provider'},{key:'segments',label:'Parts'},{key:'chargedAmount',label:'Charged',render:(r)=>money(r.chargedAmount)},{key:'deliveryUpdatedAt',label:'Updated',render:(r)=>fmtDate(r.deliveryUpdatedAt||r.createdAt)}],'No delivery records match these filters.')}</div>;
+  const renderBilling=()=>{const a=billing.allTime||{},m=billing.last30Days||{};return <div className="sms-stack"><div className="sms-billing-grid"><div className="sms-billing-card"><span>Last 30 days</span><strong>{m.successfulDeliveries||0}</strong><small>Successful SMS deliveries</small></div><div className="sms-billing-card"><span>30-day charged usage</span><strong>{money(m.chargedAmount)}</strong><small>From the canonical delivery ledger</small></div><div className="sms-billing-card"><span>All-time attempts</span><strong>{a.deliveryAttempts||0}</strong><small>{a.billedAttempts||0} metered into billing</small></div></div><div className="sms-card"><SectionHeader title="Provider usage" description="Actual route usage and charged amount, not invented prepaid credits."/>{table(billing.providers||[],[{key:'provider',label:'Provider'},{key:'attempts',label:'Attempts'},{key:'successful',label:'Successful'},{key:'chargedAmount',label:'Charged',render:(r)=>money(r.chargedAmount)}])}</div></div>;};
+  const renderContacts=()=> <div className="sms-split"><div className="sms-card"><SectionHeader title="Contacts"/>{table(contacts,[{key:'displayName',label:'Name'},{key:'phone',label:'Phone'},{key:'email',label:'Email'}])}</div><div className="sms-card sms-form-card"><SectionHeader title="Add contact"/><label className="sms-field"><span>Name</span><input value={contactForm.displayName} onChange={(e)=>setContactForm({...contactForm,displayName:e.target.value})}/></label><label className="sms-field"><span>Phone</span><input value={contactForm.phone} onChange={(e)=>setContactForm({...contactForm,phone:e.target.value})}/></label><label className="sms-field"><span>Email · optional</span><input value={contactForm.email} onChange={(e)=>setContactForm({...contactForm,email:e.target.value})}/></label><button className="sms-btn sms-btn--primary" onClick={saveContact}>Save contact</button></div></div>;
+  const renderGroups=()=> <div className="sms-split"><div className="sms-card"><SectionHeader title="Contact groups"/>{table(groups,[{key:'groupName',label:'Group'},{key:'description',label:'Description'},{key:'memberCount',label:'Members'},{key:'updatedAt',label:'Updated',render:(r)=>fmtDate(r.updatedAt)}])}</div><div className="sms-card sms-form-card"><SectionHeader title="Create group"/><label className="sms-field"><span>Name</span><input value={groupForm.groupName} onChange={(e)=>setGroupForm({...groupForm,groupName:e.target.value})}/></label><label className="sms-field"><span>Description</span><textarea rows="3" value={groupForm.description} onChange={(e)=>setGroupForm({...groupForm,description:e.target.value})}/></label><button className="sms-btn sms-btn--primary" onClick={saveGroup}>Save group</button></div></div>;
+  const renderSenders=()=> <div className="sms-split"><div className="sms-card"><SectionHeader title="Sender identities" description="Approved sender IDs become available in both single and campaign composers."/>{table(senders,[{key:'senderId',label:'Sender'},{key:'senderType',label:'Type'},{key:'approvalStatus',label:'Approval',render:(r)=><Status value={r.approvalStatus}/>},{key:'providerCode',label:'Provider'},{key:'twoWayCapable',label:'Two-way',render:(r)=>truthyFlag(r.twoWayCapable)?'Yes':'No'}])}</div><div className="sms-card sms-form-card"><SectionHeader title="Request sender ID" description="Capture the use case and supporting evidence up front so approval does not become an email scavenger hunt."/><label className="sms-field"><span>Sender ID / number</span><input value={senderForm.senderId} onChange={(e)=>setSenderForm({...senderForm,senderId:e.target.value})}/></label><label className="sms-field"><span>Type</span><select value={senderForm.senderType} onChange={(e)=>setSenderForm({...senderForm,senderType:e.target.value})}><option>ALPHANUMERIC</option><option>LONG_NUMBER</option><option>SHORT_CODE</option></select></label><label className="sms-field"><span>Preferred provider · optional</span><select value={senderForm.providerCode} onChange={(e)=>setSenderForm({...senderForm,providerCode:e.target.value})}><option value="">Auto / any eligible provider</option>{PROVIDERS.map(([c,l])=><option key={c} value={c}>{l}</option>)}</select></label><label className="sms-field"><span>Purpose / use case</span><textarea rows="3" value={senderForm.useCase} onChange={(e)=>setSenderForm({...senderForm,useCase:e.target.value})} placeholder="Transactional alerts, OTPs, customer notifications…"/></label><label className="sms-field"><span>Supporting document reference · optional</span><input value={senderForm.supportingDocumentRef} onChange={(e)=>setSenderForm({...senderForm,supportingDocumentRef:e.target.value})} placeholder="Secure document URL or internal reference"/><small>Stored as evidence reference; do not paste credentials or secrets.</small></label><button className="sms-btn sms-btn--primary" onClick={requestSender}>Submit for approval</button></div></div>;
+  const renderConversations=()=> <div className="sms-conversation-layout"><div className="sms-card sms-thread-list"><SectionHeader title="Conversations" description="Inbound and two-way SMS threads."/>{conversations.length?conversations.map((c)=><button key={c.conversationId} className={`sms-thread ${selectedConversation?.conversationId===c.conversationId?'is-selected':''}`} onClick={()=>openConversation(c)}><div><strong>{c.contactName||c.phone}</strong>{Number(c.unreadCount)>0?<b>{c.unreadCount}</b>:null}</div><span>{c.senderId||'Sender'} · {c.provider||'Auto route'}</span><small>{fmtDate(c.lastMessageAt)}</small></button>):<Empty>No two-way conversations yet.</Empty>}</div><div className="sms-card sms-thread-pane">{selectedConversation?<><SectionHeader title={selectedConversation.contactName||selectedConversation.phone} description={`${selectedConversation.phone} · ${selectedConversation.senderId||'sender'}`}/><div className="sms-bubbles">{conversationMessages.map((m)=><div key={m.messageId} className={`sms-bubble sms-bubble--${String(m.direction||'').toLowerCase()}`}><p>{m.body}</p><small>{m.direction} · {fmtDate(m.occurredAt)} · {m.status}</small></div>)}</div><div className="sms-reply"><textarea rows="3" value={reply} onChange={(e)=>setReply(e.target.value)} placeholder="Reply…"/><button className="sms-btn sms-btn--primary" onClick={replyConversation}>Send reply</button></div></>:<Empty>Select a conversation to read and reply.</Empty>}</div></div>;
+  const historyColumns=[{key:'messageReference',label:'Reference'},{key:'recipient',label:'Recipient'},{key:'senderId',label:'Sender'},{key:'status',label:'Status',render:(r)=><Status value={r.status}/>},{key:'provider',label:'Provider'},{key:'segments',label:'Parts'},{key:'scheduledAt',label:'Scheduled',render:(r)=>fmtDate(r.scheduledAt)}];
+  const renderScheduled=()=> <div className="sms-stack"><div className="sms-card"><SectionHeader title="Scheduled single messages"/>{table(history,historyColumns,'No scheduled single SMS messages.')}</div><div className="sms-card"><SectionHeader title="Scheduled campaigns"/>{table(campaigns.filter((c)=>String(c.status).toUpperCase()==='SCHEDULED'),[{key:'name',label:'Campaign'},{key:'totalRecipients',label:'Audience'},{key:'status',label:'Status',render:(r)=><Status value={r.status}/>},{key:'scheduledAt',label:'Send time',render:(r)=>fmtDate(r.scheduledAt)}],'No scheduled campaigns.')}</div></div>;
+  const renderTemplates=()=> <div className="sms-card"><SectionHeader title="Templates" description="Reusable content can be loaded into the single-message composer."/>{table(templates,[{key:'templateKey',label:'Template'},{key:'body',label:'Message'},{key:'action',label:'',render:(r)=><button className="sms-link" onClick={()=>{setMode('single');setCompose((c)=>({...c,content:r.body||''}));setTab('compose');}}>Use template</button>}])}</div>;
+  const renderDrafts=()=> <div className="sms-card"><SectionHeader title="Drafts"/>{table(drafts,[{key:'title',label:'Draft'},{key:'purpose',label:'Purpose'},{key:'senderId',label:'Sender'},{key:'updatedAt',label:'Updated',render:(r)=>fmtDate(r.updatedAt)}])}</div>;
+  const content=tab==='overview'?renderOverview():tab==='compose'?renderCompose():tab==='campaigns'?renderCampaigns():tab==='reports'?renderReports():tab==='billing'?renderBilling():tab==='contacts'?renderContacts():tab==='groups'?renderGroups():tab==='senders'?renderSenders():tab==='conversations'?renderConversations():tab==='scheduled'?renderScheduled():tab==='templates'?renderTemplates():tab==='drafts'?renderDrafts():null;
+
+  return <div className="sms-workspace"><div className="sms-workspace-head"><div><span className="sms-eyebrow">Communications · SMS</span><h2>One workspace for single messages, campaigns and delivery operations</h2><p>Send, personalize, schedule, route, track and reply without forcing merchants to learn which gateway is having a difficult day.</p></div><button className="sms-btn sms-btn--primary" onClick={()=>setTab('compose')}>New SMS</button></div><nav className="sms-tabs" aria-label="SMS workspace">{TABS.map(([key,label])=><button key={key} className={tab===key?'is-active':''} onClick={()=>setTab(key)}>{label}{key==='conversations'&&Number(overview.metrics?.unreadConversations)>0?<b>{overview.metrics.unreadConversations}</b>:null}</button>)}</nav>{notice?<div className="sms-notice sms-notice--success">{notice}</div>:null}{error?<div className="sms-notice sms-notice--error">{error}</div>:null}{content}</div>;
 }
-
-function parseJson(text) {
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new Error(error instanceof Error ? error.message : 'Invalid server response');
-  }
-}
-
-class MerchantModuleSmsC extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      total: 0,
-      pageSize: 50,
-      allChecked: false,
-      data: [],
-      formdMode: 'new',
-      formd: this.emptySmsForm(),
-      title: '',
-      formOpen: false,
-      searchingValue: { value: '', category: 'all' },
-      search_rules: defaultSearchRules(),
-      searchOpen: false,
-      hasAccess: false,
-      tx_details_row: {},
-      detailsOpen: false,
-      record_tx_data: { tx_type: 'SMS PURCHASE', amount: '', description: 'SMS purchase', balance_type: 'sms_balance' },
-      recordTxOpen: false,
-      recordTxErrors: {},
-      balance_type: toOptions(common.balance_type),
-      current_balances: [],
-      sms_balance: '',
-    };
-  }
-
-  componentDidMount() {
-    if (this.isUserAllowedAccess()) {
-      this.setState({ hasAccess: true }, () => this.getData());
-    } else {
-      this.messager.alert({ title: 'Access denied!', icon: 'info', msg: 'You are not allowed access to this section.' });
-    }
-  }
-
-  emptySmsForm() {
-    return {
-      recipients: [],
-      id: '',
-      send_time: common.getDefaultDateTime(),
-      content: '',
-      status: 'PENDING',
-      ismultiple: false,
-    };
-  }
-
-  isUserAllowedAccess() {
-    const user = readStoredUser('merchant');
-    const allowed = new Set(['CREATE_BATCH_TX', 'APPROVE_BATCH_TX', 'DOWNLOAD_REPORTS', 'ACCESS_SMS_LOG', 'SEND_SMS', 'BUY_SMS']);
-    return Array.isArray(user.privileges) && user.privileges.some((item) => allowed.has(item.privilege));
-  }
-
-  getData() {
-    this.props.loader('START');
-    const searchData = {
-      search_rules: this.state.search_rules,
-      pageSize: this.state.pageSize,
-      searchingValue: this.state.searchingValue,
-      sort: 'asc',
-    };
-    apiFetch(apiUrl('/transactions/getMerchantSms'), {
-      method: 'POST', mode: 'cors', cache: 'no-cache', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' }, redirect: 'follow', referrer: 'no-referrer',
-      body: JSON.stringify(searchData),
-    }).then((response) => response.text()).then((text) => {
-      this.props.loader('STOP');
-      const res = parseJson(text);
-      if (res.code === '000') {
-        const data = Array.isArray(res.data) ? res.data : [];
-        this.setState({ data, total: res.total ?? data.length, allChecked: false, current_balances: res.balances || [] }, () => {
-          this.generateBalanceTypesList(res.balances || []);
-        });
-        return;
-      }
-      if (res.code === '107') { this.sessionExpired(); return; }
-      if (res.code === '110') { this.accessNotAllowed(res.message); return; }
-      this.messager.alert({ title: 'Error ' + res.code, icon: 'error', msg: res.message });
-    }).catch((error) => {
-      this.props.loader('STOP');
-      if (this.messager) this.messager.alert({ title: 'Error', icon: 'error', msg: error.message });
-    });
-  }
-
-  generateBalanceTypesList(balances) {
-    const options = [];
-    let smsBalance = '';
-    for (let i = 0; i < balances.length; i += 1) {
-      options.push({ value: balances[i].balance_type, label: `${balances[i].code} (${common.formatNumber(balances[i].amount)})` });
-      if (balances[i].balance_type === 'sms_balance') {
-        smsBalance = `${balances[i].code} ${common.formatNumber(balances[i].amount)}`;
-      }
-    }
-    this.setState({ balance_type: options.length ? options : toOptions(common.balance_type), sms_balance: smsBalance });
-  }
-
-  accessNotAllowed(msg) {
-    this.messager.alert({ title: 'Access denied!', icon: 'info', msg, result: () => this.setState({ hasAccess: false }) });
-  }
-
-  sessionExpired() {
-    const { history } = this.props;
-    this.messager.alert({ title: 'Session Expired!', icon: 'info', msg: 'Your session expired', result: () => history.push('/portal') });
-  }
-
-  addNew() {
-    this.setState({ title: strings.new_sms, formdMode: 'new', formOpen: true, formd: this.emptySmsForm() });
-  }
-
-  editRow(row) {
-    this.setState({ formdMode: 'edit', formOpen: true, formd: { ...row, recipients: row.recipients || [] }, title: 'Edit SMS' });
-  }
-
-  handleSearch(value) {
-    this.setState((prev) => ({ searchingValue: { ...prev.searchingValue, value } }), () => this.getData());
-  }
-
-  handleSearchCategory(category) {
-    this.setState((prev) => ({ searchingValue: { ...prev.searchingValue, category } }));
-  }
-
-  handleRowCheck(row, checked) {
-    const data = this.state.data.map((r) => (r === row ? { ...r, selected: checked } : r));
-    this.setState({ data, allChecked: data.length > 0 && data.every((r) => r.selected) });
-  }
-
-  handleAllCheck(checked) {
-    this.setState({ allChecked: checked, data: this.state.data.map((row) => ({ ...row, selected: checked })) });
-  }
-
-  saveRow(data) {
-    const payload = {
-      ...data,
-      recipients: (data.recipients || []).map((recipient) => ({
-        ...recipient,
-        phone: recipient.phone || recipient.msisdn || '',
-        content: recipient.content || data.content || '',
-        delete: Boolean(recipient.delete),
-      })),
-    };
-    this.props.loader('START');
-    apiFetch(apiUrl('/transactions/saveSms'), {
-      method: 'POST', mode: 'cors', cache: 'no-cache', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' }, redirect: 'follow', referrer: 'no-referrer',
-      body: JSON.stringify(payload),
-    }).then((response) => response.text()).then((text) => {
-      this.props.loader('STOP');
-      const res = parseJson(text);
-      if (res.code === '000') {
-        this.messager.alert({
-          title: 'Success!', icon: 'info', msg: res.message,
-          result: (ok) => { if (ok) this.setState({ formOpen: false, formd: this.emptySmsForm() }, () => this.getData()); },
-        });
-        return;
-      }
-      if (res.code === '107') { this.sessionExpired(); return; }
-      this.messager.alert({ title: 'Error ' + (res.code ? res.code : `${res.status} ${res.error}`), icon: 'error', msg: res.message || res.error });
-    }).catch((error) => {
-      this.props.loader('STOP');
-      this.messager.alert({ title: 'Error', icon: 'error', msg: error.message });
-    });
-  }
-
-  attemptToCancel() {
-    const selected = this.state.data.filter((row) => row.selected);
-    if (selected.length === 0) {
-      this.messager.alert({ title: 'No SMS selected', icon: 'info', msg: 'Select at least one SMS batch to cancel.' });
-      return;
-    }
-    this.messager.confirm({
-      title: 'Cancel SMS', icon: 'info', msg: 'Are you sure you want to cancel selected SMS batch(es)?',
-      result: (ok) => {
-        if (!ok) return;
-        this.props.loader('START');
-        apiFetch(apiUrl('/transactions/cancelSms'), {
-          method: 'POST', mode: 'cors', cache: 'no-cache', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' }, redirect: 'follow', referrer: 'no-referrer',
-          body: JSON.stringify(selected),
-        }).then((response) => response.text()).then((text) => {
-          this.props.loader('STOP');
-          const res = parseJson(text);
-          if (res.code === '000') {
-            this.messager.alert({ title: 'Success!', icon: 'info', msg: res.message, result: (r) => { if (r) this.getData(); } });
-            return;
-          }
-          if (res.code === '107') { this.sessionExpired(); return; }
-          this.messager.alert({ title: 'Error ' + (res.code || res.error || ''), icon: 'error', msg: res.message || res.error });
-        }).catch((error) => {
-          this.props.loader('STOP');
-          this.messager.alert({ title: 'Error', icon: 'error', msg: error.message });
-        });
-      },
-    });
-  }
-
-  recordTransactionRequest() {
-    this.props.loader('START');
-    apiFetch(apiUrl('/transactions/buySms'), {
-      method: 'POST', mode: 'cors', cache: 'no-cache', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' }, redirect: 'follow', referrer: 'no-referrer',
-      body: JSON.stringify(this.state.record_tx_data),
-    }).then((response) => response.text()).then((text) => {
-      this.props.loader('STOP');
-      const res = parseJson(text);
-      if (res.code === '000') {
-        this.resetRecordTxForm(() => {
-          this.setState({ recordTxOpen: false });
-          this.messager.alert({ title: 'Success!', icon: 'info', msg: res.message, result: (ok) => { if (ok) this.getData(); } });
-        });
-        return;
-      }
-      if (res.code === '107') { this.sessionExpired(); return; }
-      this.messager.alert({ title: 'Error ' + (res.code || res.error || ''), icon: 'error', msg: res.message || res.error });
-    }).catch((error) => {
-      this.props.loader('STOP');
-      this.messager.alert({ title: 'Error', icon: 'error', msg: error.message });
-    });
-  }
-
-  resetRecordTxForm(whenDone) {
-    this.setState({
-      record_tx_data: { tx_type: 'SMS PURCHASE', amount: '', description: 'SMS purchase', balance_type: 'sms_balance' },
-      recordTxErrors: {},
-    }, whenDone);
-  }
-
-  recordTxSubmit() {
-    const f = this.state.record_tx_data;
-    const errors = {};
-    if (!f.balance_type) errors.balance_type = 'Balance type is required';
-    if (f.amount === '' || Number.isNaN(Number(f.amount))) errors.amount = 'Enter a valid amount';
-    this.setState({ recordTxErrors: errors });
-    if (Object.keys(errors).length === 0) this.recordTransactionRequest();
-  }
-
-  handleRecordFormChange(name, value) {
-    this.setState((prev) => ({ record_tx_data: { ...prev.record_tx_data, [name]: value } }));
-  }
-
-  clearSearch() {
-    this.setState({ search_rules: defaultSearchRules() });
-  }
-
-  handleSearchFormChange(name, value) {
-    this.setState((prev) => ({ search_rules: { ...prev.search_rules, [name]: value } }));
-  }
-
-  detailRow(label, value) {
-    return (
-      <div className="cpay-detail-row">
-        <span className="cpay-detail-label">{label}</span>
-        <span className="cpay-detail-value">{value}</span>
-      </div>
-    );
-  }
-
-  detailsSheet() {
-    const row = this.state.tx_details_row || {};
-    const recipients = row.recipients || [];
-    const columns = [
-      { key: 'rn', header: '#', width: 44, render: (r, i) => i + 1 },
-      { key: 'msisdn', header: 'Phone number', accessor: (r) => r.msisdn || r.phone },
-      { key: 'content', header: 'Content', accessor: (r) => r.content },
-    ];
-    return (
-      <Sheet
-        open={this.state.detailsOpen}
-        onClose={() => this.setState({ detailsOpen: false })}
-        title="SMS Details"
-        size="lg"
-        footer={<Button variant="ghost" className="ios-btn--sm" onClick={() => this.setState({ detailsOpen: false })}>{strings.close}</Button>}
-      >
-        {this.detailRow('Content', <span style={{ whiteSpace: 'pre-wrap' }}>{row.content || ''}</span>)}
-        {this.detailRow('Recipients', row.total_recipients)}
-        {this.detailRow('Status', <Badge tone={statusTone(row.status)}>{row.status}</Badge>)}
-        {this.detailRow('Charge', `UGX ${row.charge || 0}`)}
-        {this.detailRow('Total Amount', `UGX ${row.total_amount || 0}`)}
-        {this.detailRow('Created On', row.created_on)}
-        {this.detailRow('Send Time', row.send_time)}
-        <h3 className="cpay-sheet-section-title">Recipients</h3>
-        <Table columns={columns} rows={recipients} rowKey={(r, i) => r.id || r.msisdn || r.phone || i} emptyText="No recipients to display." />
-      </Sheet>
-    );
-  }
-
-  searchSheet() {
-    const s = this.state.search_rules;
-    return (
-      <Sheet
-        open={this.state.searchOpen}
-        onClose={() => this.setState({ searchOpen: false })}
-        title="Search SMS"
-        size="sm"
-        footer={<>
-          <Button variant="ghost" className="ios-btn--sm" onClick={() => this.clearSearch()}>{strings.clear}</Button>
-          <Button variant="ghost" className="ios-btn--sm" onClick={() => this.setState({ searchOpen: false })}>{strings.close}</Button>
-          <Button variant="primary" className="ios-btn--sm" onClick={() => this.setState({ searchOpen: false }, () => this.getData())}>{strings.go}</Button>
-        </>}
-      >
-        <div className="ios-form">
-          <DateField id="sms-start" label="Start Date" kind="date" value={s.start_date || ''} onValueChange={(v) => this.handleSearchFormChange('start_date', v)} />
-          <DateField id="sms-end" label="End Date" kind="date" value={s.end_date || ''} onValueChange={(v) => this.handleSearchFormChange('end_date', v)} />
-          <Select id="sms-status-filter" label="Status" value={s.status || ''} options={STATUS_OPTIONS} onValueChange={(v) => this.handleSearchFormChange('status', v)} />
-        </div>
-      </Sheet>
-    );
-  }
-
-  recordSmsTxSheet() {
-    const { record_tx_data: f, recordTxErrors: e } = this.state;
-    return (
-      <Sheet
-        open={this.state.recordTxOpen}
-        onClose={() => this.resetRecordTxForm(() => this.setState({ recordTxOpen: false }))}
-        title={strings.buy_sms}
-        size="sm"
-        footer={<>
-          <Button variant="ghost" className="ios-btn--sm" onClick={() => this.resetRecordTxForm(() => this.setState({ recordTxOpen: false }))}>{strings.close}</Button>
-          <Button variant="primary" className="ios-btn--sm" onClick={() => this.recordTxSubmit()}>{strings.buy_now || 'Buy Now'}</Button>
-        </>}
-      >
-        <div className="ios-form">
-          <Select id="sms-buy-balance" label="Balance Type" value={f.balance_type} options={this.state.balance_type} onValueChange={(v) => this.handleRecordFormChange('balance_type', v)} invalid={Boolean(e.balance_type)} />
-          {e.balance_type ? <span style={{ color: 'var(--ios-danger)', fontSize: 'var(--ios-fs-caption)' }}>{e.balance_type}</span> : null}
-          <TextField id="sms-buy-amount" label="Amount" value={f.amount} onValueChange={(v) => this.handleRecordFormChange('amount', v)} invalid={Boolean(e.amount)} />
-          {e.amount ? <span style={{ color: 'var(--ios-danger)', fontSize: 'var(--ios-fs-caption)' }}>{e.amount}</span> : null}
-        </div>
-      </Sheet>
-    );
-  }
-
-  render() {
-    if (!this.state.hasAccess) {
-      return <div><Messager ref={ref => this.messager = ref}></Messager></div>;
-    }
-
-    const { searchingValue, data, allChecked } = this.state;
-    const columns = [
-      {
-        key: 'ck', width: 44,
-        header: <Checkbox checked={allChecked} onCheckedChange={(checked) => this.handleAllCheck(checked)} />,
-        render: (row) => <Checkbox checked={Boolean(row.selected)} onCheckedChange={(checked) => this.handleRowCheck(row, checked)} />,
-      },
-      { key: 'created_on', header: 'Created On', accessor: (row) => row.created_on, sortable: true, sortValue: (row) => row.created_on || '' },
-      { key: 'send_time', header: 'Send Time', accessor: (row) => row.send_time, sortable: true, sortValue: (row) => row.send_time || '' },
-      { key: 'recipients_string', header: 'Recipients', accessor: (row) => row.recipients_string },
-      { key: 'status', header: 'Status', render: (row) => <Badge tone={statusTone(row.status)}>{row.status}</Badge>, sortable: true, sortValue: (row) => row.status || '' },
-      { key: 'content', header: 'Content', accessor: (row) => row.content },
-      { key: 'charge', header: 'Charge', numeric: true, accessor: (row) => row.charge },
-      { key: 'total_recipients', header: 'No.', numeric: true, accessor: (row) => row.total_recipients },
-      {
-        key: 'actions', header: 'Actions', align: 'center',
-        render: (row) => (
-          <span className="ios-cell-actions">
-            <Button variant="ghost" className="ios-btn--sm" onClick={() => this.setState({ tx_details_row: row, detailsOpen: true })}>{strings.details}</Button>
-          </span>
-        ),
-      },
-    ];
-
-    return (
-      <Card flush>
-        <div style={{ padding: 'var(--ios-space-4)' }}>
-          <Toolbar>
-            <Button variant="primary" className="ios-btn--sm" onClick={() => this.addNew()}>
-              <Icons.SmsIcon size={16} />{strings.send_sms}
-            </Button>
-            <Button variant="ghost" className="ios-btn--sm" onClick={() => this.setState({ recordTxOpen: true })}>
-              <Icons.PaymentsIcon size={16} />{strings.buy_sms}
-            </Button>
-            <Button variant="danger" className="ios-btn--sm" onClick={() => this.attemptToCancel()}>Cancel Selected</Button>
-            {this.state.sms_balance ? <Badge tone="info">SMS Balance: {this.state.sms_balance}</Badge> : null}
-            <Toolbar.Spacer />
-            <div style={{ minWidth: 150 }}>
-              <Select id="sms-category" value={searchingValue.category} options={SEARCH_CATEGORIES} onValueChange={(v) => this.handleSearchCategory(v)} />
-            </div>
-            <SearchField
-              value={searchingValue.value}
-              onValueChange={(v) => this.setState((prev) => ({ searchingValue: { ...prev.searchingValue, value: v } }))}
-              onSubmit={(v) => this.handleSearch(v)}
-              placeholder={strings.search_merchant}
-            />
-            <Button variant="ghost" className="ios-btn--sm" onClick={() => this.setState({ searchOpen: true })}>
-              <Icons.SearchIcon size={16} />{strings.search}
-            </Button>
-            <Download data={data} />
-          </Toolbar>
-        </div>
-        <Table
-          columns={columns}
-          rows={data}
-          rowKey={(row, i) => row.id || row.batch_id || row.created_on || i}
-          pageSize={this.state.pageSize}
-          isRowSelected={(row) => Boolean(row.selected)}
-          emptyText="No SMS batches to display."
-        />
-        <PaymentFormDialog
-          open={this.state.formOpen}
-          loader={this.props.loader}
-          getMessager={() => this.messager}
-          onClose={() => this.setState({ formOpen: false })}
-          formd={this.state.formd}
-          title={this.state.title}
-          saveRow={(payload) => this.saveRow(payload)}
-        />
-        {this.searchSheet()}
-        {this.recordSmsTxSheet()}
-        {this.detailsSheet()}
-        <Messager ref={ref => this.messager = ref}></Messager>
-      </Card>
-    );
-  }
-}
-
-class PaymentFormDialog extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { formd: props.formd, errors: {}, character_count: (props.formd.content || '').length };
-  }
-
-  componentDidUpdate(prevProps) {
-    if (prevProps.formd !== this.props.formd) {
-      this.setState({ formd: this.props.formd, errors: {}, character_count: (this.props.formd.content || '').length });
-    }
-  }
-
-  setField(name, value) {
-    this.setState((prev) => ({
-      formd: { ...prev.formd, [name]: value },
-      character_count: name === 'content' ? value.length : prev.character_count,
-    }));
-  }
-
-  updateRecipient(index, field, value) {
-    this.setState((prev) => ({
-      formd: {
-        ...prev.formd,
-        recipients: (prev.formd.recipients || []).map((recipient, i) => (i === index ? { ...recipient, [field]: value } : recipient)),
-      },
-    }));
-  }
-
-  addRecipient() {
-    this.setState((prev) => ({
-      formd: {
-        ...prev.formd,
-        recipients: [...(prev.formd.recipients || []), { phone: '', content: prev.formd.content || '', delete: false, id: '' }],
-      },
-    }));
-  }
-
-  removeLastRecipient() {
-    this.setState((prev) => ({ formd: { ...prev.formd, recipients: (prev.formd.recipients || []).slice(0, -1) } }));
-  }
-
-  removeAllRecipients() {
-    this.setState((prev) => ({ formd: { ...prev.formd, recipients: [] } }));
-  }
-
-  applyContentToRecipients() {
-    this.setState((prev) => ({
-      formd: {
-        ...prev.formd,
-        recipients: (prev.formd.recipients || []).map((recipient) => ({ ...recipient, content: prev.formd.content || '' })),
-      },
-    }));
-  }
-
-  uploadRecipients(files) {
-    const form = new FormData();
-    for (let i = 0; i < files.length; i += 1) form.append('file', files[i]);
-    this.props.loader('START');
-    apiFetch(apiUrl('/transactions/uploadSmsRecipientsFile'), { method: 'POST', mode: 'cors', credentials: 'include', body: form })
-      .then((response) => response.text()).then((text) => {
-        this.props.loader('STOP');
-        const messager = this.props.getMessager();
-        let res;
-        try { res = JSON.parse(text); } catch { if (messager) messager.alert({ title: 'Error', icon: 'error', msg: 'Invalid upload response' }); return; }
-        if (res.state === 'ERROR') {
-          if (messager) messager.alert({ title: 'Error', icon: 'error', msg: res.message });
-          return;
-        }
-        if (res.state === 'OK') {
-          this.setState((prev) => {
-            const content = prev.formd.content || '';
-            const rows = (res.data || []).map((item) => {
-              let rowContent = content;
-              if (prev.formd.ismultiple) {
-                rowContent = replaceSmsColumnToken(rowContent, 'COLB', item.cellB);
-                rowContent = replaceSmsColumnToken(rowContent, 'COLC', item.cellC);
-                rowContent = replaceSmsColumnToken(rowContent, 'COLD', item.cellD);
-                rowContent = replaceSmsColumnToken(rowContent, 'COLE', item.cellE);
-                rowContent = replaceSmsColumnToken(rowContent, 'COLF', item.cellF);
-              }
-              return { ...item, phone: String(item.phone || item.msisdn || ''), content: item.content || rowContent, delete: Boolean(item.delete), id: item.id || '' };
-            });
-            return { formd: { ...prev.formd, recipients: [...(prev.formd.recipients || []), ...rows] } };
-          });
-        }
-      }).catch((error) => {
-        this.props.loader('STOP');
-        const messager = this.props.getMessager();
-        if (messager) messager.alert({ title: 'Error', icon: 'error', msg: error.message });
-      });
-  }
-
-  validate() {
-    const errors = {};
-    const f = this.state.formd || {};
-    const activeRecipients = (f.recipients || []).filter((recipient) => !recipient.delete);
-    if (!f.content) errors.content = 'SMS content is required';
-    if (!f.send_time) errors.send_time = 'Send time is required';
-    if (activeRecipients.length === 0) errors.recipients = 'Add at least one phone number';
-    for (let i = 0; i < activeRecipients.length; i += 1) {
-      if (!activeRecipients[i].phone && !activeRecipients[i].msisdn) errors.recipients = 'Every recipient needs a phone number';
-      if (!activeRecipients[i].content) errors.recipients = 'Every recipient needs content';
-    }
-    this.setState({ errors });
-    return Object.keys(errors).length === 0;
-  }
-
-  submit() {
-    if (!this.validate()) return;
-    this.props.saveRow(this.state.formd);
-  }
-
-  close() {
-    this.setState({ formd: { recipients: [], content: '', send_time: common.getDefaultDateTime(), ismultiple: false }, errors: {}, character_count: 0 }, () => this.props.onClose());
-  }
-
-  render() {
-    const row = this.state.formd || { recipients: [] };
-    const recipients = row.recipients || [];
-    const errors = this.state.errors;
-    const recipientColumns = [
-      { key: 'rn', header: '#', width: 40, render: (r, i) => i + 1 },
-      { key: 'phone', header: 'Phone', render: (r, i) => <TextField id={`sms-phone-${i}`} label="" value={r.phone || r.msisdn || ''} onValueChange={(v) => this.updateRecipient(i, 'phone', v)} /> },
-      { key: 'content', header: 'Content', render: (r, i) => <TextField id={`sms-content-${i}`} label="" value={r.content || ''} onValueChange={(v) => this.updateRecipient(i, 'content', v)} /> },
-      { key: 'delete', header: strings.delete, align: 'center', render: (r, i) => <Checkbox checked={Boolean(r.delete)} onCheckedChange={(checked) => this.updateRecipient(i, 'delete', checked)} /> },
-    ];
-
-    return (
-      <Sheet
-        open={this.props.open}
-        onClose={() => this.close()}
-        title={this.props.title}
-        size="xl"
-        footer={<>
-          <Button variant="ghost" className="ios-btn--sm" onClick={() => this.close()}>{strings.close}</Button>
-          <Button variant="primary" className="ios-btn--sm" onClick={() => this.submit()}>{strings.submit}</Button>
-        </>}
-      >
-        <div className="ios-form">
-          <TextArea id="sms-content-main" label="SMS Content" rows={4} value={row.content || ''} onValueChange={(v) => this.setField('content', v)} invalid={Boolean(errors.content)} />
-          {errors.content ? <span style={{ color: 'var(--ios-danger)', fontSize: 'var(--ios-fs-caption)' }}>{errors.content}</span> : null}
-          <div style={{ color: 'var(--ios-text-secondary)', fontSize: 'var(--ios-fs-footnote)' }}>Count: <strong>{this.state.character_count}</strong></div>
-          <Checkbox checked={Boolean(row.ismultiple)} onCheckedChange={(checked) => this.setField('ismultiple', checked)} label="Personalised SMS" />
-          <DateField id="sms-send-time" label="Send Time" kind="datetime-local" value={dateTimeToNative(row.send_time)} onValueChange={(v) => this.setField('send_time', nativeToDateTime(v))} invalid={Boolean(errors.send_time)} />
-          {errors.send_time ? <span style={{ color: 'var(--ios-danger)', fontSize: 'var(--ios-fs-caption)' }}>{errors.send_time}</span> : null}
-        </div>
-        <h3 className="ios-section-title" style={{ marginTop: 'var(--ios-space-5)' }}>Phone Numbers</h3>
-        <Toolbar>
-          <Button variant="ghost" className="ios-btn--sm" onClick={() => this.addRecipient()}>{strings.add_phone}</Button>
-          <Button variant="ghost" className="ios-btn--sm" onClick={() => this.removeLastRecipient()}>{strings.remove_phone}</Button>
-          <Button variant="ghost" className="ios-btn--sm" onClick={() => this.removeAllRecipients()}>{strings.remove_all_rows}</Button>
-          <Button variant="ghost" className="ios-btn--sm" onClick={() => this.applyContentToRecipients()}>Apply Content</Button>
-          <FileButton accept=".xls,.xlsx,.csv" onFiles={(files) => this.uploadRecipients(files)}>{strings.upload_phones_file}</FileButton>
-        </Toolbar>
-        {errors.recipients ? <p style={{ color: 'var(--ios-danger)', fontSize: 'var(--ios-fs-caption)' }}>{errors.recipients}</p> : null}
-        <div style={{ marginTop: 'var(--ios-space-3)' }}>
-          <Table columns={recipientColumns} rows={recipients} rowKey={(r, i) => r.id || r.phone || i} pageSize={50} emptyText="No recipients yet - add or import phone numbers." />
-        </div>
-      </Sheet>
-    );
-  }
-}
-
-class Download extends React.Component {
-  render() {
-    return (
-      <ExcelFile
-        filename="Sms_Log"
-        ref={ref => this.excelRef = ref}
-        element={
-          <Button variant="ghost" className="ios-btn--sm" onClick={() => this.excelRef.download()}>
-            <Icons.DownloadIcon size={16} />{strings.download}
-          </Button>
-        }>
-        <ExcelSheet data={this.props.data} name="SMS">
-          <ExcelColumn label="Created On" value="created_on" />
-          <ExcelColumn label="Sent on" value="send_time" />
-          <ExcelColumn label="Recipients" value="recipients_string" />
-          <ExcelColumn label="Status" value="status" />
-          <ExcelColumn label="Content" value="content" />
-          <ExcelColumn label="Charges" value="charge" />
-          <ExcelColumn label="Total Amount" value="total_amount" />
-        </ExcelSheet>
-      </ExcelFile>
-    );
-  }
-}
-
-const MerchantModuleSms = withRouter(MerchantModuleSmsC);
-
-export default MerchantModuleSms;

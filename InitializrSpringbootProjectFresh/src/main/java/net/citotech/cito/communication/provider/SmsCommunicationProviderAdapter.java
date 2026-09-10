@@ -5,12 +5,7 @@ import net.citotech.cito.communication.sms.SmsGatewayAdapter;
 import net.citotech.cito.communication.sms.SmsSendRequest;
 import net.citotech.cito.communication.sms.SmsSendResult;
 
-/**
- * Compatibility bridge that adapts a legacy {@link SmsGatewayAdapter} into the channel-neutral
- * {@link CommunicationProviderAdapter} (ISO domain mapping: communication/provider). The existing
- * SMS adapters stay untouched; this wrapper lets the generic dispatcher and future router send SMS
- * through the same provider code used by {@code communication_routing_rules}.
- */
+/** Compatibility bridge from the channel-neutral provider SPI to SMS gateway adapters. */
 public final class SmsCommunicationProviderAdapter implements CommunicationProviderAdapter {
 
     private final SmsGatewayAdapter delegate;
@@ -38,6 +33,11 @@ public final class SmsCommunicationProviderAdapter implements CommunicationProvi
 
     @Override
     public ProviderSendResult send(ProviderSendRequest request) {
+        Object senderValue = request.metadata() == null ? null : request.metadata().get("senderId");
+        String senderId =
+                senderValue == null || String.valueOf(senderValue).isBlank()
+                        ? null
+                        : String.valueOf(senderValue).trim();
         SmsSendResult result =
                 delegate.send(
                         new SmsSendRequest(
@@ -45,7 +45,8 @@ public final class SmsCommunicationProviderAdapter implements CommunicationProvi
                                 request.merchantId(),
                                 request.content(),
                                 request.recipient(),
-                                providerCode));
+                                providerCode,
+                                senderId));
         return SmsResultMapper.toProviderResult(providerCode, result);
     }
 }
