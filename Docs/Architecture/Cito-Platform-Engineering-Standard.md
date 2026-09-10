@@ -13,7 +13,8 @@ The platform MUST preserve these boundaries:
 | Domain | Authoritative ownership |
 | --- | --- |
 | Payments and provider execution | `api/v2`, `gateway`, payment orchestration and provider adapters |
-| Financial truth | `ledger`, settlement and reconciliation services |
+| Financial truth | `ledger/DoubleEntryLedgerService` and the append-only ledger model |
+| Settlement and reconciliation workflows | settlement/reconciliation services; these consume evidence and propose/coordinate corrections but MUST NOT become a second financial source of truth |
 | Billing and monetisation | `billing/*` |
 | Merchant activation | `experience/MerchantActivationLifecycleService` and activation tables |
 | Product access | `platform/CitoEntitlementService` and entitlement tables |
@@ -30,16 +31,18 @@ A pull request that introduces a second authoritative store for one of these con
 
 Financial correctness takes precedence over convenience.
 
-1. Money MUST use decimal/fixed-scale representations. Floating-point money is prohibited.
+1. Authoritative money calculations MUST use the canonical four-decimal `BigDecimal`/`MoneyAmount` policy with `HALF_UP` rounding. Legacy compatibility boundaries MAY retain `Double` signatures where changing them would break existing contracts, but values MUST be converted into the canonical decimal representation immediately on entry and MUST NOT be aggregated or posted using binary floating-point arithmetic.
 2. Posted ledger entries MUST be immutable. Corrections MUST be represented by reversal or compensating entries.
 3. Every financial posting MUST balance according to the double-entry ledger contract.
 4. Provider responses MUST NOT directly mutate ledger balances outside the ledger/settlement ownership boundary.
 5. Payment execution MUST be idempotent across retries, callbacks and status polling.
 6. Provider callbacks MUST be correlated to one exact internal transaction before terminal state or financial posting is accepted.
 7. A timeout MUST NOT manufacture a provider terminal state when the provider contract requires status verification.
-8. Reconciliation MUST preserve source evidence and must not silently rewrite provider or ledger history.
+8. Reconciliation MUST preserve source evidence and must not silently rewrite provider or ledger history. Provider statements and reconciliation records may propose or justify corrections, but only the ledger-owning service may create the corresponding financial entries.
 9. Currency-bearing totals MUST remain separated by currency unless an approved effective-dated FX conversion is applied.
 10. Customer price and provider cost MUST remain separate economic dimensions.
+
+The detailed compatibility and precision rules in `Docs/Financial-correctness-and-data-integrity.md` remain the canonical implementation policy for money handling.
 
 ## 3. Provider adapters and external systems
 
