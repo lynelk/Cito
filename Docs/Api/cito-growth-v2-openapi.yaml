@@ -1,0 +1,165 @@
+openapi: 3.1.0
+info:
+  title: Cito Growth Intelligence API
+  version: 2.0.0
+  description: Administrative activation, usage, retention, service-attachment and economics reporting derived from canonical Cito operational sources.
+servers:
+  - url: https://cito.coresynergi.es
+    description: Production
+security:
+  - merchantSession: []
+tags:
+  - name: Growth Intelligence
+paths:
+  /api/v2/admin/growth/definitions:
+    get:
+      tags: [Growth Intelligence]
+      summary: Get canonical growth metric definitions
+      responses:
+        '200':
+          description: Metric definitions and product-family mappings.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/growth/scorecard:
+    get:
+      tags: [Growth Intelligence]
+      summary: Get executive growth scorecard
+      parameters:
+        - in: query
+          name: windowDays
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 366
+            default: 30
+      responses:
+        '200':
+          description: Activation, retention, usage, payment, service-attachment, economics, provider and funnel metrics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scorecard'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/growth/merchants/{merchantId}:
+    get:
+      tags: [Growth Intelligence]
+      summary: Get a merchant growth and activation drill-down
+      parameters:
+        - in: path
+          name: merchantId
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - in: query
+          name: windowDays
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 366
+            default: 30
+      responses:
+        '200':
+          description: Lifecycle, usage, payment, entitlement, economics and milestone evidence for the merchant.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Invalid merchant identifier.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Merchant or activation lifecycle not found.
+  /api/v2/admin/growth/milestones/reconcile:
+    post:
+      tags: [Growth Intelligence]
+      summary: Reconcile durable lifecycle milestones into the immutable analytics event stream
+      description: Idempotent administrative control. It never accepts client-supplied milestone claims.
+      responses:
+        '200':
+          description: Number of newly projected rows by milestone event.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projected:
+                    type: object
+                    additionalProperties:
+                      type: integer
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    merchantSession:
+      type: apiKey
+      in: cookie
+      name: SESSION
+  schemas:
+    Scorecard:
+      type: object
+      required: [generatedAt, windowDays, activation, retention, usage, serviceAttachment, economics]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        windowDays:
+          type: integer
+        definitionsVersion:
+          type: string
+        activation:
+          type: object
+          additionalProperties: true
+        retention:
+          type: object
+          additionalProperties: true
+        usage:
+          type: object
+          additionalProperties: true
+        payments:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        serviceAttachment:
+          type: object
+          additionalProperties: true
+        economics:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        providerPerformance:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        lifecycleBlockers:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        funnel:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        funnelTrend:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+  responses:
+    Unauthorized:
+      description: Authentication required.
+    Forbidden:
+      description: Administrator role required.
