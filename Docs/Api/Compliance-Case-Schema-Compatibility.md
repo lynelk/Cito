@@ -32,3 +32,7 @@ Fields that do not exist in the canonical legacy table are returned as `null` or
 `ComplianceCaseService` remains the operational owner of case status and risk-case creation and continues to use the V9 field names. This compatibility projection deliberately does not introduce a second `status` column or another compliance source of truth.
 
 A future schema convergence must be implemented as an explicit forward-only migration that preserves existing case records and updates all readers/writers atomically. Editing historical Flyway migrations or creating parallel status fields is prohibited.
+
+## Production verification
+
+This compatibility change is not considered complete merely because CI passes. After release, the authenticated production `GET /api/v2/admin/compliance/cases` request must return a non-5xx response, and the existing Communications P0 verification cases must remain non-5xx with intentional 4xx responses for invalid inputs. Issue #159 may be closed only after that live evidence is recorded.
