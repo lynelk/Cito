@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Cito Admin API
-  version: 2.0.0
+  version: 2.1.0
   description: |
-    Administrative API contract for Cito operational control-plane workflows.
+    Administrative API contract for Cito operational and commercial control-plane workflows.
     These endpoints are authenticated and restricted to administrator roles.
 servers:
   - url: https://cito.coresynergi.es
@@ -13,6 +13,7 @@ security:
 tags:
   - name: Admin Compliance
   - name: Admin Communication Routing
+  - name: Admin Commercial Programmes
 paths:
   /api/v2/admin/compliance/summary:
     get:
@@ -23,8 +24,7 @@ paths:
           description: Compliance summary returned.
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/ObjectResponse'
+              schema: { $ref: '#/components/schemas/ObjectResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v2/admin/compliance/report:
@@ -43,8 +43,7 @@ paths:
           description: Compliance report returned.
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/ObjectResponse'
+              schema: { $ref: '#/components/schemas/ObjectResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v2/admin/compliance/events/{id}/review:
@@ -61,8 +60,7 @@ paths:
           description: Review recorded.
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/ObjectResponse'
+              schema: { $ref: '#/components/schemas/ObjectResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v2/admin/compliance/profiles:
@@ -104,19 +102,15 @@ paths:
                 decisionReason: { type: string }
                 verifiedBy: { type: string }
       responses:
-        '200':
-          description: Profile persisted.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '200': { $ref: '#/components/responses/ObjectOk' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v2/admin/compliance/cases:
     get:
       tags: [Admin Compliance]
+      operationId: listComplianceCases
       summary: List actionable compliance cases
-      description: Returns a successful empty collection when no cases are open or in review.
       responses:
         '200':
           description: Actionable compliance cases returned.
@@ -130,6 +124,7 @@ paths:
   /api/v2/admin/compliance/cases/{id}/decision:
     post:
       tags: [Admin Compliance]
+      operationId: decideComplianceCase
       summary: Record a compliance case decision
       parameters:
         - $ref: '#/components/parameters/PositiveId'
@@ -145,26 +140,17 @@ paths:
                 reason: { type: string }
                 actor: { type: string }
       responses:
-        '200':
-          description: Decision recorded.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '200': { $ref: '#/components/responses/ObjectOk' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-        '404':
-          description: Compliance case not found.
+        '404': { description: Compliance case not found. }
   /api/v2/admin/communication/routing/providers:
     get:
       tags: [Admin Communication Routing]
       summary: List communication providers
       responses:
-        '200':
-          description: Provider catalog returned.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '200': { $ref: '#/components/responses/ObjectOk' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v2/admin/communication/routing/rules:
@@ -172,11 +158,7 @@ paths:
       tags: [Admin Communication Routing]
       summary: List communication routing rules
       responses:
-        '200':
-          description: Routing rules returned.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '200': { $ref: '#/components/responses/ObjectOk' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
@@ -197,11 +179,7 @@ paths:
                 providerCode: { type: string, minLength: 1 }
                 enabledFlag: { type: string, default: YES }
       responses:
-        '200':
-          description: Routing rule persisted.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '200': { $ref: '#/components/responses/ObjectOk' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -215,20 +193,14 @@ paths:
           required: true
           schema: { type: integer, format: int64, minimum: 1 }
       responses:
-        '200':
-          description: Routing rule deleted.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ObjectResponse' }
+        '200': { $ref: '#/components/responses/ObjectOk' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v2/admin/communication/routing/effective:
     get:
       tags: [Admin Communication Routing]
+      operationId: previewEffectiveCommunicationRoute
       summary: Preview the effective communication route
-      description: |
-        Resolves the merchant-specific or platform-default provider route for a channel.
-        Missing rules and missing providers are successful unresolved states rather than server errors.
       parameters:
         - in: query
           name: merchantId
@@ -240,33 +212,262 @@ paths:
             default: SMS
             enum: [SMS, WHATSAPP, EMAIL, USSD, PUSH, IN_APP]
       responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/packages:
+    get:
+      tags: [Admin Commercial Programmes]
+      operationId: listCommercialPackages
+      summary: List versioned Cito commercial packages
+      responses:
         '200':
-          description: Route preview returned. Inspect resolved and reason fields.
+          description: Packages returned.
           content:
             application/json:
               schema:
-                type: object
-                required: [code, resolved]
-                properties:
-                  code: { type: string }
-                  resolved: { type: boolean }
-                  reason:
-                    type: string
-                    enum: [ROUTE_NOT_CONFIGURED, PROVIDER_NOT_CONFIGURED]
-                  rule: { type: object, additionalProperties: true }
-                  provider: { type: object, additionalProperties: true }
-        '400':
-          description: Unsupported channel or invalid merchant identifier.
+                type: array
+                items: { type: object, additionalProperties: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/packages/{packageCode}:
+    put:
+      tags: [Admin Commercial Programmes]
+      operationId: saveCommercialPackage
+      summary: Create or revise a draft commercial package
+      parameters:
+        - $ref: '#/components/parameters/PackageCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommercialPackageRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/packages/{packageCode}/submit:
+    post:
+      tags: [Admin Commercial Programmes]
+      operationId: submitCommercialPackage
+      summary: Submit a commercial package for approval
+      parameters:
+        - $ref: '#/components/parameters/PackageCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActorRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/packages/{packageCode}/approve:
+    post:
+      tags: [Admin Commercial Programmes]
+      operationId: approveCommercialPackage
+      summary: Approve and activate a submitted commercial package
+      parameters:
+        - $ref: '#/components/parameters/PackageCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActorRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/merchants/{merchantId}:
+    get:
+      tags: [Admin Commercial Programmes]
+      operationId: getMerchantCommercialSummary
+      summary: Get a merchant's package, lifecycle and entitlement commercial view
+      parameters:
+        - $ref: '#/components/parameters/MerchantId'
+      responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Merchant not found. }
+  /api/v2/admin/commercial/merchants/{merchantId}/packages/{packageCode}:
+    post:
+      tags: [Admin Commercial Programmes]
+      operationId: assignCommercialPackage
+      summary: Propose an active commercial package for a merchant
+      parameters:
+        - $ref: '#/components/parameters/MerchantId'
+        - $ref: '#/components/parameters/PackageCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environment: { type: string, enum: [SANDBOX, PRODUCTION], default: PRODUCTION }
+                effectiveFrom: { type: string, format: date-time }
+                effectiveTo: { type: string, format: date-time }
+                notes: { type: string }
+                actor: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/merchants/{merchantId}/packages/{packageCode}/activate:
+    post:
+      tags: [Admin Commercial Programmes]
+      operationId: activateCommercialPackageAssignment
+      summary: Activate an effective package assignment
+      parameters:
+        - $ref: '#/components/parameters/MerchantId'
+        - $ref: '#/components/parameters/PackageCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environment: { type: string, enum: [SANDBOX, PRODUCTION], default: PRODUCTION }
+                actor: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/founding20:
+    get:
+      tags: [Admin Commercial Programmes]
+      operationId: listFounding20
+      summary: List the Founding 20 cohort with canonical lifecycle state
+      responses:
+        '200':
+          description: Cohort returned.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  code: { type: string }
-                  resolved: { type: boolean }
-                  error:
-                    type: string
-                    enum: [UNSUPPORTED_CHANNEL, INVALID_MERCHANT_ID]
+                type: array
+                items: { type: object, additionalProperties: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/founding20/{merchantId}:
+    post:
+      tags: [Admin Commercial Programmes]
+      operationId: enrollFounding20Merchant
+      summary: Enroll or update a merchant in one of the twenty cohort slots
+      parameters:
+        - $ref: '#/components/parameters/MerchantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cohortSlot]
+              properties:
+                cohortSlot: { type: integer, minimum: 1, maximum: 20 }
+                commercialOwner: { type: string }
+                customerSuccessOwner: { type: string }
+                targetGoLiveAt: { type: string, format: date-time }
+                notes: { type: string }
+                actor: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/founding20/{merchantId}/status:
+    post:
+      tags: [Admin Commercial Programmes]
+      operationId: updateFounding20Status
+      summary: Update the programme status of a Founding 20 merchant
+      parameters:
+        - $ref: '#/components/parameters/MerchantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [programmeStatus]
+              properties:
+                programmeStatus:
+                  type: string
+                  enum: [CANDIDATE, INVITED, ONBOARDING, LIVE, RETAINED, AT_RISK, EXITED]
+                exitReason: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/embedded-partners:
+    get:
+      tags: [Admin Commercial Programmes]
+      operationId: listEmbeddedPartnerProgramme
+      summary: List embedded partners with programme and downstream-merchant progress
+      responses:
+        '200':
+          description: Embedded partner programme entries returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/embedded-partners/{merchantId}:
+    post:
+      tags: [Admin Commercial Programmes]
+      operationId: enrollEmbeddedPartnerProgramme
+      summary: Enroll an existing active Embedded Cito partner in the commercial programme
+      parameters:
+        - $ref: '#/components/parameters/MerchantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                programmeTier: { type: string }
+                commercialOwner: { type: string }
+                targetDownstreamMerchants: { type: integer, minimum: 0 }
+                targetGoLiveAt: { type: string, format: date-time }
+                notes: { type: string }
+                actor: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/commercial/embedded-partners/{merchantId}/status:
+    post:
+      tags: [Admin Commercial Programmes]
+      operationId: updateEmbeddedPartnerProgrammeStatus
+      summary: Update an embedded partner programme status
+      parameters:
+        - $ref: '#/components/parameters/MerchantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [programmeStatus]
+              properties:
+                programmeStatus:
+                  type: string
+                  enum: [CANDIDATE, QUALIFIED, ONBOARDING, LIVE, SCALING, AT_RISK, EXITED]
+      responses:
+        '200': { $ref: '#/components/responses/ObjectOk' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 components:
@@ -281,6 +482,16 @@ components:
       name: id
       required: true
       schema: { type: integer, format: int64, minimum: 1 }
+    MerchantId:
+      in: path
+      name: merchantId
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+    PackageCode:
+      in: path
+      name: packageCode
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 64 }
   schemas:
     ObjectResponse:
       type: object
@@ -289,9 +500,35 @@ components:
       type: object
       properties:
         error: { type: string }
+    ActorRequest:
+      type: object
+      required: [actor]
+      properties:
+        actor: { type: string, minLength: 1 }
+    CommercialPackageRequest:
+      type: object
+      required: [packageName, serviceCodes]
+      properties:
+        packageName: { type: string, minLength: 1 }
+        targetSegment: { type: string }
+        description: { type: string }
+        serviceCodes:
+          type: array
+          minItems: 1
+          items: { type: string }
+        onboardingSupportLevel: { type: string, default: STANDARD }
+        commercialTerms:
+          type: object
+          additionalProperties: true
+        actor: { type: string }
   responses:
+    ObjectOk:
+      description: Operation completed.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ObjectResponse' }
     BadRequest:
-      description: Invalid request.
+      description: Invalid request or invalid state transition.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
