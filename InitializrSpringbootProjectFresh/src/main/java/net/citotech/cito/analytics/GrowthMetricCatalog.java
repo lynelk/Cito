@@ -105,10 +105,10 @@ public final class GrowthMetricCatalog {
             families.put(service, "PAYMENTS");
         }
         families.put("COMMUNICATIONS", "COMMUNICATIONS");
-        families.put("VENDING", "VENDING");
-        families.put("BILLING", "BILLING_FINANCE");
-        families.put("EMBEDDED_CITO", "BILLING_FINANCE");
-        families.put("IDENTITY_VALIDATION", "IDENTITY_RISK");
+        families.put("VENDING", "VENDING_UTILITIES");
+        families.put("BILLING", "BILLING_BAAS");
+        families.put("EMBEDDED_CITO", "BILLING_BAAS");
+        families.put("IDENTITY_VALIDATION", "KYC_IDENTITY");
         families.put("INTEGRATIONS_MARKETPLACE", "INTEGRATIONS_AUTOMATION");
         return Map.copyOf(families);
     }
