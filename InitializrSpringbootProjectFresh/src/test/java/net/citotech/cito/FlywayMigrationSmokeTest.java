@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that the complete migration history applies to a pristine externally supplied MySQL
- * schema and leaves the database-level audit protections in place.
+ * Verifies the complete migration history on pristine MySQL, then a populated V126-to-V127
+ * upgrade, while retaining database-level audit and financial protections.
  */
 class FlywayMigrationSmokeTest {
 
@@ -29,6 +29,20 @@ class FlywayMigrationSmokeTest {
         String username = requireEnvironment("DB_USERNAME");
         String password = requireEnvironment("DB_PASSWORD");
 
+        MigrateResult baseline =
+                Flyway.configure()
+                        .dataSource(url, username, password)
+                        .locations("classpath:db/migration")
+                        .baselineOnMigrate(false)
+                        .target("126")
+                        .load()
+                        .migrate();
+        assertTrue(baseline.success);
+        assertTrue(baseline.migrationsExecuted > 0, "A clean schema must execute migrations");
+        var fixture =
+                net.citotech.cito.scheduler.MtnReferenceCollationMysqlScenario.beforeUpgrade(
+                        url, username, password);
+
         MigrateResult result =
                 Flyway.configure()
                         .dataSource(url, username, password)
@@ -38,10 +52,17 @@ class FlywayMigrationSmokeTest {
                         .migrate();
 
         assertTrue(result.success, "Flyway migration must succeed");
-        assertTrue(result.migrationsExecuted > 0, "A clean schema must execute migrations");
+        assertTrue(result.migrationsExecuted > 0, "The V126 upgrade must execute V127");
+        net.citotech.cito.scheduler.MtnReferenceCollationMysqlScenario.afterUpgrade(
+                url, username, password, fixture);
+        Flyway.configure()
+                .dataSource(url, username, password)
+                .locations("classpath:db/migration")
+                .load()
+                .validate();
 
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            assertEquals("126", latestSuccessfulVersion(connection));
+            assertEquals("127", latestSuccessfulVersion(connection));
             assertEquals(4, auditProtectionTriggerCount(connection));
             assertEquals(6, treasuryAccountRoleCount(connection, "MASTER"));
             assertEquals(6, treasuryAccountRoleCount(connection, "COLLECTION"));
