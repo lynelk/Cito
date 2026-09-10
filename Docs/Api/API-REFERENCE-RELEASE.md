@@ -36,3 +36,11 @@ Confirm runtime Flyway version, zero initial rates, deployed commit, invoice sta
 - Frontend typecheck, focused API/landing-page tests (11) and production build passed. Markdown tables and code blocks render through a safe Markdown renderer.
 - Brand mirror checks passed. Browser visual verification remains pending because the browser blocked the local preview URL.
 - No live provider call, monetary transaction, database migration, staging deployment or production promotion was performed. MySQL concurrency and invoice-flow runtime checks remain required before release.
+
+## Staging provisioning and release blocker (10 September 2026)
+
+The user authorized staging and deployment. Isolated Railway project **Cito Staging** (`c69c90a9-ab6f-48ff-8e04-1e10a10f92db`) was created with its own MySQL 8.4, backend and frontend service instances. Railway labels this separate project's default environment `production`; it is **not** the canonical Cito production project. Canonical IDs remain unchanged in `ops/environments/cito-environments.json`. Staging has fresh secrets, no copied data or provider credentials, SANDBOX gateway mode, secure cookies and private database networking. The database is disposable, without a persistent volume; do not store durable acceptance evidence or real customer data there.
+
+Provisioning is incomplete: backend startup/migrations remain to be verified; the connector created the frontend repository source without its requested branch binding and cannot trigger its first deployment. Frontend domain creation also failed. Configure the existing frontend service's branch in Railway rather than creating replacement services. Do not mark staging ACTIVE until both services run the accepted revision, domains/proxy and authenticated access are verified, and billing concurrency/invoice-flow evidence is recorded. After feature acceptance, bind both services to main for automatic staging updates.
+
+GitHub's `CI` workflow is `disabled_manually`. Re-enable the existing workflow to restore its clean-MySQL migration gate and successful-main-CI trigger for Promote Sandbox. The GitHub connector has no workflow enable/dispatch action, and the Railway assistant reports its usage limit reached. No release control was bypassed and no canonical production service was changed.
