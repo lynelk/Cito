@@ -50,7 +50,7 @@ class CampaignServiceTest {
                         anyString(),
                         nullable(String.class),
                         any(Long.class)))
-                .thenReturn(new DeliveryOutcome(900L, DeliveryStatus.SENT));
+                .thenReturn(new DeliveryOutcome(900L, DeliveryStatus.SENT, "YO_SMS"));
         service = new CampaignService(jdbcTemplate, dispatcher);
     }
 
