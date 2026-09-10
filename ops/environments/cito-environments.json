@@ -51,12 +51,17 @@
       "services": {
         "backend": {
           "serviceId": "11bdd2d3-c202-43b1-824b-35446a0e6a31",
-          "rootDirectory": "InitializrSpringbootProjectFresh"
+          "rootDirectory": "InitializrSpringbootProjectFresh",
+          "buildCommand": "mvn -B -DskipTests -Dspotless.skip=true clean package --no-transfer-progress",
+          "startCommand": "sh /app/start.sh",
+          "publicDomain": "cito-staging-backend-production.up.railway.app"
         },
         "frontend": {
           "serviceId": "69ef3eaa-05b5-4504-8f5e-2bfaa27f3512",
           "rootDirectory": "clientside",
-          "sourceBranchBinding": "PENDING"
+          "sourceBranchBinding": "PENDING",
+          "builder": "DOCKERFILE",
+          "startCommand": "/start.sh"
         },
         "database": {
           "serviceId": "4fe51073-a138-4ef3-965b-69245786594e",
