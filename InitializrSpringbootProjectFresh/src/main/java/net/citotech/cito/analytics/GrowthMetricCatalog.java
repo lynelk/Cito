@@ -58,7 +58,7 @@ public final class GrowthMetricCatalog {
                     new MetricDefinition(
                             "SERVICE_ATTACH_RATE",
                             "Service attach rate",
-                            "Share of monthly active merchants with active production entitlements in at least two Cito product families.",
+                            "Share of monthly active merchants with active production entitlements in at least two canonical Cito product families.",
                             "cito_service_entitlements"),
                     new MetricDefinition(
                             "PAYMENT_SUCCESS_RATE",
@@ -105,10 +105,11 @@ public final class GrowthMetricCatalog {
             families.put(service, "PAYMENTS");
         }
         families.put("COMMUNICATIONS", "COMMUNICATIONS");
-        families.put("VENDING", "VENDING_UTILITIES");
-        families.put("BILLING", "BILLING_BAAS");
-        families.put("EMBEDDED_CITO", "BILLING_BAAS");
-        families.put("IDENTITY_VALIDATION", "KYC_IDENTITY");
+        families.put("VENDING", "VENDING");
+        families.put("BILLING", "BILLING_FINANCE");
+        families.put("EMBEDDED_CITO", "BILLING_FINANCE");
+        families.put("IDENTITY_VALIDATION", "IDENTITY_RISK");
+        families.put("INTEGRATIONS_MARKETPLACE", "INTEGRATIONS_AUTOMATION");
         return Map.copyOf(families);
     }
 
