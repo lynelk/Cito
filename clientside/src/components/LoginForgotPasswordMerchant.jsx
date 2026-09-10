@@ -52,7 +52,7 @@ function ForgotPasswordMerchant({ merchantNumber = '', showForgotPassword, onClo
       });
       const res = JSON.parse(await response.text());
       if (res.code === '000') {
-        patch({ step: 'reset', message: res.message || strings.verification_code_sent, loading: false });
+        patch({ step: 'reset', message: strings.password_reset_request_received, loading: false });
       } else {
         patch({ error: res.message || res.error || strings.unable_request_password_reset, loading: false });
       }
@@ -108,7 +108,7 @@ function ForgotPasswordMerchant({ merchantNumber = '', showForgotPassword, onClo
         </>}
       >
         {state.error ? <Alert variant="error">{state.error}</Alert> : null}
-        {state.message ? <Alert variant="success">{state.message}</Alert> : null}
+        {state.message ? <p className="ios-alert" role="status">{state.message}</p> : null}
         {state.step === 'request' ? (
           <form id="forgot-merchant-request" className="ios-form" onSubmit={requestReset} noValidate>
             <p style={{ color: 'var(--ios-text-secondary)', marginTop: 0 }}>{strings.forgot_password_instructions_merchant}</p>
