@@ -102,8 +102,7 @@ class AirtelMoneyOpenApiPaymentGatewayWireMockTest {
     }
 
     @Test
-    void aNonTwoHundredResponseIsMappedToFailedWithATranslatedMerchantSafeMessage()
-            throws Exception {
+    void aProviderOutageRemainsUndeterminedAndDoesNotInviteResubmission() throws Exception {
         wireMockServer.stubFor(
                 com.github.tomakehurst.wiremock.client.WireMock.post(
                                 urlEqualTo("/standard/v2/disbursements/"))
@@ -117,14 +116,14 @@ class AirtelMoneyOpenApiPaymentGatewayWireMockTest {
                 gateway().doPayOut(1000.0, "256700000000", "wm-ref-3", "narrative");
 
         assertThat(response.getStatus()).isEqualTo("ERROR");
-        assertThat(response.getTransactionStatus()).isEqualTo("FAILED");
+        assertThat(response.getTransactionStatus()).isEqualTo("UNDETERMINED");
         // Audit C6: previously the raw response body ("{\"error\":\"service_unavailable\"}") was
         // handed straight to the merchant as the message. A 503 is classified as a retryable
         // provider
         // outage rather than a hard decline; the raw body is preserved in requestTrace, not
         // message.
         assertThat(response.getMessage())
-                .isEqualTo("The payment provider is temporarily unavailable, retry is safe.");
+                .isEqualTo("Payment outcome is not yet confirmed; check status before retrying.");
         assertThat(response.getMessage()).doesNotContain("service_unavailable");
         assertThat(response.getRequestTrace()).contains("service_unavailable");
     }
@@ -145,6 +144,62 @@ class AirtelMoneyOpenApiPaymentGatewayWireMockTest {
 
         // submit()'s catch-all Exception handler maps any parsing failure to UNDETERMINED rather
         // than letting a malformed provider response propagate as an uncaught exception.
+        assertThat(response.getTransactionStatus()).isEqualTo("UNDETERMINED");
+    }
+
+    @Test
+    void accepted202RemainsPendingAndPreservesReference() throws Exception {
+        wireMockServer.stubFor(
+                com.github.tomakehurst.wiremock.client.WireMock.post(
+                                urlEqualTo("/standard/v2/disbursements/"))
+                        .willReturn(aResponse().withStatus(202)));
+        GateWayResponse response =
+                gateway().doPayOut(1000.0, "256700000000", "accepted-ref", "test");
+        assertThat(response.getStatus()).isEqualTo("OK");
+        assertThat(response.getTransactionStatus()).isEqualTo("PENDING");
+        assertThat(response.getOurUniqueTxId()).isEqualTo("accepted-ref");
+    }
+
+    @Test
+    void statusResourceNotFoundIsNotTransactionFailure() throws Exception {
+        wireMockServer.stubFor(
+                com.github.tomakehurst.wiremock.client.WireMock.get(
+                                urlEqualTo("/standard/v2/disbursements/missing-ref/"))
+                        .willReturn(aResponse().withStatus(404)));
+        GateWayResponse response = gateway().checkStatus("missing-ref");
+        assertThat(response.getTransactionStatus()).isEqualTo("UNDETERMINED");
+        assertThat(response.getOurUniqueTxId()).isEqualTo("missing-ref");
+    }
+
+    @Test
+    void acceptsPemEncodedPublicKeyForPayout() throws Exception {
+        wireMockServer.stubFor(
+                com.github.tomakehurst.wiremock.client.WireMock.post(
+                                urlEqualTo("/standard/v2/disbursements/"))
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withBody(
+                                                "{\"data\":{\"transaction\":{\"status\":\"TS\"}}}")));
+        AirtelMoneyOpenApiPaymentGateway gateway = gateway();
+        gateway.setPublicKey(
+                "-----BEGIN PUBLIC KEY-----\n"
+                        + generateTestPublicKeyBase64()
+                        + "\n-----END PUBLIC KEY-----");
+        assertThat(
+                        gateway.doPayOut(1000.0, "256700000000", "pem-ref", "test")
+                                .getTransactionStatus())
+                .isEqualTo("SUCCESSFUL");
+    }
+
+    @Test
+    void duplicateSubmissionResponseRequiresStatusLookup() throws Exception {
+        wireMockServer.stubFor(
+                com.github.tomakehurst.wiremock.client.WireMock.post(
+                                urlEqualTo("/standard/v2/disbursements/"))
+                        .willReturn(aResponse().withStatus(409)));
+        GateWayResponse response =
+                gateway().doPayOut(1000.0, "256700000000", "duplicate-ref", "test");
         assertThat(response.getTransactionStatus()).isEqualTo("UNDETERMINED");
     }
 

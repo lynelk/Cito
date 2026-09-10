@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 class MtnMomoStatusClientTest {
 
     @Test
-    void verifiesCollectionThroughProductOauthAndOfficialStatusEndpoint() {
+    void verifiesCollectionWithoutRequiringDisbursementCredentials() {
         AtomicInteger calls = new AtomicInteger();
         AtomicReference<String> statusUrl = new AtomicReference<>();
         AtomicReference<Map<String, String>> statusHeaders = new AtomicReference<>();
@@ -142,9 +142,7 @@ class MtnMomoStatusClientTest {
         values.put("collectionApiUser", "collection-user");
         values.put("collectionApiKey", "collection-key");
         values.put("collectionSubscriptionKey", "collection-subscription");
-        values.put("disbursementApiUser", "disbursement-user");
-        values.put("disbursementApiKey", "disbursement-key");
-        values.put("disbursementSubscriptionKey", "disbursement-subscription");
+        // A collection-only merchant must be able to poll its accepted collections.
         return values;
     }
 }
