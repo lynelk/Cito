@@ -108,26 +108,29 @@ public class ComplianceKybKycController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String subjectReference) {
         String sql =
-                "select id, case_reference, case_type, severity, status, subject_type, subject_reference, "
-                        + "merchant_id, merchant_number, transaction_reference, title, hold_scope, hold_active, assigned_to, "
-                        + "opened_at, due_at, closed_at, decision from compliance_cases where 1=1 ";
-        new Object();
+                "select id, case_reference, case_type, severity, case_status as status, "
+                        + "entity_type as subject_type, cast(entity_id as char) as subject_reference, "
+                        + "null as merchant_id, null as merchant_number, source_reference as transaction_reference, "
+                        + "null as title, null as hold_scope, false as hold_active, assigned_to, "
+                        + "created_at as opened_at, null as due_at, closed_at, decision "
+                        + "from compliance_cases where 1=1 ";
         if (status != null
                 && !status.isBlank()
                 && subjectReference != null
                 && !subjectReference.isBlank()) {
-            sql += "and status = ? and subject_reference = ? order by opened_at desc limit 200";
+            sql +=
+                    "and case_status = ? and cast(entity_id as char) = ? order by created_at desc limit 200";
             return ResponseEntity.ok(ok("cases", jdbc.queryForList(sql, status, subjectReference)));
         }
         if (status != null && !status.isBlank()) {
-            sql += "and status = ? order by opened_at desc limit 200";
+            sql += "and case_status = ? order by created_at desc limit 200";
             return ResponseEntity.ok(ok("cases", jdbc.queryForList(sql, status)));
         }
         if (subjectReference != null && !subjectReference.isBlank()) {
-            sql += "and subject_reference = ? order by opened_at desc limit 200";
+            sql += "and cast(entity_id as char) = ? order by created_at desc limit 200";
             return ResponseEntity.ok(ok("cases", jdbc.queryForList(sql, subjectReference)));
         }
-        sql += "order by opened_at desc limit 200";
+        sql += "order by created_at desc limit 200";
         return ResponseEntity.ok(ok("cases", jdbc.queryForList(sql)));
     }
 

@@ -1,9 +1,12 @@
 package net.citotech.cito.communication.routing;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import net.citotech.cito.communication.domain.CommunicationChannel;
 import net.citotech.cito.communication.routing.CommunicationRoutingRepository.ProviderRow;
 import net.citotech.cito.communication.routing.CommunicationRoutingRepository.RuleRow;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,20 +46,60 @@ public class CommunicationRoutingController {
     }
 
     /**
-     * Preview which rule and provider a merchant+channel would use on the next send. merchantId
-     * optional; omitted resolves the platform default.
+     * Preview which rule and provider a merchant+channel would use on the next send. merchantId is
+     * optional; omitted resolves the platform default. Invalid channel/id inputs are rejected at
+     * the API boundary, while missing rules/providers are represented as deterministic unresolved
+     * states instead of bubbling into an HTTP 500.
      */
     @GetMapping(path = "/effective")
-    public Map<String, Object> effective(
+    public ResponseEntity<Map<String, Object>> effective(
             @RequestParam(value = "merchantId", required = false) Long merchantId,
             @RequestParam(value = "channel", defaultValue = "SMS") String channel) {
-        Optional<RuleRow> rule = repository.effectiveRule(channel, merchantId);
-        if (rule.isEmpty()) {
-            return Map.of("code", "000", "resolved", false);
+        CommunicationChannel parsedChannel = CommunicationChannel.fromString(channel);
+        if (parsedChannel == null) {
+            return ResponseEntity.badRequest()
+                    .body(
+                            Map.of(
+                                    "code", "400",
+                                    "resolved", false,
+                                    "error", "UNSUPPORTED_CHANNEL"));
         }
+        if (merchantId != null && merchantId <= 0) {
+            return ResponseEntity.badRequest()
+                    .body(
+                            Map.of(
+                                    "code", "400",
+                                    "resolved", false,
+                                    "error", "INVALID_MERCHANT_ID"));
+        }
+
+        String normalizedChannel = parsedChannel.name();
+        Optional<RuleRow> rule = repository.effectiveRule(normalizedChannel, merchantId);
+        if (rule.isEmpty()) {
+            return ResponseEntity.ok(
+                    Map.of(
+                            "code", "000",
+                            "resolved", false,
+                            "reason", "ROUTE_NOT_CONFIGURED"));
+        }
+
         RuleRow row = rule.get();
-        ProviderRow provider = repository.provider(row.providerCode(), channel).orElse(null);
-        return Map.of("code", "000", "resolved", true, "rule", row, "provider", provider);
+        Optional<ProviderRow> provider = repository.provider(row.providerCode(), normalizedChannel);
+        if (provider.isEmpty()) {
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("code", "000");
+            response.put("resolved", false);
+            response.put("reason", "PROVIDER_NOT_CONFIGURED");
+            response.put("rule", row);
+            return ResponseEntity.ok(response);
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("code", "000");
+        response.put("resolved", true);
+        response.put("rule", row);
+        response.put("provider", provider.get());
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping(path = "/rules")

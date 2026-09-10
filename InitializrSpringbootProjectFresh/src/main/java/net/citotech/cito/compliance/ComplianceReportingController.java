@@ -55,6 +55,35 @@ public class ComplianceReportingController {
         return caseService.listProfiles(status);
     }
 
+    /**
+     * Returns the currently actionable compliance cases. An empty case queue is a successful empty
+     * result, not an exceptional condition, so the admin workspace can render a truthful no-cases
+     * state without converting normal operations into an HTTP 500.
+     */
+    @GetMapping(path = "/cases")
+    public List<Map<String, Object>> cases() {
+        return caseService.listOpenCases();
+    }
+
+    @PostMapping(path = "/cases/{id}/decision")
+    public ResponseEntity<?> decideCase(
+            @PathVariable("id") long id, @RequestBody Map<String, Object> body) {
+        if (id <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "id must be positive"));
+        }
+        String decision = string(body, "decision", null);
+        if (decision == null || decision.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "decision is required"));
+        }
+        int updated =
+                caseService.decideCase(
+                        id, decision, string(body, "reason", null), string(body, "actor", null));
+        if (updated == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(Map.of("updated", updated, "id", id));
+    }
+
     @PostMapping(path = "/profiles")
     public ResponseEntity<?> upsertProfile(@RequestBody Map<String, Object> body) {
         long entityId;
@@ -82,6 +111,9 @@ public class ComplianceReportingController {
     }
 
     private String string(Map<String, Object> body, String key, String defaultValue) {
+        if (body == null) {
+            return defaultValue;
+        }
         Object value = body.get(key);
         return value == null ? defaultValue : String.valueOf(value);
     }
