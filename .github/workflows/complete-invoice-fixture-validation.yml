@@ -1,0 +1,104 @@
+name: Complete invoice fixture validation
+on:
+  push:
+    branches: [feature/airtel-money-openapi-hardening-v3]
+    paths: ['.github/workflows/complete-invoice-fixture-validation.yml']
+permissions:
+  contents: write
+concurrency:
+  group: complete-invoice-fixture-validation
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.repository == 'lynelk/Cito' && github.ref == 'refs/heads/feature/airtel-money-openapi-hardening-v3'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: clientside/package-lock.json
+      - name: Correct synthetic fixtures without changing production billing
+        shell: python
+        run: |
+          from pathlib import Path
+          root=Path('InitializrSpringbootProjectFresh/src/test/java/net/citotech/cito')
+          p=root/'billing/SyntheticBillingEvidence.java'
+          s=p.read_text()
+          marker='        var through = Timestamp.valueOf(invoice.periodEnd().atTime(23, 59, 59));'
+          assert s.count(marker)==1
+          s=s.replace(marker,marker+'''
+                  // Explicit test-only zero-rate rule. This is not a Uganda tax assumption and
+                  // is never loaded by production. The runtime must still find an approved rule.
+                  jdbc.update("INSERT INTO billing_tax_rule_versions"
+                      + " (billing_tenant_id,tax_code,currency,rate,status,effective_from,effective_to,created_by,approved_by,approved_at)"
+                      + " VALUES (:tenant,'STANDARD',:currency,0,'APPROVED',:start,:end,'test-tax-maker','test-tax-checker',:start)",
+                      new MapSqlParameterSource("tenant",invoice.billingTenantId())
+                          .addValue("currency",invoice.currency())
+                          .addValue("start",Timestamp.valueOf(invoice.periodStart().atStartOfDay()))
+                          .addValue("end",Timestamp.valueOf(invoice.periodEnd().plusDays(1).atStartOfDay())));
+          ''')
+          p.write_text(s)
+          p=root/'billing/export/BillingTraceChainServiceTestcontainersTest.java'
+          s=p.read_text()
+          marker='        String sourceReference = "TX-TRACE-" + java.util.UUID.randomUUID();'
+          assert s.count(marker)==1 and s.count('"2026-08-15 12:00:00"')==2
+          s=s.replace(marker,marker+'\n        String fixtureDate = billingTenantId == 31L ? "2026-09-15 12:00:00" : billingTenantId == 32L ? "2026-10-15 12:00:00" : "2026-08-15 12:00:00";')
+          s=s.replace('usageEvent.addValue("event_time", "2026-08-15 12:00:00");','usageEvent.addValue("event_time", fixtureDate);')
+          s=s.replace('ratedCharge.addValue("computed_at", "2026-08-15 12:00:00");','ratedCharge.addValue("computed_at", fixtureDate);')
+          p.write_text(s)
+          p=root/'billing/invoicing/BillingInvoiceFinalizeWorkflowTestcontainersTest.java'
+          s=p.read_text()
+          assert s.count('.hasMessageContaining("greater than zero")')==1
+          s=s.replace('.hasMessageContaining("greater than zero")','.hasMessageContaining("positive subtotal")')
+          s=s.replace('finalizeInvoiceOfAZeroSubtotalApprovedDraftFailsAtTheLedgerAndLeavesTheInvoiceDraft','finalizeInvoiceOfAZeroSubtotalApprovedDraftIsRejectedBeforePostingAndLeavesTheInvoiceDraft')
+          a=s.index(' * zero-subtotal approved draft fails at')
+          b=s.index('\n *\n * <p>Requires',a)
+          s=s[:a]+' * zero-subtotal approved draft fails the invoice positive-subtotal control before ledger posting.'+s[b:]
+          p.write_text(s)
+      - name: Format and commit test fixtures to feature branch
+        run: |
+          set -euo pipefail
+          mvn -B -ntp -f InitializrSpringbootProjectFresh/pom.xml spotless:apply
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/complete-invoice-fixture-validation.yml
+          git add InitializrSpringbootProjectFresh/src/test
+          git diff --cached --check
+          git commit -m 'Align synthetic invoice dates and approved tax evidence with current financial controls'
+          git push origin HEAD:refs/heads/feature/airtel-money-openapi-hardening-v3
+          mkdir -p /tmp/payment-recovery-evidence
+          git rev-parse HEAD | tee /tmp/payment-recovery-evidence/source-sha.txt
+          git archive --format=tar.gz -o /tmp/payment-recovery-evidence/source.tar.gz HEAD
+      - name: Backend including all Docker financial tests
+        id: backend
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B -ntp -Ddocker.tests.excludedGroups= verify
+      - name: Frontend checks
+        if: ${{ !cancelled() && steps.backend.outcome != 'skipped' }}
+        working-directory: clientside
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airtel-complete-recovery-verification
+          path: |
+            /tmp/payment-recovery-evidence
+            InitializrSpringbootProjectFresh/target/surefire-reports
+            InitializrSpringbootProjectFresh/target/failsafe-reports
+          retention-days: 7
