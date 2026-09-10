@@ -52,14 +52,15 @@ public final class MtnReferenceCollationMysqlScenario {
         DataAccessException failure =
                 assertThrows(
                         DataAccessException.class,
-                        () -> ReflectionTestUtils.invokeMethod(scheduler(jdbc), "pendingSharedAfter", 0L));
+                        () ->
+                                ReflectionTestUtils.invokeMethod(
+                                        scheduler(jdbc), "pendingSharedAfter", 0L));
         assertTrue(failure.getMostSpecificCause() instanceof SQLException);
         assertEquals(1267, ((SQLException) failure.getMostSpecificCause()).getErrorCode());
         return new Fixture(((Number) row.get("id")).longValue(), row);
     }
 
-    public static void afterUpgrade(
-            String url, String username, String password, Fixture fixture) {
+    public static void afterUpgrade(String url, String username, String password, Fixture fixture) {
         var jdbc = jdbc(url, username, password);
         assertEquals(
                 fixture.row(),
@@ -93,8 +94,7 @@ public final class MtnReferenceCollationMysqlScenario {
     }
 
     private static NamedParameterJdbcTemplate jdbc(String url, String username, String password) {
-        return new NamedParameterJdbcTemplate(
-                new DriverManagerDataSource(url, username, password));
+        return new NamedParameterJdbcTemplate(new DriverManagerDataSource(url, username, password));
     }
 
     private static MtnMomoStatusPollScheduler scheduler(NamedParameterJdbcTemplate jdbc) {
