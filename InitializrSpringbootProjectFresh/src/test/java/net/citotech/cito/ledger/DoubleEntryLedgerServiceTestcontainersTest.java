@@ -340,6 +340,12 @@ class DoubleEntryLedgerServiceTestcontainersTest {
                 .isEqualByComparingTo("20000.0000");
     }
 
+    @Test
+    void reservationsUseCurrentBalancesEvenWhenOuterTransactionHasAnOlderSnapshot()
+            throws Exception {
+        LedgerReservationMysqlScenario.run(dataSource);
+    }
+
     private Callable<Boolean> reserveWhenReleased(
             DoubleEntryLedgerService service,
             DataSourceTransactionManager transactionManager,

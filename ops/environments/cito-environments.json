@@ -36,10 +36,23 @@
     },
     "staging": {
       "status": "PLANNED",
-      "environmentId": null,
+      "projectName": "Cito Staging",
+      "projectId": "c69c90a9-ab6f-48ff-8e04-1e10a10f92db",
+      "environmentId": "efde4ddb-0312-48bc-94b2-a096fd3678b0",
       "branch": "main",
       "commitPolicy": "BACKEND_FRONTEND_MATCH_BRANCH_HEAD",
       "autoDeploy": true,
+      "services": {
+        "backend": {
+          "serviceId": "11bdd2d3-c202-43b1-824b-35446a0e6a31",
+          "rootDirectory": "InitializrSpringbootProjectFresh"
+        },
+        "frontend": {
+          "serviceId": "69ef3eaa-05b5-4504-8f5e-2bfaa27f3512",
+          "rootDirectory": "clientside"
+        }
+      },
+      "acceptanceNote": "PLANNED describes the target main-tracking deployment contract, not current runtime readiness. The retained services were observed pinned to sandbox commit 9b3198eeda24ef8887d5e48422c55948381f0904 on 2026-09-10; backend startup is blocked by incompatible V123 history. Preserve existing database data and review staged variables before changing sources or applying configuration. See Docs/Operations/staging-consolidation-20260910.md.",
       "isolationPolicy": "NO_PRODUCTION_SECRETS_OR_PROVIDER_BALANCES",
       "dataPolicy": "SYNTHETIC_OR_APPROVED_SANITIZED_DATA_ONLY",
       "promotionPolicy": "EXACT_STAGING_SHA_MUST_PASS_RELEASE_UAT_AND_SMOKE_GATES_BEFORE_PRODUCTION_PROMOTION"

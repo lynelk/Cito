@@ -167,6 +167,8 @@ A balanced ledger is only one finance-close condition. Do not mark a business da
 
 ## Rollback
 
+Staging project identities, preserved branch work and the incompatible V123 histories are recorded in [Staging consolidation](Docs/Operations/staging-consolidation-20260910.md). The reservation concurrency repair adds no migration. Match each retained database to its applied history before promoting main through sandbox.
+
 Application rollback must not roll back already-applied financial history or destructive schema changes. Prefer forward fixes and append-only correcting entries. Before reverting an application release, confirm that the older code understands the current Flyway schema and financial records.
 
 Never delete a production database volume or the verified backup destination as a rollback technique.
