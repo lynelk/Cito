@@ -1,0 +1,124 @@
+openapi: 3.0.3
+info:
+  title: Cito Provider Callback API
+  version: 1.0.0
+  description: >-
+    Provider-facing callback endpoints used by Cito to receive asynchronous payment signals.
+    Provider callbacks are correlation signals only; Cito verifies authoritative transaction state
+    with the provider before finalizing merchant or treasury balances.
+servers:
+  - url: /
+    description: Current Cito deployment host
+security: []
+tags:
+  - name: Provider Callbacks
+paths:
+  /api/v2/provider-callbacks/mtn/{providerReference}:
+    post:
+      tags: [Provider Callbacks]
+      summary: Receive an MTN MoMo asynchronous transaction callback
+      description: >-
+        Receives MTN's transaction callback for the X-Reference-Id supplied by Cito. The callback
+        does not by itself authorize a financial state transition. Cito correlates the reference
+        and performs an authenticated MTN status lookup before applying a final result.
+      operationId: receiveMtnMomoCallbackPost
+      parameters:
+        - $ref: '#/components/parameters/ProviderReference'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MtnCallbackRequest'
+      responses:
+        '200':
+          description: Callback was correlated and provider verification was processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MtnCallbackResponse'
+        '400':
+          description: Invalid, unknown, ambiguous, or mismatched callback correlation
+        '500':
+          description: Provider verification or internal processing failed
+    put:
+      tags: [Provider Callbacks]
+      summary: Receive an MTN MoMo asynchronous transaction callback using PUT
+      description: >-
+        Compatibility form of the MTN callback endpoint. Processing and provider-verification rules
+        are identical to POST.
+      operationId: receiveMtnMomoCallbackPut
+      parameters:
+        - $ref: '#/components/parameters/ProviderReference'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MtnCallbackRequest'
+      responses:
+        '200':
+          description: Callback was correlated and provider verification was processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MtnCallbackResponse'
+        '400':
+          description: Invalid, unknown, ambiguous, or mismatched callback correlation
+        '500':
+          description: Provider verification or internal processing failed
+components:
+  parameters:
+    ProviderReference:
+      name: providerReference
+      in: path
+      required: true
+      description: UUID sent to MTN as X-Reference-Id for the original request
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    MtnCallbackRequest:
+      type: object
+      required: [externalId, status]
+      properties:
+        externalId:
+          type: string
+          description: Merchant reference originally sent to MTN
+        status:
+          type: string
+          description: Provider callback status signal; Cito verifies it independently
+          examples: [SUCCESSFUL, FAILED, PENDING]
+        financialTransactionId:
+          type: string
+          nullable: true
+          description: MTN financial transaction identifier when supplied
+      additionalProperties: true
+    MtnCallbackResponse:
+      type: object
+      required: [accepted, verified, merchantReference, status, transactionUpdated, message]
+      properties:
+        accepted:
+          type: boolean
+        verified:
+          type: boolean
+          description: True when Cito completed an authenticated provider-status verification
+        merchantReference:
+          type: string
+        status:
+          type: string
+          description: Verified Cito transaction outcome or current provider state
+        callbackSignalStatus:
+          type: string
+          description: Status value received in the callback signal
+        transactionUpdated:
+          type: boolean
+        reservationId:
+          type: integer
+          format: int64
+          nullable: true
+        reservationStatus:
+          type: string
+          nullable: true
+        message:
+          type: string

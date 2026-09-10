@@ -47,6 +47,29 @@ Webhook payloads should be versioned and event-driven instead of exposing raw st
 - Provider callback handlers must deduplicate by provider reference plus terminal status.
 - Event schemas are registered in code by event type/version; do not add a webhook event without a JSON schema and an example payload.
 
+## MTN MoMo provider callbacks
+
+MTN `RequestToPay` and `Transfer` requests are asynchronous. Cito sends a unique UUID in
+`X-Reference-Id` and a transaction-specific HTTPS callback URL under:
+
+```text
+/api/v2/provider-callbacks/mtn/{providerReference}
+```
+
+MTN callback handling follows these rules:
+
+- the callback URL must use HTTPS and its host must match the callback host registered for the MTN API user;
+- the provider reference is correlated to the exact Cito merchant, merchant reference, operation, environment, country, currency and credential source;
+- the callback payload is treated as a signal, not as sufficient authority to settle money;
+- Cito performs an authenticated MTN status lookup for the same provider reference before moving the merchant transaction or CPay shared-provider treasury reservation to a final state;
+- the verified MTN `externalId` must match the merchant reference stored in the correlation record;
+- duplicate or already-final callbacks remain idempotent;
+- unresolved MTN transactions are polled through the corresponding MTN status endpoint because MTN callbacks are single-attempt and may be missed;
+- the generic transaction-timeout scheduler must not convert an MTN `PENDING` transaction to `FAILED` without a verified provider result.
+
+The provider-facing callback contract is defined in `Docs/Api/provider-callbacks-openapi.yaml`.
+Merchant callbacks continue to use the CPay webhook event contract described in this document.
+
 ## Callback signature verification
 
 New callback deliveries expose a versioned, independently verifiable HMAC contract.

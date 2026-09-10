@@ -87,6 +87,30 @@ class MtnMomoCredentialSchemaTest {
     }
 
     @Test
+    void rejectsHttpCallbackInMtnSandbox() {
+        Map<String, Object> credentials = credentials();
+        credentials.put("callbackUrl", "http://pay.example.com/api/v2/provider-callbacks/mtn");
+
+        assertThatThrownBy(
+                        () -> MtnMomoCredentialSchema.validate(credentials, "SANDBOX", "UG", "EUR"))
+                .isInstanceOf(PaymentGatewayException.class)
+                .hasMessageContaining("valid HTTPS URL");
+    }
+
+    @Test
+    void acceptsHttpsCallbackForUgandaProduction() {
+        Map<String, Object> credentials = credentials();
+        credentials.put("targetEnvironment", "mtnuganda");
+        credentials.put("baseCurrency", "UGX");
+
+        assertThatCode(
+                        () ->
+                                MtnMomoCredentialSchema.validate(
+                                        credentials, "PRODUCTION", "UG", "UGX"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void rejectsCallbackUrlOnAHostDifferentFromRegisteredApiUserHost() {
         Map<String, Object> credentials = credentials();
         credentials.put("callbackUrl", "https://wrong.example/callbacks/mtn");

@@ -1,8 +1,6 @@
 package net.citotech.cito.gateway;
 
 import java.util.Map;
-import java.util.UUID;
-import net.citotech.cito.treasury.ProviderTreasuryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,10 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v2/provider-callbacks/mtn")
 public class MtnMomoCallbackController {
-    private final ProviderTreasuryService treasuryService;
+    private final MtnMomoCorrelationService correlationService;
 
-    public MtnMomoCallbackController(ProviderTreasuryService treasuryService) {
-        this.treasuryService = treasuryService;
+    public MtnMomoCallbackController(MtnMomoCorrelationService correlationService) {
+        this.correlationService = correlationService;
     }
 
     @RequestMapping(
@@ -25,27 +23,12 @@ public class MtnMomoCallbackController {
             method = {RequestMethod.POST, RequestMethod.PUT})
     public ResponseEntity<Map<String, Object>> receive(
             @PathVariable String providerReference, @RequestBody Map<String, Object> body) {
-        requireUuid(providerReference);
-        Map<String, Object> reservation =
-                treasuryService.resolveProviderCallback(
-                        MtnMomoCredentialSchema.CHANNEL_CODE,
+        return ResponseEntity.ok(
+                correlationService.resolve(
                         providerReference,
                         text(body.get("externalId")),
                         text(body.get("status")),
-                        text(body.get("financialTransactionId")));
-        return ResponseEntity.ok(
-                Map.of(
-                        "accepted", true,
-                        "reservationId", reservation.get("id"),
-                        "status", reservation.get("status")));
-    }
-
-    private void requireUuid(String value) {
-        try {
-            UUID.fromString(value);
-        } catch (Exception e) {
-            throw new PaymentGatewayException("Invalid MTN callback reference");
-        }
+                        text(body.get("financialTransactionId"))));
     }
 
     private String text(Object value) {

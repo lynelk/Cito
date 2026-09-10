@@ -29,7 +29,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 class TransactionTimeoutSchedulerTest {
 
     @Test
-    void usesADifferentTimeoutWindowPerGatewayWhenConfigured() throws Exception {
+    void skipsMtnAndUsesDefaultTimeoutForOtherGateways() throws Exception {
         NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
         PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
 
