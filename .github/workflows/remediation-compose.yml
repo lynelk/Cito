@@ -5,6 +5,7 @@ on:
     branches: [feature/cito-remediation-completion-20260911]
     paths:
       - ops/release/compose_remediation_20260911.py
+      - ops/release/remediation_reviewed_conflicts.py
       - .github/workflows/remediation-compose.yml
   workflow_dispatch: {}
 
@@ -32,6 +33,7 @@ jobs:
       ADMIN_API_USERNAME: ci-admin
       ADMIN_API_PASSWORD: ci-admin-password
       CALLBACK_SIGNING_SECRET: ci-callback-secret
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v7
         with:
