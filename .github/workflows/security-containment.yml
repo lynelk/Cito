@@ -1,0 +1,25 @@
+name: Cito Security Containment
+
+on:
+  push:
+    branches: [main, production, codex/cito-amber-red-remediation-20260911]
+  pull_request:
+    branches: [main, production]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-containment-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  edge-hidden-paths:
+    name: Edge Hidden-Path Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Exercise real nginx with synthetic local fixtures
+        run: python3 scripts/ci/check-edge-hidden-paths.py
