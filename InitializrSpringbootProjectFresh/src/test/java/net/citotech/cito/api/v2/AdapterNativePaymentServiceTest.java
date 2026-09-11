@@ -92,43 +92,26 @@ class AdapterNativePaymentServiceTest {
                         treasuryService,
                         "PRODUCTION");
 
+        net.citotech.cito.gateway.MobileMoneyExecutionService lifecycle =
+                mock(net.citotech.cito.gateway.MobileMoneyExecutionService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                service, "mobileMoney", lifecycle);
+        PaymentResult persisted = new PaymentResult();
+        persisted.setEnvironment("PRODUCTION");
+        persisted.setTransactionId("durable-transaction");
+        when(lifecycle.submit(any(), any(), eq("PRODUCTION"), eq("COLLECT"), eq(adapter)))
+                .thenReturn(persisted);
         PaymentResult result = service.collect(paymentRequest(), merchant(), "PRODUCTION");
 
-        verify(environmentService).enforceProductionLimit(any(Merchant.class), eq("PRODUCTION"));
-        verify(sharedProviderAccessService)
-                .isReady(
+        verify(lifecycle)
+                .submit(
+                        any(PaymentRequest.class),
                         any(Merchant.class),
-                        eq("mtn_momo"),
                         eq("PRODUCTION"),
-                        eq("UG"),
-                        eq("UGX"),
                         eq("COLLECT"),
-                        eq(canonicalAmount),
-                        isNull());
-        verify(sharedProviderAccessService)
-                .resolve(
-                        any(Merchant.class),
-                        eq("mtn_momo"),
-                        eq("PRODUCTION"),
-                        eq("UG"),
-                        eq("UGX"),
-                        eq("COLLECT"),
-                        eq(canonicalAmount),
-                        isNull());
-        verify(treasuryService)
-                .beginShared(
-                        eq(credentialContext),
-                        any(Merchant.class),
-                        eq("mtn_momo"),
-                        eq("PRODUCTION"),
-                        eq(canonicalAmount),
-                        eq("PROD-REF-1"));
-        assertThat(result.getEnvironment()).isEqualTo("PRODUCTION");
-        assertThat(adapter.lastRequest.getMetadata())
-                .containsEntry("gatewayState", "PRODUCTION")
-                .containsEntry("credentialEnvironment", "PRODUCTION")
-                .containsEntry("credentialSource", SharedProviderAccessService.MERCHANT)
-                .containsEntry("collectUrl", "https://provider.example/collect");
+                        eq(adapter));
+        org.mockito.Mockito.verifyNoInteractions(treasuryService);
+        assertThat(result.getTransactionId()).isEqualTo("durable-transaction");
 
         gatewayExecutionService.shutdown();
     }

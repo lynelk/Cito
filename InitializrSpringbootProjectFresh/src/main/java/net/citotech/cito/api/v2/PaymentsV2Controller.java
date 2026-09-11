@@ -142,6 +142,14 @@ public class PaymentsV2Controller {
 
             productionGuard.reserveProductionExecution(
                     merchant, environment, "PAYOUT", request.getReference());
+            if (paymentOrchestrationService.usesManagedMobileMoney(request, false)) {
+                PaymentResult managed =
+                        paymentOrchestrationService.payout(
+                                request, merchant, servletRequest.getRemoteAddr());
+                idempotencyService.record(
+                        request.getMerchantNumber(), idempotencyKey, idempotencyBody, managed);
+                return ResponseEntity.accepted().body(managed);
+            }
             PayoutEvaluation control = payoutControlService.evaluate(request, merchant, "system");
             if (control.isApprovalRequired()) {
                 PaymentResult pending = new PaymentResult();

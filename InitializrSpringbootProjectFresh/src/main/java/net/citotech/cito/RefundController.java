@@ -7,14 +7,15 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.citotech.cito.Model.*;
+import net.citotech.cito.gateway.PaymentGatewayException;
+import net.citotech.cito.refund.RefundRecord;
+import net.citotech.cito.refund.RefundService;
 import net.citotech.cito.security.SignatureVerificationService;
 import net.citotech.cito.service.RateLimiterService;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -28,22 +29,21 @@ import org.springframework.web.bind.annotation.*;
  * signature – RSA-SHA256 or HMAC-SHA256 over (merchant_number + original_reference + reference +
  * description)
  *
- * <p>Behaviour: 1. Locates the original PAYIN by original_reference + merchant_id. 2. Verifies it
- * is SUCCESSFUL. 3. Creates a PAYOUT_REVERSAL transaction for the same amount/gateway, using the
- * original payer_number as the payee (refund recipient). 4. Dispatches the payout via the same
- * gateway.
+ * <p>Uses the same governed lifecycle as the v2 and merchant refund APIs: locks the successful
+ * production payin, claims its remaining unrefunded balance, applies approval controls and tracks
+ * the compensating payout until provider-confirmed settlement.
  */
 @RestController
 @RequestMapping(path = "/api", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 public class RefundController {
-    @org.springframework.beans.factory.annotation.Autowired
-    private net.citotech.cito.developer.reference.ApiAccessBillingService apiBilling;
+
+    @Autowired private net.citotech.cito.developer.reference.ApiAccessBillingService apiBilling;
 
     private static final Logger logger = Logger.getLogger(RefundController.class.getName());
 
     @Autowired NamedParameterJdbcTemplate jdbcTemplate;
 
-    @Autowired PlatformTransactionManager transactionManager;
+    @Autowired RefundService refundService;
 
     @Autowired RateLimiterService rateLimiterService;
 
@@ -110,98 +110,49 @@ public class RefundController {
             if (sigError != null) return sigError;
             apiBilling.admitted(merchant.getId(), null, "PRODUCTION");
 
-            // Look up original transaction
-            Transaction originalTx = getSuccessfulPayin(original_reference, merchant.getId());
-            if (originalTx == null) {
-                return GeneralException.getError(
-                        "109",
-                        String.format(
-                                GeneralException.ERRORS_109,
-                                "Successful PAYIN",
-                                original_reference));
-            }
+            RefundRecord refund =
+                    refundService.requestRefund(
+                            merchant,
+                            original_reference,
+                            refund_reference,
+                            null,
+                            description,
+                            "API:" + merchant_number,
+                            callback_url,
+                            originating_ip);
+            Transaction payout =
+                    Common.getMerchantTxByTheirRef(
+                            refund_reference, merchant.getId().toString(), jdbcTemplate);
+            String status =
+                    switch (refund.status()) {
+                        case COMPLETED -> "SUCCESSFUL";
+                        case FAILED, REJECTED -> "FAILED";
+                        case PENDING_APPROVAL -> "PENDING_APPROVAL";
+                        default -> "PENDING";
+                    };
+            String message = "Refund " + refund.status().name().toLowerCase(java.util.Locale.ROOT);
+            GateWayResponse outcome = new GateWayResponse();
+            outcome.setStatus("FAILED".equals(status) ? "ERROR" : "OK");
+            outcome.setTransactionStatus(status);
+            outcome.setOurUniqueTxId(payout == null ? null : payout.getTx_unique_id());
+            outcome.setMessage(message);
+            JSONObject result =
+                    new JSONObject(
+                            "FAILED".equals(status)
+                                    ? GeneralException.getApiTxMessage("143", message, outcome)
+                                    : GeneralSuccessResponse.getApiTxMessage(
+                                            "000", message, outcome));
+            result.put("refundReference", refund.refundReference());
+            result.put("refundStatus", refund.status().name());
+            return result.toString();
 
-            // Check stock/revenue/suspense accounts
-            Setting stockAccountSetting = Common.getSettings("float_stock_account", jdbcTemplate);
-            Setting revenueAccountSetting = Common.getSettings("revenue_account", jdbcTemplate);
-            Setting suspenseAccountSetting = Common.getSettings("suspense_account", jdbcTemplate);
-            if (stockAccountSetting == null || stockAccountSetting.getSetting_value().isEmpty())
-                return GeneralException.getError("112", GeneralException.ERRORS_112);
-            if (revenueAccountSetting == null || revenueAccountSetting.getSetting_value().isEmpty())
-                return GeneralException.getError("117", GeneralException.ERRORS_117);
-            if (suspenseAccountSetting == null
-                    || suspenseAccountSetting.getSetting_value().isEmpty())
-                return GeneralException.getError("127", GeneralException.ERRORS_127);
-
-            // Ensure sufficient float balance for the refund
-            ArrayList<Balance> balances =
-                    Common.getMerchantBalances(merchant.getId() + "", jdbcTemplate);
-            String gateway_id = originalTx.getGateway_id();
-            Double refundAmount = originalTx.getOriginal_amount();
-            for (Balance b : balances) {
-                if (b.getGateway_id().equals(gateway_id)) {
-                    if (refundAmount > b.getAmount()) {
-                        return GeneralException.getError(
-                                "111",
-                                String.format(
-                                        GeneralException.ERRORS_111, b.getAmount(), b.getCode()));
-                    }
-                }
-            }
-
-            // Build the refund (payout reversal) transaction
-            GatewayChargeDetails gwChargeDetails =
-                    DoPayGateway.getGatewayChargeDetailsById(
-                            jdbcTemplate, gateway_id, merchant.getId());
-
-            Transaction refundTx = new Transaction();
-            refundTx.setGateway_id(gateway_id);
-            refundTx.setOriginal_amount(refundAmount);
-            refundTx.setPayer_number(
-                    originalTx.getPayer_number()); // refund goes back to original payer
-            refundTx.setStatus("PENDING");
-            refundTx.setMerchant_id(merchant.getId() + "");
-            refundTx.setTx_description(merchant.getShort_name());
-            refundTx.setTx_merchant_description(description);
-            refundTx.setTx_type(Transaction.TX_TYPE_PAYOUT_REVERSAL);
-            refundTx.setTx_unique_id(Common.generateUuid());
-            refundTx.setTx_merchant_ref(refund_reference);
-            refundTx.setCallback_url(callback_url);
-            refundTx.setOriginate_ip(originating_ip);
-            Double charges = DoPayGateway.getCustomerOutboundCharges(refundAmount, gwChargeDetails);
-            Double tx_cost = DoPayGateway.getCostOfOutboundCharges(refundAmount, gwChargeDetails);
-            refundTx.setCharging_method(gwChargeDetails.getCustomerOutboundChargeMethod());
-            refundTx.setCharges(charges);
-            refundTx.setTx_cost(tx_cost);
-            refundTx.setTx_request_trace("");
-            refundTx.setTx_update_trace("");
-            refundTx.setTx_gateway_ref("");
-
-            String result = Common.doPayOut(refundTx, merchant, jdbcTemplate, transactionManager);
-            return result;
-
+        } catch (PaymentGatewayException | IllegalArgumentException ex) {
+            return GeneralException.getError(
+                    "142",
+                    "Refund could not be accepted. Check the original payment, remaining refundable amount, reference and approval requirements.");
         } catch (Exception ex) {
             logger.log(Level.SEVERE, "doMobileMoneyRefund error: " + ex.getMessage(), ex);
             return GeneralException.getError("102", GeneralException.ERRORS_102);
-        }
-    }
-
-    private Transaction getSuccessfulPayin(String merchantRef, Long merchantId) {
-        try {
-            String sql =
-                    "SELECT * FROM "
-                            + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                            + " WHERE tx_merchant_ref=:ref AND merchant_id=:mid"
-                            + " AND status='SUCCESSFUL' AND tx_type=:type LIMIT 1";
-            MapSqlParameterSource p = new MapSqlParameterSource();
-            p.addValue("ref", merchantRef);
-            p.addValue("mid", merchantId);
-            p.addValue("type", Transaction.TX_TYPE_PAYIN);
-            List<Transaction> txList = jdbcTemplate.query(sql, p, Common.getTransactionRowMapper());
-            return txList.isEmpty() ? null : txList.get(0);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "getSuccessfulPayin error: " + e.getMessage(), e);
-            return null;
         }
     }
 }

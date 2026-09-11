@@ -34,6 +34,8 @@ class AirtelMoneyOpenApiPaymentGatewayWireMockTest {
     void startWireMock() {
         wireMockServer = new WireMockServer(0);
         wireMockServer.start();
+        net.citotech.cito.gateway.ProviderHttpTestTransport.route(
+                "https://openapiuat.airtel.africa", wireMockServer.baseUrl());
 
         ProviderTokenStoreService tokenStoreService = mock(ProviderTokenStoreService.class);
         ProviderToken validToken = mock(ProviderToken.class);
@@ -49,6 +51,7 @@ class AirtelMoneyOpenApiPaymentGatewayWireMockTest {
     @AfterEach
     void stopWireMockAndResetRegistry() {
         wireMockServer.stop();
+        net.citotech.cito.gateway.ProviderHttpTestTransport.reset();
         new ProviderTokenStoreRegistry(null);
     }
 
@@ -98,7 +101,9 @@ class AirtelMoneyOpenApiPaymentGatewayWireMockTest {
         // raw
         // resultCode/message is still available internally via requestTrace for support diagnosis.
         assertThat(response.getMessage()).isEqualTo("The payment provider declined this request.");
-        assertThat(response.getRequestTrace()).contains("Insufficient float").contains("ESB000010");
+        assertThat(response.getRequestTrace())
+                .contains("httpStatus=200")
+                .doesNotContain("Insufficient float", "ESB000010");
     }
 
     @Test
@@ -125,7 +130,9 @@ class AirtelMoneyOpenApiPaymentGatewayWireMockTest {
         assertThat(response.getMessage())
                 .isEqualTo("Payment outcome is not yet confirmed; check status before retrying.");
         assertThat(response.getMessage()).doesNotContain("service_unavailable");
-        assertThat(response.getRequestTrace()).contains("service_unavailable");
+        assertThat(response.getRequestTrace())
+                .contains("httpStatus=503")
+                .doesNotContain("service_unavailable");
     }
 
     @Test
@@ -206,7 +213,8 @@ class AirtelMoneyOpenApiPaymentGatewayWireMockTest {
     private AirtelMoneyOpenApiPaymentGateway gateway() throws Exception {
         AirtelMoneyOpenApiPaymentGateway gateway = new AirtelMoneyOpenApiPaymentGateway();
         gateway.setApiDetails(
-                "http://localhost:" + wireMockServer.port(), "client-id", "client-secret", "1234");
+                "https://openapiuat.airtel.africa", "client-id", "client-secret", "1234");
+        gateway.setTransactionContext("SANDBOX", "UG", "UGX");
         gateway.setSegment("disbursement");
         gateway.setPublicKey(generateTestPublicKeyBase64());
         return gateway;

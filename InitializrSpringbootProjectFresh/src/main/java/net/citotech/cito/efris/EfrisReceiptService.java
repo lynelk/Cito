@@ -113,7 +113,7 @@ public class EfrisReceiptService {
                 jdbcTemplate.queryForList(
                         "SELECT m.id AS tx_row_id, m.merchant_id, m.original_amount, m.payer_number, "
                                 + "m.tx_unique_id, m.tx_merchant_ref, COALESCE(merch.account_number, '') AS merchant_number "
-                                + "FROM merchant_transactions_log m "
+                                + "FROM merchant_production_transactions m "
                                 + "LEFT JOIN merchants merch ON merch.id = m.merchant_id "
                                 + "WHERE m.tx_type='PAYIN' AND m.status='SUCCESSFUL' "
                                 + "AND UPPER(m.currency)='UGX' AND m.created_on >= :since "
@@ -219,7 +219,7 @@ public class EfrisReceiptService {
         p.addValue("tx_merchant_ref", merchantTransactionRef);
         List<String> numbers =
                 jdbcTemplate.query(
-                        "SELECT payer_number FROM merchant_transactions_log "
+                        "SELECT payer_number FROM merchant_production_transactions "
                                 + "WHERE (tx_unique_id=:tx_unique_id OR tx_merchant_ref=:tx_merchant_ref) "
                                 + "AND payer_number IS NOT NULL LIMIT 1",
                         p,

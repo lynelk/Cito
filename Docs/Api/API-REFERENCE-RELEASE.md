@@ -13,7 +13,7 @@ Brand baseline: Cito 1.2. Affected touchpoints: public hero developer section, m
 
 ## Compatibility and rollout
 
-Flyway V123 is additive. New rates default to UGX 0.0000. This is a zero-rate rollout; no nonzero customer rates are activated by this code change.
+Flyway V128 is additive. New rates default to UGX 0.0000. This is a zero-rate rollout; no nonzero customer rates are activated by this code change.
 
 `GET /api/v2/channels` and `GET /api/v2/webhooks/events` now enforce the merchant signature already declared in the payment OpenAPI contract and require `merchantNumber` in the query. Anonymous callers must migrate to signed requests. They are discoverability APIs, not provider callbacks. No payment execution route is renamed.
 
@@ -61,3 +61,23 @@ Outstanding gates:
 4. Record release acceptance, then use the established main/sandbox/production gates and verify both canonical production service SHAs. Do not infer deployment success from static documents, a transient healthcheck, or Railway status alone.
 
 New Config-as-Code bindings were rejected by Railway as deprecated. Staging currently uses direct service settings recorded in the environment contract. No new railway.json binding or unreviewed IaC apply was introduced; existing production configuration is unchanged.
+
+## Reconciliation after database recovery — 11 September 2026
+
+The current candidate incorporates main 0ab5bd5cbc919949f132c7e0d6890bcfc38733d3. It preserves the newer governed refund lifecycle, cumulative refund limits, independent approvals, idempotency and settlement tracking. API admission metering is added only after signature verification. Manually constructed unit-test fixtures receive the required billing collaborator; production guards and original refund assertions are unchanged.
+
+The API-rate migration is now V128, because this PR's earlier V123 never entered main and the recovered active staging database has advanced to V127. Main's existing migration files remain byte-for-byte unchanged. The obsolete experimental V123 database must not be pointed at this release without a separately reviewed migration plan; no Flyway repair, history deletion, database reset or destructive operation is authorized by this reconciliation.
+
+On 11 September the read-only health probe reported database UP, gateway SANDBOX and exact release 0ab5bd5c. Protected API routes rejected anonymous access. This is not authenticated API acceptance, an external provider certification or a production deployment. Exact candidate CI, MySQL migration/upgrade checks, both staging service SHAs, portal tests and rollback readiness remain release gates.
+
+Brand version: 1.2. Affected surfaces remain the merchant Developers page, administrator API workbench, public website and revision-derived API/HTML exports.
+
+## Restored security gates — 11 September 2026
+
+CI had been manually disabled and has been re-enabled. Its dependency scan identified affected Spring Framework 7.0.8, Spring Security 7.1.0, Netty 4.2.15 and Tomcat 11.0.22. The candidate pins vendor-published fixes: Spring Framework 7.0.9, Security 7.1.1, Netty 4.2.16.Final and Tomcat 11.0.25. Runtime OpenAPI uses the API-only Springdoc starter; unused Swagger UI assets are no longer packaged. All tests and fresh vulnerability scans must pass after dependency resolution.
+
+The MySQL regression retains populated V126 MTN references, validates their V127 collation correction and the V128 endpoint rate schema, including zero default, four-decimal precision and the nonnegative constraint. All existing treasury, ledger, mobile-money and notification scenarios remain. No applied migration or stored balance is edited.
+
+GitHub default CodeQL setup already uploads repository analyses. The advanced security-extended scan retains complete SARIF as an exact-SHA artifact and fails explicitly on high/critical findings instead of making a second, rejected upload. Default setup stays enabled. No scan is skipped, vulnerability is suppressed, CVSS threshold is lowered, or security failure is marked successful.
+
+The merchant portal, admin workbench and public website remain coupled to the same release; no visual change is required for these dependency/configuration fixes. Brand baseline remains 1.2.

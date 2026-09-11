@@ -43,10 +43,34 @@ class PaymentsV2ControllerMerchantFeaturesTest {
     private final MerchantStatementExportService statementExportService =
             mock(MerchantStatementExportService.class);
     private final PayoutControlService payoutControlService = mock(PayoutControlService.class);
-    private final MerchantEnvironmentService environmentService = mock(MerchantEnvironmentService.class);
+    private final MerchantEnvironmentService environmentService =
+            mock(MerchantEnvironmentService.class);
     private final SandboxProductionGuardService productionGuard =
             mock(SandboxProductionGuardService.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Test
+    void implicitNonManagedPayoutStillRequiresMakerChecker() throws Exception {
+        String body =
+                "{\"merchantNumber\":\"M100\",\"reference\":\"route-1\",\"amount\":\"100\",\"currency\":\"UGX\",\"payee\":{\"value\":\"256700000000\"}}";
+        Merchant merchant = merchant(Common.API_MOBILE_MONEY_PAYOUT);
+        when(securityService.verify(any(), eq(body), eq("M100"))).thenReturn(merchant);
+        when(payoutControlService.evaluate(any(), eq(merchant), eq("system")))
+                .thenReturn(
+                        PayoutControlService.PayoutEvaluation.approvalRequired(
+                                "LIMIT", "approval", 1));
+        mockMvc()
+                .perform(
+                        post("/api/v2/payments/payout")
+                                .contentType("application/json")
+                                .content(body))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("APPROVAL_PENDING"));
+        org.mockito.Mockito.verify(payoutControlService)
+                .evaluate(any(), eq(merchant), eq("system"));
+        org.mockito.Mockito.verify(orchestrationService, org.mockito.Mockito.never())
+                .payout(any(), any(), any());
+    }
 
     @Test
     void accountValidationUsesV2SecurityAndReturnsAccountDetails() throws Exception {
@@ -100,8 +124,8 @@ class PaymentsV2ControllerMerchantFeaturesTest {
                 .andExpect(status().isOk())
                 .andExpect(
                         header().string(
-                                HttpHeaders.CONTENT_DISPOSITION,
-                                "attachment; filename=\"cpay-statement-M100-2026-07-01-to-2026-07-16.csv\""))
+                                        HttpHeaders.CONTENT_DISPOSITION,
+                                        "attachment; filename=\"cpay-statement-M100-2026-07-01-to-2026-07-16.csv\""))
                 .andExpect(content().string("id,created_on\n1,2026-07-16 09:30:00\n"));
     }
 
@@ -133,12 +157,12 @@ class PaymentsV2ControllerMerchantFeaturesTest {
                 .andExpect(status().isOk())
                 .andExpect(
                         header().string(
-                                HttpHeaders.CONTENT_DISPOSITION,
-                                "attachment; filename=\"cpay-statement-M100-2026-07-01-to-2026-07-16.xlsx\""))
+                                        HttpHeaders.CONTENT_DISPOSITION,
+                                        "attachment; filename=\"cpay-statement-M100-2026-07-01-to-2026-07-16.xlsx\""))
                 .andExpect(
                         header().string(
-                                HttpHeaders.CONTENT_TYPE,
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                                        HttpHeaders.CONTENT_TYPE,
+                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .andExpect(content().bytes(xlsxBytes));
     }
 

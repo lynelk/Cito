@@ -83,7 +83,15 @@ public class SharedProviderAccessService {
                                     operation,
                                     amount)
                             != null
-                    && hasActivePlatformCredential(channelCode, environment, country, currency);
+                    && hasActivePlatformCredential(channelCode, environment, country, currency)
+                    && sharedFundsReady(
+                            merchant,
+                            channelCode,
+                            environment,
+                            country,
+                            currency,
+                            operation,
+                            amount);
         }
         try {
             merchantCredentials.ensureChannelReady(merchant, channelCode, environment);
@@ -99,8 +107,45 @@ public class SharedProviderAccessService {
                                     operation,
                                     amount)
                             != null
-                    && hasActivePlatformCredential(channelCode, environment, country, currency);
+                    && hasActivePlatformCredential(channelCode, environment, country, currency)
+                    && sharedFundsReady(
+                            merchant,
+                            channelCode,
+                            environment,
+                            country,
+                            currency,
+                            operation,
+                            amount);
         }
+    }
+
+    private boolean sharedFundsReady(
+            Merchant merchant,
+            String channel,
+            String environment,
+            String country,
+            String currency,
+            String operation,
+            BigDecimal amount) {
+        MapSqlParameterSource p =
+                scope(merchant.getId(), channel, environment, country, currency, operation);
+        BigDecimal requested = amount == null ? BigDecimal.ZERO : amount;
+        List<Map<String, Object>> rows =
+                jdbc.queryForList(
+                        "SELECT e.daily_limit,COALESCE(u.approved_amount,0) AS used FROM shared_provider_entitlements e LEFT JOIN shared_provider_daily_usage u ON u.entitlement_id=e.id AND u.usage_date=CURRENT_DATE AND u.operation='AUTHORIZED' WHERE e.merchant_id=:merchant_id AND e.channel_code=:channel AND e.environment=:environment AND e.country_code=:country AND e.currency_code=:currency AND e.operation=:operation AND e.status='ACTIVE'",
+                        p);
+        if (rows.size() != 1) return false;
+        BigDecimal limit = decimalOrNull(rows.get(0).get("daily_limit"));
+        if (limit != null
+                && limit.subtract(decimal(rows.get(0).get("used"))).compareTo(requested) < 0)
+            return false;
+        if (!"PAYOUT".equalsIgnoreCase(operation)) return true;
+        List<BigDecimal> available =
+                jdbc.query(
+                        "SELECT book_balance-reserved_balance-pending_outgoing_balance FROM provider_treasury_accounts WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency AND account_role='DISBURSEMENT'",
+                        p,
+                        (rs, n) -> rs.getBigDecimal(1));
+        return available.size() == 1 && available.get(0).compareTo(requested) >= 0;
     }
 
     /** Resolve the actual credential source. Call once, after routing has selected the adapter. */
@@ -275,10 +320,44 @@ public class SharedProviderAccessService {
         return entitlementById(id);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private net.citotech.cito.gateway.ProviderCredentialProbeService connectivity;
+
+    public Map<String, Object> verifyPlatformCredential(long id, String actor) {
+        requiredActor(actor);
+        Map<String, Object> row =
+                jdbc.queryForMap(
+                        "SELECT * FROM platform_channel_credentials WHERE id=:id",
+                        new MapSqlParameterSource("id", id));
+        try {
+            connectivity.verify(
+                    text(row.get("channel_code")),
+                    text(row.get("environment")),
+                    text(row.get("country_code")),
+                    text(row.get("currency_code")),
+                    parseJson(crypto.decrypt(text(row.get("credential_payload")))));
+        } catch (RuntimeException failure) {
+            jdbc.update(
+                    "UPDATE platform_channel_credentials SET last_test_status='CONNECTIVITY_FAILED',tested_revision=revision,last_tested_at=CURRENT_TIMESTAMP WHERE id=:id AND revision=:revision",
+                    new MapSqlParameterSource("id", id).addValue("revision", row.get("revision")));
+            throw new PaymentGatewayException(
+                    "Provider authentication could not be verified; check credentials and provider availability");
+        }
+        int updated =
+                jdbc.update(
+                        "UPDATE platform_channel_credentials SET last_test_status='CONNECTIVITY_VERIFIED',tested_revision=revision,last_tested_at=CURRENT_TIMESTAMP WHERE id=:id AND revision=:revision",
+                        new MapSqlParameterSource("id", id)
+                                .addValue("revision", row.get("revision")));
+        if (updated != 1)
+            throw new PaymentGatewayException(
+                    "Credentials changed during verification; verify the new revision");
+        return platformCredentialById(id);
+    }
+
     public List<Map<String, Object>> listPlatformCredentials() {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, credential_mask AS credentialMask, status, created_by AS createdBy, updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS approvedAt, updated_at AS updatedAt FROM platform_channel_credentials ORDER BY channel_code, environment, country_code, currency_code",
+                        "SELECT id, revision, last_test_status AS lastTestStatus, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, credential_mask AS credentialMask, status, created_by AS createdBy, updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS approvedAt, updated_at AS updatedAt FROM platform_channel_credentials ORDER BY channel_code, environment, country_code, currency_code",
                         Map.of());
         for (Map<String, Object> row : rows) {
             row.put("credentials", parseJson(text(row.remove("credentialMask"))));
@@ -296,6 +375,27 @@ public class SharedProviderAccessService {
         String country = normalizeCountry(requiredText(body.get("countryCode"), "countryCode"));
         String currency = normalizeCurrency(requiredText(body.get("currencyCode"), "currencyCode"));
         ensureTreasuryAccounts(channel, environment, country, currency);
+        List<Map<String, Object>> existing =
+                jdbc.queryForList(
+                        "SELECT * FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:env AND country_code=:country AND currency_code=:currency FOR UPDATE",
+                        new MapSqlParameterSource("channel", channel)
+                                .addValue("env", environment)
+                                .addValue("country", country)
+                                .addValue("currency", currency));
+        if (!existing.isEmpty()) {
+            Map<String, Object> previous = existing.get(0);
+            if (!(body.get("revision") instanceof Number)
+                    || ((Number) body.get("revision")).longValue()
+                            != ((Number) previous.get("revision")).longValue())
+                throw new PaymentGatewayException(
+                        "Platform credentials changed; reload before saving");
+            credentials =
+                    net.citotech.cito.merchant.CredentialEdits.merge(
+                            parseJson(crypto.decrypt(text(previous.get("credential_payload")))),
+                            credentials,
+                            body.get("clearFields") instanceof List<?> clear ? clear : List.of());
+        }
+
         if (MtnMomoCredentialSchema.CHANNEL_CODE.equalsIgnoreCase(channel)) {
             MtnMomoCredentialSchema.validate(credentials, environment, country, currency);
         } else if (AirtelOpenApiCredentialSchema.CHANNEL_CODE.equalsIgnoreCase(channel)) {
@@ -317,7 +417,7 @@ public class SharedProviderAccessService {
         jdbc.update(
                 "INSERT INTO platform_channel_credentials (channel_code, environment, country_code, currency_code, credential_payload, credential_mask, status, created_by, updated_by) "
                         + "VALUES (:channel,:environment,:country,:currency,:payload,:mask,'CONFIGURED',:actor,:actor) "
-                        + "ON DUPLICATE KEY UPDATE credential_payload=:payload, credential_mask=:mask, status='CONFIGURED', updated_by=:actor, approved_by=NULL, approved_at=NULL, disabled_by=NULL, disabled_at=NULL",
+                        + "ON DUPLICATE KEY UPDATE credential_payload=:payload, credential_mask=:mask, revision=revision+1, last_test_status=NULL, tested_revision=NULL, last_tested_at=NULL, status='CONFIGURED', updated_by=:actor, approved_by=NULL, approved_at=NULL, disabled_by=NULL, disabled_at=NULL",
                 p);
         return platformCredential(channel, environment, country, currency);
     }
@@ -347,10 +447,17 @@ public class SharedProviderAccessService {
         String approver = requiredActor(actor);
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, status, updated_by FROM platform_channel_credentials WHERE id=:id FOR UPDATE",
+                        "SELECT id, channel_code, status, updated_by, revision, tested_revision, last_test_status FROM platform_channel_credentials WHERE id=:id FOR UPDATE",
                         new MapSqlParameterSource().addValue("id", id));
         if (rows.isEmpty()) throw new PaymentGatewayException("Platform credential not found");
         Map<String, Object> row = rows.get(0);
+        if (net.citotech.cito.gateway.MobileMoneyExecutionService.managed(
+                        text(row.get("channel_code")))
+                && (!"CONNECTIVITY_VERIFIED".equals(row.get("last_test_status"))
+                        || !java.util.Objects.equals(
+                                row.get("revision"), row.get("tested_revision"))))
+            throw new PaymentGatewayException(
+                    "Verify provider connectivity for the current credential revision before approval");
         if (!"CONFIGURED".equals(text(row.get("status"))))
             throw new PaymentGatewayException(
                     "Only CONFIGURED platform credentials can be approved");
@@ -401,7 +508,7 @@ public class SharedProviderAccessService {
             String channel, String environment, String country, String currency) {
         Integer count =
                 jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency AND status='ACTIVE'",
+                        "SELECT COUNT(*) FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency AND status='ACTIVE' AND (channel_code NOT IN ('mtn_momo','airtel_open_api') OR (last_test_status='CONNECTIVITY_VERIFIED' AND tested_revision=revision))",
                         new MapSqlParameterSource()
                                 .addValue("channel", channel)
                                 .addValue(
@@ -417,7 +524,7 @@ public class SharedProviderAccessService {
             String channel, String environment, String country, String currency) {
         List<String> rows =
                 jdbc.query(
-                        "SELECT credential_payload FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency AND status='ACTIVE' LIMIT 1",
+                        "SELECT credential_payload FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency AND status='ACTIVE' AND (channel_code NOT IN ('mtn_momo','airtel_open_api') OR (last_test_status='CONNECTIVITY_VERIFIED' AND tested_revision=revision)) LIMIT 1",
                         new MapSqlParameterSource()
                                 .addValue("channel", channel)
                                 .addValue(
@@ -516,7 +623,7 @@ public class SharedProviderAccessService {
             String channel, String environment, String country, String currency) {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, credential_mask AS credentialMask, status, created_by AS createdBy, updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS approvedAt FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency LIMIT 1",
+                        "SELECT id, revision, last_test_status AS lastTestStatus, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, credential_mask AS credentialMask, status, created_by AS createdBy, updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS approvedAt FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency LIMIT 1",
                         new MapSqlParameterSource()
                                 .addValue("channel", channel)
                                 .addValue("environment", environment)
@@ -529,7 +636,7 @@ public class SharedProviderAccessService {
     private Map<String, Object> platformCredentialById(long id) {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, credential_mask AS credentialMask, status, created_by AS createdBy, updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS approvedAt FROM platform_channel_credentials WHERE id=:id",
+                        "SELECT id, revision, last_test_status AS lastTestStatus, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, credential_mask AS credentialMask, status, created_by AS createdBy, updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS approvedAt FROM platform_channel_credentials WHERE id=:id",
                         new MapSqlParameterSource().addValue("id", id));
         if (rows.isEmpty()) throw new PaymentGatewayException("Platform credential not found");
         return safeCredential(rows.get(0));
@@ -542,25 +649,9 @@ public class SharedProviderAccessService {
     }
 
     private Map<String, Object> mask(Map<String, Object> values) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : values.entrySet()) {
-            String key = entry.getKey();
-            String value = text(entry.getValue());
-            String normalizedKey = key.toLowerCase(Locale.ROOT);
-            if (normalizedKey.contains("url")
-                    || normalizedKey.endsWith("host")
-                    || normalizedKey.endsWith("environment")
-                    || normalizedKey.endsWith("currency")
-                    || normalizedKey.equals("partyidtype")) result.put(key, value);
-            else if (value.length() <= 4) result.put(key, "****");
-            else
-                result.put(
-                        key, value.substring(0, 2) + "****" + value.substring(value.length() - 2));
-        }
-        return result;
+        return net.citotech.cito.merchant.CredentialEdits.mask(values);
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Object> map(Object value) {
         if (value instanceof Map<?, ?>) return new LinkedHashMap<>((Map<String, Object>) value);
         throw new PaymentGatewayException("credentials object is required");

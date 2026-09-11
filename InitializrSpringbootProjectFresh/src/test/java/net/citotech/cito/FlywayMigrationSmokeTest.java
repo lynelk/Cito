@@ -14,13 +14,13 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that the complete migration history applies to a pristine externally supplied MySQL
- * schema and leaves the database-level audit protections in place.
+ * Verifies the complete migration history on pristine MySQL, then a populated V126-to-V128 upgrade,
+ * while retaining database-level audit and financial protections.
  */
 class FlywayMigrationSmokeTest {
 
     @Test
-    void appliesAllMigrationsToCleanMysqlSchema() throws SQLException {
+    void appliesAllMigrationsToCleanMysqlSchema() throws Exception {
         String url = System.getenv("DB_URL");
         Assumptions.assumeTrue(
                 url != null && url.startsWith("jdbc:mysql:"),
@@ -28,6 +28,20 @@ class FlywayMigrationSmokeTest {
 
         String username = requireEnvironment("DB_USERNAME");
         String password = requireEnvironment("DB_PASSWORD");
+
+        MigrateResult baseline =
+                Flyway.configure()
+                        .dataSource(url, username, password)
+                        .locations("classpath:db/migration")
+                        .baselineOnMigrate(false)
+                        .target("126")
+                        .load()
+                        .migrate();
+        assertTrue(baseline.success);
+        assertTrue(baseline.migrationsExecuted > 0, "A clean schema must execute migrations");
+        var fixture =
+                net.citotech.cito.scheduler.MtnReferenceCollationMysqlScenario.beforeUpgrade(
+                        url, username, password);
 
         MigrateResult result =
                 Flyway.configure()
@@ -38,14 +52,36 @@ class FlywayMigrationSmokeTest {
                         .migrate();
 
         assertTrue(result.success, "Flyway migration must succeed");
-        assertTrue(result.migrationsExecuted > 0, "A clean schema must execute migrations");
+        assertTrue(result.migrationsExecuted > 0, "The V126 upgrade must execute V127 and V128");
+        net.citotech.cito.scheduler.MtnReferenceCollationMysqlScenario.afterUpgrade(
+                url, username, password, fixture);
+        Flyway.configure()
+                .dataSource(url, username, password)
+                .locations("classpath:db/migration")
+                .load()
+                .validate();
 
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            assertEquals("124", latestSuccessfulVersion(connection));
+            assertEquals("128", latestSuccessfulVersion(connection));
+            assertEquals(
+                    1,
+                    scalarCount(
+                            connection,
+                            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() "
+                                    + "AND table_name='api_endpoint_rates' AND column_name='amount' "
+                                    + "AND numeric_precision=19 AND numeric_scale=4 "
+                                    + "AND CAST(column_default AS DECIMAL(19,4))=0"));
+            assertEquals(
+                    1,
+                    scalarCount(
+                            connection,
+                            "SELECT COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() "
+                                    + "AND table_name='api_endpoint_rates' AND constraint_name='chk_api_rate_nonnegative' "
+                                    + "AND constraint_type='CHECK'"));
             assertEquals(4, auditProtectionTriggerCount(connection));
-            assertEquals(5, treasuryAccountRoleCount(connection, "MASTER"));
-            assertEquals(5, treasuryAccountRoleCount(connection, "COLLECTION"));
-            assertEquals(5, treasuryAccountRoleCount(connection, "DISBURSEMENT"));
+            assertEquals(6, treasuryAccountRoleCount(connection, "MASTER"));
+            assertEquals(6, treasuryAccountRoleCount(connection, "COLLECTION"));
+            assertEquals(6, treasuryAccountRoleCount(connection, "DISBURSEMENT"));
             assertEquals(3, mtnScopeAccountCount(connection, "PRODUCTION", "UGX"));
             assertEquals(3, mtnScopeAccountCount(connection, "SANDBOX", "EUR"));
             assertEquals(0, nonZeroSeededTreasuryAccountCount(connection));
@@ -55,6 +91,10 @@ class FlywayMigrationSmokeTest {
             assertEquals(0, defaultOperationalMerchantUserCount(connection));
             assertEquals(0, nonZeroDefaultOperationalBalanceCount(connection));
         }
+        net.citotech.cito.ledger.LedgerReservationMysqlScenario.run(
+                new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                        url, username, password));
+        net.citotech.cito.gateway.MobileMoneyMysqlScenario.run(url, username, password);
         net.citotech.cito.communication.outbox.NotificationMysqlScenario.run(
                 url, username, password);
     }

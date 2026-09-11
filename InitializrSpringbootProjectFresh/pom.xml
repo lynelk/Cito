@@ -17,6 +17,10 @@
 
     <properties>
         <java.version>21</java.version>
+        <netty.version>4.2.16.Final</netty.version>
+        <tomcat.version>11.0.25</tomcat.version>
+        <spring-security.version>7.1.1</spring-security.version>
+        <spring-framework.version>7.0.9</spring-framework.version>
         <!-- Audit K1/K3: tests tagged "docker" (Testcontainers-backed) are excluded from the
              default `mvn test`/`mvn verify` run so an unavailable Docker daemon never breaks the
              build for contributors or CI lanes that don't provision one. A Docker-capable
@@ -108,7 +112,7 @@
         </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
             <version>3.1.0</version>
         </dependency>
         <!-- Audit H1: routes any remaining java.util.logging output (our own not-yet-converted

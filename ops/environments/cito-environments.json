@@ -36,47 +36,32 @@
     },
     "staging": {
       "status": "PLANNED",
+      "projectName": "Cito Staging",
+      "projectId": "c69c90a9-ab6f-48ff-8e04-1e10a10f92db",
       "environmentId": "efde4ddb-0312-48bc-94b2-a096fd3678b0",
       "branch": "main",
       "commitPolicy": "BACKEND_FRONTEND_MATCH_BRANCH_HEAD",
       "autoDeploy": true,
-      "isolationPolicy": "NO_PRODUCTION_SECRETS_OR_PROVIDER_BALANCES",
-      "dataPolicy": "SYNTHETIC_OR_APPROVED_SANITIZED_DATA_ONLY",
-      "promotionPolicy": "EXACT_STAGING_SHA_MUST_PASS_RELEASE_UAT_AND_SMOKE_GATES_BEFORE_PRODUCTION_PROMOTION",
-      "provisioningStatus": "SERVICES_RUNNING_REVISION_PARITY_AND_ACCEPTANCE_PENDING",
-      "projectId": "c69c90a9-ab6f-48ff-8e04-1e10a10f92db",
-      "projectName": "Cito Staging",
-      "railwayEnvironmentLabel": "production",
-      "candidateBranch": "feature/api-reference-endpoint-billing",
       "services": {
         "backend": {
           "serviceId": "11bdd2d3-c202-43b1-824b-35446a0e6a31",
-          "rootDirectory": "InitializrSpringbootProjectFresh",
-          "buildCommand": "mvn -B -DskipTests -Dspotless.skip=true clean package --no-transfer-progress",
-          "startCommand": "sh /app/start.sh",
-          "publicDomain": "cito-staging-backend-production.up.railway.app",
-          "springProfile": "staging",
-          "nonSecretOverrides": {
-            "CPAY_CLEANUP_ENABLED": "false",
-            "APP_BASE_URL": "https://cito-staging-backend-production.up.railway.app",
-            "CORS_ALLOWED_ORIGINS": "https://cito-staging-backend-production.up.railway.app"
-          }
+          "rootDirectory": "InitializrSpringbootProjectFresh"
         },
         "frontend": {
           "serviceId": "69ef3eaa-05b5-4504-8f5e-2bfaa27f3512",
-          "rootDirectory": "clientside",
-          "sourceBranchBinding": "DEFAULT_MAIN",
-          "builder": "DOCKERFILE",
-          "startCommand": "/start.sh"
+          "rootDirectory": "clientside"
         },
         "database": {
-          "serviceId": "4fe51073-a138-4ef3-965b-69245786594e",
-          "image": "mysql:8.4",
-          "persistence": "EPHEMERAL_VALIDATION_ONLY",
-          "startCommand": "docker-entrypoint.sh mysqld --log-bin-trust-function-creators=1",
-          "initialization": "MYSQL_INITDB_SKIP_TZINFO=1"
+          "name": "cito-staging-main-mysql",
+          "serviceId": "8109d27e-5d8c-4ed8-af3e-bf6234e9ca3b",
+          "volumeId": "8f5a439b-6477-4506-9880-60a250900cf6",
+          "mountPath": "/var/lib/mysql"
         }
-      }
+      },
+      "acceptanceNote": "2026-09-11: backend main 0ab5bd5c passed live health with DB UP and gateway SANDBOX; runtime logs verify the recovered persistent database and V127. The API-workbench candidate introduces V128 without modifying main migration history. Frontend/backend exact-revision parity, authenticated UAT and production promotion remain pending; PLANNED is not release acceptance.",
+      "isolationPolicy": "NO_PRODUCTION_SECRETS_OR_PROVIDER_BALANCES",
+      "dataPolicy": "SYNTHETIC_OR_APPROVED_SANITIZED_DATA_ONLY",
+      "promotionPolicy": "EXACT_STAGING_SHA_MUST_PASS_RELEASE_UAT_AND_SMOKE_GATES_BEFORE_PRODUCTION_PROMOTION"
     }
   }
 }

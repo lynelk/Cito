@@ -26,7 +26,8 @@ public class MerchantEnvironmentService {
     public Map<String, Object> getPreference(MerchantUser user) {
         requireUser(user);
         String environment = currentEnvironment(user.getMerchant_id(), user.getId());
-        Map<String, Object> response = baseEnvironmentStatus(user.getMerchant_number(), environment);
+        Map<String, Object> response =
+                baseEnvironmentStatus(user.getMerchant_number(), environment);
         response.put("merchantId", user.getMerchant_id());
         response.put("merchantUserId", user.getId());
         return response;
@@ -34,7 +35,8 @@ public class MerchantEnvironmentService {
 
     public Map<String, Object> savePreference(MerchantUser user, Map<String, Object> body) {
         requireUser(user);
-        String environment = normalizedEnvironment(text(body == null ? null : body.get("environment")));
+        String environment =
+                normalizedEnvironment(text(body == null ? null : body.get("environment")));
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("merchant_id", user.getMerchant_id());
         p.addValue("merchant_user_id", user.getId());
@@ -43,11 +45,12 @@ public class MerchantEnvironmentService {
         p.addValue("limit_enabled", productionLimitEnabled() ? 1 : 0);
         p.addValue("limit_count", productionTransactionLimit());
         p.addValue("updated_by", user.getEmail());
-        String sql = "INSERT INTO merchant_environment_preferences "
-            + "(merchant_id, merchant_user_id, channel_code, active_environment, production_limit_enabled, production_transaction_limit, updated_by) "
-            + "VALUES (:merchant_id, :merchant_user_id, :channel_code, :active_environment, :limit_enabled, :limit_count, :updated_by) "
-            + "ON DUPLICATE KEY UPDATE active_environment=:active_environment, production_limit_enabled=:limit_enabled, "
-            + "production_transaction_limit=:limit_count, updated_by=:updated_by, updated_at=CURRENT_TIMESTAMP";
+        String sql =
+                "INSERT INTO merchant_environment_preferences "
+                        + "(merchant_id, merchant_user_id, channel_code, active_environment, production_limit_enabled, production_transaction_limit, updated_by) "
+                        + "VALUES (:merchant_id, :merchant_user_id, :channel_code, :active_environment, :limit_enabled, :limit_count, :updated_by) "
+                        + "ON DUPLICATE KEY UPDATE active_environment=:active_environment, production_limit_enabled=:limit_enabled, "
+                        + "production_transaction_limit=:limit_count, updated_by=:updated_by, updated_at=CURRENT_TIMESTAMP";
         jdbcTemplate.update(sql, p);
         return getPreference(user);
     }
@@ -59,36 +62,49 @@ public class MerchantEnvironmentService {
 
     public Map<String, Object> sandboxGuide(String merchantNumber) {
         Map<String, Object> guide = new LinkedHashMap<>();
-        guide.put("sandboxBaseUrl", setting("developer_sandbox_base_url", "https://sandbox.cpay.example"));
-        guide.put("productionBaseUrl", setting("developer_production_base_url", "https://api.cpay.example"));
-        guide.put("merchantNumber", isBlank(merchantNumber) ? setting("developer_sandbox_merchant_number", "1000000") : merchantNumber);
+        guide.put(
+                "sandboxBaseUrl",
+                setting("developer_sandbox_base_url", "https://sandbox.cpay.example"));
+        guide.put(
+                "productionBaseUrl",
+                setting("developer_production_base_url", "https://api.cpay.example"));
+        guide.put(
+                "merchantNumber",
+                isBlank(merchantNumber)
+                        ? setting("developer_sandbox_merchant_number", "1000000")
+                        : merchantNumber);
         guide.put("defaultCurrency", "UGX");
         guide.put("defaultCountry", "UG");
-        guide.put("idempotencyWindowHours", parseInt(setting("developer_sandbox_idempotency_hours", "24"), 24));
+        guide.put(
+                "idempotencyWindowHours",
+                parseInt(setting("developer_sandbox_idempotency_hours", "24"), 24));
         guide.put("retentionDays", parseInt(setting("developer_sandbox_retention_days", "7"), 7));
-        guide.put("headers", List.of(
-            "X-CPay-Environment: SANDBOX",
-            "X-CPay-Idempotency-Key: unique-key-per-request",
-            "X-CPay-Signature: HMAC/RSA signature from your registered key"
-        ));
-        guide.put("environmentVariables", Map.of(
-            "CPAY_BASE_URL", guide.get("sandboxBaseUrl"),
-            "CPAY_MERCHANT_NUMBER", guide.get("merchantNumber"),
-            "CPAY_DEFAULT_CURRENCY", "UGX",
-            "CPAY_DEFAULT_COUNTRY", "UG",
-            "CPAY_CALLBACK_URL", "https://yourapp.example/cpay/callback"
-        ));
-        guide.put("testAccounts", List.of(
-            scenario("256770000001", "Collection succeeds", "202 then SUCCESSFUL"),
-            scenario("256770000002", "Collection declined", "202 then FAILED"),
-            scenario("256770000003", "Collection remains pending", "202 then PENDING"),
-            scenario("256770000004", "Provider timeout", "202 then UNKNOWN"),
-            scenario("256770000005", "Unsupported account", "Rejected"),
-            scenario("256750000001", "Payout succeeds", "202 then SUCCESSFUL"),
-            scenario("256750000002", "Payout fails", "202 then FAILED"),
-            scenario("256780000001", "SMS accepted", "ACCEPTED"),
-            scenario("256780000002", "SMS rejected", "REJECTED")
-        ));
+        guide.put(
+                "headers",
+                List.of(
+                        "X-CPay-Environment: SANDBOX",
+                        "X-CPay-Idempotency-Key: unique-key-per-request",
+                        "X-CPay-Signature: HMAC/RSA signature from your registered key"));
+        guide.put(
+                "environmentVariables",
+                Map.of(
+                        "CPAY_BASE_URL", guide.get("sandboxBaseUrl"),
+                        "CPAY_MERCHANT_NUMBER", guide.get("merchantNumber"),
+                        "CPAY_DEFAULT_CURRENCY", "UGX",
+                        "CPAY_DEFAULT_COUNTRY", "UG",
+                        "CPAY_CALLBACK_URL", "https://yourapp.example/cpay/callback"));
+        guide.put(
+                "testAccounts",
+                List.of(
+                        scenario("256770000001", "Collection succeeds", "202 then SUCCESSFUL"),
+                        scenario("256770000002", "Collection declined", "202 then FAILED"),
+                        scenario("256770000003", "Collection remains pending", "202 then PENDING"),
+                        scenario("256770000004", "Provider timeout", "202 then UNKNOWN"),
+                        scenario("256770000005", "Unsupported account", "Rejected"),
+                        scenario("256750000001", "Payout succeeds", "202 then SUCCESSFUL"),
+                        scenario("256750000002", "Payout fails", "202 then FAILED"),
+                        scenario("256780000001", "SMS accepted", "ACCEPTED"),
+                        scenario("256780000002", "SMS rejected", "REJECTED")));
         return guide;
     }
 
@@ -111,9 +127,15 @@ public class MerchantEnvironmentService {
         if (limit < 1) {
             return;
         }
-        int used = productionTransactionsToday(merchant == null ? null : merchant.getAccount_number());
+        int used =
+                productionTransactionsToday(merchant == null ? null : merchant.getAccount_number());
         if (used >= limit) {
-            throw new PaymentGatewayException("Production daily transaction limit reached (" + used + "/" + limit + "). Ask an administrator to raise or disable the limit.");
+            throw new PaymentGatewayException(
+                    "Production daily transaction limit reached ("
+                            + used
+                            + "/"
+                            + limit
+                            + "). Ask an administrator to raise or disable the limit.");
         }
     }
 
@@ -129,9 +151,10 @@ public class MerchantEnvironmentService {
             MapSqlParameterSource p = new MapSqlParameterSource();
             p.addValue("merchant_id", merchantId);
             p.addValue("merchant_user_id", merchantUserId);
-            String sql = "SELECT active_environment FROM merchant_environment_preferences "
-                + "WHERE merchant_id=:merchant_id AND merchant_user_id=:merchant_user_id AND channel_code='*' "
-                + "ORDER BY id DESC LIMIT 1";
+            String sql =
+                    "SELECT active_environment FROM merchant_environment_preferences "
+                            + "WHERE merchant_id=:merchant_id AND merchant_user_id=:merchant_user_id AND channel_code='*' "
+                            + "ORDER BY id DESC LIMIT 1";
             String value = jdbcTemplate.queryForObject(sql, p, String.class);
             return normalizedEnvironment(value);
         } catch (DataAccessException e) {
@@ -139,7 +162,7 @@ public class MerchantEnvironmentService {
         }
     }
 
-    private Map<String, Object> productionLimitStatus(String merchantNumber) {
+    public Map<String, Object> productionLimitStatus(String merchantNumber) {
         boolean enabled = productionLimitEnabled();
         int limit = productionTransactionLimit();
         int used = productionTransactionsToday(merchantNumber);
@@ -156,12 +179,20 @@ public class MerchantEnvironmentService {
             return 0;
         }
         try {
-            String sql = "SELECT COUNT(*) FROM provider_endpoint_runs "
-                + "WHERE merchant_number=:merchant_number AND environment='PRODUCTION' AND created_at >= CURRENT_DATE()";
-            Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("merchant_number", merchantNumber), Integer.class);
+            String sql =
+                    "SELECT (SELECT COUNT(*) FROM provider_endpoint_runs "
+                            + "WHERE merchant_number=:merchant_number AND environment='PRODUCTION' AND created_at >= CURRENT_DATE()) "
+                            + "+ (SELECT COUNT(*) FROM mobile_money_executions e JOIN merchants m ON m.id=e.merchant_id "
+                            + "WHERE m.account_number=:merchant_number AND e.environment='PRODUCTION' AND e.created_at >= CURRENT_DATE())";
+            Integer count =
+                    jdbcTemplate.queryForObject(
+                            sql,
+                            new MapSqlParameterSource("merchant_number", merchantNumber),
+                            Integer.class);
             return count == null ? 0 : count;
         } catch (DataAccessException e) {
-            return 0;
+            throw new PaymentGatewayException(
+                    "Production usage is unavailable; submission is not permitted");
         }
     }
 
@@ -176,7 +207,9 @@ public class MerchantEnvironmentService {
     private String setting(String name, String defaultValue) {
         try {
             String sql = "SELECT setting_value FROM settings WHERE name=:name LIMIT 1";
-            String value = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("name", name), String.class);
+            String value =
+                    jdbcTemplate.queryForObject(
+                            sql, new MapSqlParameterSource("name", name), String.class);
             return isBlank(value) ? defaultValue : value.trim();
         } catch (DataAccessException e) {
             return defaultValue;

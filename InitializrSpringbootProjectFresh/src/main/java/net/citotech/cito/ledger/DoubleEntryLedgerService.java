@@ -152,6 +152,7 @@ public class DoubleEntryLedgerService {
                         merchantId,
                         currency,
                         new ReservationCommand(reservationReference, sourceReference, amount));
+        lockReservationScope(merchantId, reservation.currency());
         ExistingReservation existing = findReservation(reservation.reservationReference());
         if (existing != null) {
             if (existing.matches(
@@ -165,8 +166,8 @@ public class DoubleEntryLedgerService {
                     "Ledger reservation reference already exists with different attributes");
         }
 
-        lockReservationScope(merchantId, reservation.currency());
-        BigDecimal availableBalance = availableMerchantBalance(merchantId, reservation.currency());
+        BigDecimal availableBalance =
+                availableMerchantBalance(merchantId, reservation.currency(), true);
         if (availableBalance.compareTo(reservation.amount()) < 0) {
             throw new PaymentGatewayException(
                     "Insufficient ledger-derived available balance for reservation");
@@ -223,7 +224,7 @@ public class DoubleEntryLedgerService {
             }
         }
 
-        BigDecimal available = availableMerchantBalance(merchantId, normalizedCurrency);
+        BigDecimal available = availableMerchantBalance(merchantId, normalizedCurrency, true);
         if (required.signum() > 0 && available.compareTo(required) < 0) {
             return new BatchReservationResult(false, required, available);
         }
@@ -234,6 +235,11 @@ public class DoubleEntryLedgerService {
     }
 
     public BigDecimal availableMerchantBalance(long merchantId, String currency) {
+        return availableMerchantBalance(merchantId, currency, false);
+    }
+
+    /** Both query levels must read current rows, not an earlier REPEATABLE READ snapshot. */
+    private BigDecimal availableMerchantBalance(long merchantId, String currency, boolean locking) {
         if (merchantId <= 0 || blank(currency)) {
             throw new PaymentGatewayException("merchantId and currency are required");
         }
@@ -249,10 +255,13 @@ public class DoubleEntryLedgerService {
                                 + " THEN -le.amount ELSE 0 END), 0) AS posted_balance, COALESCE((SELECT"
                                 + " SUM(amount) FROM ledger_reservations lr WHERE"
                                 + " lr.merchant_id=:merchant_id AND lr.currency=:currency AND"
-                                + " lr.reservation_status='RESERVED'), 0) AS active_reservations FROM"
+                                + " lr.reservation_status='RESERVED'"
+                                + (locking ? " FOR UPDATE" : "")
+                                + "), 0) AS active_reservations FROM"
                                 + " ledger_entries le JOIN ledger_accounts la ON la.id = le.account_id"
                                 + " WHERE la.owner_type='MERCHANT' AND la.owner_id=:merchant_id AND"
-                                + " le.currency=:currency",
+                                + " le.currency=:currency"
+                                + (locking ? " FOR UPDATE" : ""),
                         p);
         return decimal(row.get("posted_balance")).subtract(decimal(row.get("active_reservations")));
     }
@@ -281,7 +290,7 @@ public class DoubleEntryLedgerService {
                 "UPDATE ledger_reservations SET reservation_status='RELEASED' WHERE"
                         + " merchant_id=:merchant_id AND reservation_status='RESERVED' AND"
                         + " LEFT(source_reference, CHAR_LENGTH(:source_reference_prefix))="
-                        + " :source_reference_prefix",
+                        + " :source_reference_prefix AND NOT EXISTS (SELECT 1 FROM mobile_money_executions e JOIN merchant_transactions_log t ON t.tx_unique_id=e.transaction_id WHERE e.merchant_id=ledger_reservations.merchant_id AND e.merchant_reference=ledger_reservations.source_reference AND t.status IN ('PENDING','UNDETERMINED'))",
                 p);
     }
 
@@ -460,7 +469,7 @@ public class DoubleEntryLedgerService {
                 jdbcTemplate.queryForList(
                         "SELECT merchant_id, source_reference, amount, currency, reservation_status"
                                 + " FROM ledger_reservations WHERE"
-                                + " reservation_reference=:reservation_reference",
+                                + " reservation_reference=:reservation_reference FOR UPDATE",
                         new MapSqlParameterSource("reservation_reference", reservationReference));
         if (reservations.isEmpty()) {
             return null;

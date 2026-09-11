@@ -163,7 +163,16 @@ public class ProviderTreasuryService {
                                 + " merchant_reference, status FROM provider_treasury_reservations"
                                 + " WHERE idempotency_key=:key LIMIT 1",
                         new MapSqlParameterSource().addValue("key", idempotency));
-        if (!existing.isEmpty()) return reservation(existing.get(0));
+        if (!existing.isEmpty()) {
+            Reservation previous = reservation(existing.get(0));
+            if (previous.treasuryAccountId() != accountId
+                    || previous.amount().compareTo(money) != 0
+                    || !previous.currencyCode().equals(context.currencyCode())
+                    || !previous.operation().equals(operation))
+                throw new PaymentGatewayException(
+                        "Shared-provider reference conflicts with its original financial attributes");
+            return previous;
+        }
 
         String direction = "PAYOUT".equals(operation) ? "OUTGOING" : "INCOMING";
         String status = "PAYOUT".equals(operation) ? "RESERVED" : "INITIATED";
@@ -224,15 +233,6 @@ public class ProviderTreasuryService {
                     money,
                     context.currencyCode(),
                     new JournalLeg(
-                            accountId,
-                            "PROVIDER_FLOAT_AVAILABLE:" + accountId,
-                            merchant.getId(),
-                            id,
-                            null,
-                            reference,
-                            "CREDIT",
-                            "Reserve provider float for shared payout"),
-                    new JournalLeg(
                             null,
                             "PROVIDER_FLOAT_RESERVED:" + accountId,
                             merchant.getId(),
@@ -240,6 +240,15 @@ public class ProviderTreasuryService {
                             null,
                             reference,
                             "DEBIT",
+                            "Reserve provider float for shared payout"),
+                    new JournalLeg(
+                            accountId,
+                            "PROVIDER_FLOAT_AVAILABLE:" + accountId,
+                            merchant.getId(),
+                            id,
+                            null,
+                            reference,
+                            "CREDIT",
                             "Reserve provider float for shared payout"),
                     "SYSTEM");
         }
@@ -634,6 +643,7 @@ public class ProviderTreasuryService {
         String currency = text(account.get("currency_code"));
         String reference = text(reservation.get("merchant_reference"));
         String providerRef = text(providerReference);
+        closePendingJournal(reservation, currency, actor);
 
         if ("PAYOUT".equals(operation)) {
             if ("RESERVED".equals(status)) {
@@ -799,21 +809,21 @@ public class ProviderTreasuryService {
                     currency,
                     new JournalLeg(
                             null,
-                            "PROVIDER_FLOAT_RESERVED:" + accountId,
-                            merchantId,
-                            id,
-                            null,
-                            reference,
-                            "CREDIT",
-                            "Provider payout pending"),
-                    new JournalLeg(
-                            null,
                             "PROVIDER_FLOAT_PENDING:" + accountId,
                             merchantId,
                             id,
                             null,
                             reference,
                             "DEBIT",
+                            "Provider payout pending"),
+                    new JournalLeg(
+                            null,
+                            "PROVIDER_FLOAT_RESERVED:" + accountId,
+                            merchantId,
+                            id,
+                            null,
+                            reference,
+                            "CREDIT",
                             "Provider payout pending"),
                     actor);
         } else {
@@ -911,15 +921,6 @@ public class ProviderTreasuryService {
                     currency,
                     new JournalLeg(
                             null,
-                            "PROVIDER_FLOAT_RESERVED:" + accountId,
-                            merchantId,
-                            id,
-                            null,
-                            reference,
-                            "CREDIT",
-                            "Release failed shared payout"),
-                    new JournalLeg(
-                            null,
                             "PROVIDER_FLOAT_AVAILABLE:" + accountId,
                             merchantId,
                             id,
@@ -927,8 +928,21 @@ public class ProviderTreasuryService {
                             reference,
                             "DEBIT",
                             "Release failed shared payout"),
+                    new JournalLeg(
+                            null,
+                            ("PENDING".equals(status)
+                                            ? "PROVIDER_FLOAT_PENDING:"
+                                            : "PROVIDER_FLOAT_RESERVED:")
+                                    + accountId,
+                            merchantId,
+                            id,
+                            null,
+                            reference,
+                            "CREDIT",
+                            "Release failed shared payout"),
                     actor);
         } else if ("PENDING".equals(status)) {
+            closePendingJournal(reservation, currency, actor);
             jdbc.update(
                     "UPDATE provider_treasury_accounts SET"
                             + " pending_incoming_balance=pending_incoming_balance-:amount,"
@@ -952,6 +966,53 @@ public class ProviderTreasuryService {
                 new MapSqlParameterSource()
                         .addValue("id", id)
                         .addValue("provider", text(providerReference)));
+    }
+
+    /** Clear reservation/receivable control legs when confirmed settlement replaces them. */
+    private void closePendingJournal(
+            Map<String, Object> reservation, String currency, String actor) {
+        long id = number(reservation.get("id")),
+                account = number(reservation.get("treasury_account_id")),
+                merchant = number(reservation.get("merchant_id"));
+        String status = text(reservation.get("status")),
+                reference = text(reservation.get("merchant_reference"));
+        boolean payout = "PAYOUT".equals(reservation.get("operation"));
+        if (!("PENDING".equals(status) || payout && "RESERVED".equals(status))) return;
+        String debit =
+                payout
+                        ? "PROVIDER_FLOAT_AVAILABLE:" + account
+                        : "MERCHANT_PENDING_INFLOW:" + merchant;
+        String credit =
+                payout
+                        ? ("PENDING".equals(status)
+                                        ? "PROVIDER_FLOAT_PENDING:"
+                                        : "PROVIDER_FLOAT_RESERVED:")
+                                + account
+                        : "PROVIDER_RECEIVABLE:" + account;
+        appendBalanced(
+                "HOLD_CLOSE:" + id,
+                "PENDING_CONTROL_CLOSE",
+                money(reservation.get("amount")),
+                currency,
+                new JournalLeg(
+                        null,
+                        debit,
+                        merchant,
+                        id,
+                        null,
+                        reference,
+                        "DEBIT",
+                        "Close pending provider control"),
+                new JournalLeg(
+                        null,
+                        credit,
+                        merchant,
+                        id,
+                        null,
+                        reference,
+                        "CREDIT",
+                        "Close pending provider control"),
+                actor);
     }
 
     private void upsertExposure(

@@ -109,6 +109,9 @@ public final class MtnMomoCredentialSchema {
             }
         }
 
+        ProviderEndpointPolicy.requireOrigin(
+                value(credentials, "baseUrl"),
+                "SANDBOX".equals(env) ? SANDBOX_BASE_URL : PRODUCTION_BASE_URL);
         URI baseUrl = httpsUri(value(credentials, "baseUrl"), "baseUrl");
         if (baseUrl.getQuery() != null || baseUrl.getFragment() != null) {
             throw new PaymentGatewayException("MTN baseUrl cannot contain a query or fragment");
@@ -167,7 +170,7 @@ public final class MtnMomoCredentialSchema {
 
     private static String requiredReference(String referenceId) {
         String value = referenceId == null ? "" : referenceId.trim();
-        if (value.isEmpty()) {
+        if (value.isEmpty() || !value.matches("[A-Za-z0-9-]+")) {
             throw new PaymentGatewayException("MTN referenceId is required");
         }
         return value;
@@ -176,7 +179,12 @@ public final class MtnMomoCredentialSchema {
     private static URI httpsUri(String raw, String field) {
         try {
             URI uri = URI.create(raw);
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || blank(uri.getHost())) {
+            if (!"https".equalsIgnoreCase(uri.getScheme())
+                    || blank(uri.getHost())
+                    || uri.getUserInfo() != null
+                    || uri.getFragment() != null
+                    || uri.getQuery() != null
+                    || (uri.getPort() != -1 && uri.getPort() != 443)) {
                 throw new IllegalArgumentException();
             }
             return uri;

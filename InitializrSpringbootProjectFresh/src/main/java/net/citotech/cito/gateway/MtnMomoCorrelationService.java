@@ -55,6 +55,9 @@ public class MtnMomoCorrelationService {
         this.statusClient = statusClient;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private MobileMoneyRecoveryService mobileMoneyRecovery;
+
     public void capture(
             PaymentGatewayRequest request, String operation, GateWayResponse providerResponse) {
         if (request == null || providerResponse == null) return;
@@ -112,6 +115,16 @@ public class MtnMomoCorrelationService {
             String callbackStatus,
             String callbackFinancialTransactionId) {
         requireUuid(providerReference);
+        if (mobileMoneyRecovery != null
+                && mobileMoneyRecovery.signal("mtn_momo", providerReference, externalId)) {
+            return Map.of(
+                    "transactionUpdated",
+                    false,
+                    "status",
+                    "PENDING",
+                    "message",
+                    "Provider status verification scheduled");
+        }
         String merchantReference = required(externalId, "externalId");
 
         Correlation correlation = findCorrelation(providerReference);
@@ -151,7 +164,7 @@ public class MtnMomoCorrelationService {
                                 + " t ON t.merchant_id=m.id"
                                 + " AND t.tx_merchant_ref=c.merchant_reference"
                                 + " AND t.gateway_id=:gateway_id"
-                                + " WHERE t.status IN ('PENDING','UNDETERMINED')"
+                                + " WHERE NOT EXISTS (SELECT 1 FROM mobile_money_executions e WHERE e.transaction_id=t.tx_unique_id) AND t.status IN ('PENDING','UNDETERMINED')"
                                 + " ORDER BY c.updated_at ASC LIMIT :limit",
                         new MapSqlParameterSource()
                                 .addValue("gateway_id", LegacyGatewayIds.MTN_MOMO)
@@ -159,6 +172,9 @@ public class MtnMomoCorrelationService {
         int finalized = 0;
         for (Map<String, Object> row : rows) {
             String providerReference = text(row.get("provider_reference"));
+            jdbc.update(
+                    "UPDATE mtn_momo_correlations SET updated_at=CURRENT_TIMESTAMP WHERE provider_reference=:reference",
+                    new MapSqlParameterSource("reference", providerReference));
             try {
                 Map<String, Object> outcome =
                         verifyAndApply(correlation(row), providerReference, "", "", false);
@@ -203,6 +219,41 @@ public class MtnMomoCorrelationService {
                     "MTN verified status externalId does not match the callback correlation");
         }
 
+        if (verified.amount() == null
+                || transaction
+                                .getOriginalAmountDecimal()
+                                .compareTo(new java.math.BigDecimal(verified.amount()))
+                        != 0
+                || !transaction.getCurrency().equalsIgnoreCase(verified.currency())
+                || !transaction.getPayer_number().equals(verified.account()))
+            throw new PaymentGatewayException(
+                    "Verified MTN amount, currency or party does not match transaction");
+
+        return new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                .execute(
+                        ignored ->
+                                applyVerified(
+                                        correlation,
+                                        providerReference,
+                                        callbackStatus,
+                                        callbackFinancialTransactionId,
+                                        callbackDriven,
+                                        transaction,
+                                        verified));
+    }
+
+    private Map<String, Object> applyVerified(
+            Correlation correlation,
+            String providerReference,
+            String callbackStatus,
+            String callbackFinancialTransactionId,
+            boolean callbackDriven,
+            Transaction transaction,
+            MtnMomoStatusClient.VerifiedStatus verified) {
+        jdbc.queryForObject(
+                "SELECT id FROM merchant_transactions_log WHERE id=:id FOR UPDATE",
+                new MapSqlParameterSource("id", transaction.getId()),
+                Long.class);
         Map<String, Object> treasuryReservation = null;
         try {
             treasuryReservation =
@@ -250,28 +301,11 @@ public class MtnMomoCorrelationService {
                             + normalizedProviderStatus(verified.status())
                             + "; callbackFinancialTransactionIdPresent="
                             + !text(callbackFinancialTransactionId).isEmpty();
-            int changed =
-                    jdbc.update(
-                            "UPDATE "
-                                    + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                                    + " SET status=:status, tx_gateway_ref=:gateway_ref,"
-                                    + " tx_update_trace=:trace, resolved_by=:resolved_by"
-                                    + " WHERE id=:id AND status IN ('PENDING','UNDETERMINED')",
-                            new MapSqlParameterSource()
-                                    .addValue("id", transaction.getId())
-                                    .addValue("status", finalStatus)
-                                    .addValue("gateway_ref", networkReference)
-                                    .addValue("trace", trace)
-                                    .addValue(
-                                            "resolved_by",
-                                            callbackDriven
-                                                    ? "MTN_STATUS_VERIFIED_CALLBACK"
-                                                    : "MTN_STATUS_VERIFIED_POLL"));
-            updated = changed > 0;
-            if (updated) {
-                Transaction refreshed = findTransactionById(transaction.getId());
-                if (refreshed != null) dispatchMerchantCallback(refreshed);
-            }
+            transaction.setFinalStatusSet(true);
+            transaction.setStatus(finalStatus);
+            transaction.setTx_gateway_ref(networkReference);
+            transaction.setTx_update_trace(trace);
+            updated = "success".equals(Common.updateTx(transaction, jdbc, transactionManager));
         }
 
         return result(

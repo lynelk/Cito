@@ -59,6 +59,9 @@ public class AdapterNativePaymentService {
         this.gatewayState = gatewayState;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private net.citotech.cito.gateway.MobileMoneyExecutionService mobileMoney;
+
     public String resolveEnvironment(String headerEnvironment, PaymentRequest request) {
         String requestEnvironment =
                 request == null || request.getMetadata() == null
@@ -72,11 +75,21 @@ public class AdapterNativePaymentService {
         String account = request.getPayer().getValue();
         String resolvedEnvironment = environmentService.normalizedEnvironment(environment);
         requireMetadataEntitlements(request, merchant, resolvedEnvironment);
-        environmentService.enforceProductionLimit(merchant, resolvedEnvironment);
         BigDecimal amount = MoneyAmount.of(request.getAmount()).asBigDecimal();
         AdapterSelection selection =
                 selectAdapterAndEnsureReady(
                         request, merchant, account, "COLLECT", resolvedEnvironment, amount);
+        if (net.citotech.cito.gateway.MobileMoneyExecutionService.managed(
+                selection.adapter().channelCode())) {
+            request.setChannel(selection.adapter().channelCode());
+            PaymentResult managedResult =
+                    mobileMoney.submit(
+                            request, merchant, resolvedEnvironment, "COLLECT", selection.adapter());
+            routingService.recordMobileMoneyReplay(
+                    selection.decisionReference(), managedResult.getStatus());
+            return managedResult;
+        }
+        environmentService.enforceProductionLimit(merchant, resolvedEnvironment);
         CredentialContext credentialContext =
                 sharedProviderAccessService.resolve(
                         merchant,
@@ -127,11 +140,21 @@ public class AdapterNativePaymentService {
         validate(request, merchant, false, Common.API_MOBILE_MONEY_PAYOUT);
         String account = request.getPayee().getValue();
         String resolvedEnvironment = environmentService.normalizedEnvironment(environment);
-        environmentService.enforceProductionLimit(merchant, resolvedEnvironment);
         BigDecimal amount = MoneyAmount.of(request.getAmount()).asBigDecimal();
         AdapterSelection selection =
                 selectAdapterAndEnsureReady(
                         request, merchant, account, "PAYOUT", resolvedEnvironment, amount);
+        if (net.citotech.cito.gateway.MobileMoneyExecutionService.managed(
+                selection.adapter().channelCode())) {
+            request.setChannel(selection.adapter().channelCode());
+            PaymentResult managedResult =
+                    mobileMoney.submit(
+                            request, merchant, resolvedEnvironment, "PAYOUT", selection.adapter());
+            routingService.recordMobileMoneyReplay(
+                    selection.decisionReference(), managedResult.getStatus());
+            return managedResult;
+        }
+        environmentService.enforceProductionLimit(merchant, resolvedEnvironment);
         CredentialContext credentialContext =
                 sharedProviderAccessService.resolve(
                         merchant,
@@ -205,15 +228,17 @@ public class AdapterNativePaymentService {
                                             new PaymentGatewayException(
                                                     "Unsupported channel: "
                                                             + request.getChannel()));
-            if (!sharedProviderAccessService.isReady(
-                    merchant,
-                    adapter.channelCode(),
-                    environment,
-                    request.getCountry(),
-                    request.getCurrency(),
-                    operation,
-                    amount,
-                    credentialSource(request))) {
+            if (!net.citotech.cito.gateway.MobileMoneyExecutionService.managed(
+                            adapter.channelCode())
+                    && !sharedProviderAccessService.isReady(
+                            merchant,
+                            adapter.channelCode(),
+                            environment,
+                            request.getCountry(),
+                            request.getCurrency(),
+                            operation,
+                            amount,
+                            credentialSource(request))) {
                 throw new PaymentGatewayException(
                         "Channel is not ready for merchant-owned or CPay shared-provider execution: "
                                 + adapter.channelCode());

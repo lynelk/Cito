@@ -39,7 +39,7 @@ public class ChargeShadowComparisonService {
                 jdbcTemplate.query(
                         "SELECT tl.tx_unique_id AS source_reference, tl.charges AS legacy_charge, "
                                 + "rc.rated_amount AS rated_charge "
-                                + "FROM merchant_transactions_log tl "
+                                + "FROM merchant_production_transactions tl "
                                 + "JOIN billing_rated_charges rc ON rc.source_reference = tl.tx_unique_id "
                                 + "WHERE tl.created_on >= :window_start AND tl.created_on < :window_end "
                                 + "AND rc.charge_type = 'CUSTOMER_CHARGE'",

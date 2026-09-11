@@ -3,18 +3,304 @@ info:
   title: Cito Admin API
   version: 2.1.0
   description: |
-    Administrative API contract for Cito operational and commercial control-plane workflows.
-    These endpoints are authenticated and restricted to administrator roles.
+    Administrative API contract for Cito operational and commercial control-plane workflows,
+    including authenticated portal reads. Administrator-only operations explicitly require the
+    platform ADMIN role; session and dashboard routes also support scoped merchant sessions.
 servers:
   - url: https://cito.coresynergi.es
     description: Production
 security:
   - AdminPortalSession: []
 tags:
+  - name: Portal Workspace
+  - name: Admin Payment Credentials
   - name: Admin Compliance
   - name: Admin Communication Routing
   - name: Admin Commercial Programmes
 paths:
+  /api/v2/portal/session:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalSession
+      summary: Read the current portal session
+      description: Returns authenticated status and the current administrator or merchant identity. Requires
+        an existing portal session; this endpoint does not create a login.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/portal/dashboard/summary:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalDashboardSummary
+      summary: Read the portal dashboard summary
+      description: Returns financial totals and activity for the selected environment. Merchant sessions
+        receive only their own data. Sandbox excludes production balances and callback counts;
+        platform operations alerts are administrator-only.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/portal/merchants:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalMerchants
+      summary: List merchants for portal administration
+      description: Requires platform ADMIN authorization. Returns merchant account summaries.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - count
+                - limit
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  count:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+      - name: limit
+        in: query
+        description: Default 100; values below 1 use the default and values above 500 are capped at 500.
+        schema:
+          type: integer
+          default: 100
+  /api/v2/portal/settings:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalSettings
+      summary: Read portal administration settings
+      description: Requires platform ADMIN authorization. Returns the operational settings list; this route
+        is not available to merchant users.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/portal/transactions:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalTransactions
+      summary: List production transactions for portal administration
+      description: Requires platform ADMIN authorization. Returns canonical production payment rows; sandbox
+        transactions are excluded.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - count
+                - limit
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  count:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+      - name: limit
+        in: query
+        description: Default 100; values below 1 use the default and values above 500 are capped at 500.
+        schema:
+          type: integer
+          default: 100
+  /api/v2/portal/sms:
+    get:
+      tags:
+      - Portal Workspace
+      operationId: portalSms
+      summary: List SMS batches for portal administration
+      description: Requires platform ADMIN authorization. Returns platform SMS batch summaries.
+      responses:
+        '200':
+          description: Portal response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - count
+                - limit
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  count:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+      - name: limit
+        in: query
+        description: Default 100; values below 1 use the default and values above 500 are capped at 500.
+        schema:
+          type: integer
+          default: 100
+  /api/v2/admin/shared-provider/merchant-credentials:
+    get:
+      tags: [Admin Payment Credentials]
+      operationId: listMerchantCredentialReviews
+      summary: List merchant credential revisions for independent review
+      description: Requires PROVIDER_CREDENTIAL_MANAGE. Returns review metadata only; never returns decrypted credentials.
+      responses:
+        '200':
+          description: Credential review queue
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/admin/shared-provider/merchant-credentials/{id}/decision:
+    post:
+      tags: [Admin Payment Credentials]
+      operationId: decideMerchantCredentialRevision
+      summary: Approve, reject or disable a merchant credential revision
+      description: Approval and rejection require PROVIDER_CREDENTIAL_APPROVE; disabling requires PROVIDER_CREDENTIAL_MANAGE. ACTIVE requires current provider connectivity evidence and a reviewer different from the requester. Actor identity comes from authentication. Changes are audited.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, decision, reason]
+              properties:
+                revision: {type: integer, format: int64, minimum: 1}
+                decision: {type: string, enum: [ACTIVE, REJECTED, DISABLED]}
+                reason: {type: string, minLength: 1, maxLength: 1000}
+      responses:
+        '200':
+          description: Updated credential review metadata
+        '400':
+          description: Stale revision, invalid transition, missing verification or maker-checker violation
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/admin/shared-provider/credentials/{id}/verify:
+    post:
+      tags: [Admin Payment Credentials]
+      operationId: verifyPlatformProviderCredential
+      summary: Verify provider authentication without moving money
+      description: Requires PROVIDER_CREDENTIAL_MANAGE. Supported for MTN and Airtel OpenAPI. Updates connectivity evidence only for the tested revision; does not activate credentials or certify settlement.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Provider authentication verified for the current revision
+        '400':
+          description: Provider authentication unavailable, unsupported provider or concurrent credential edit
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v2/admin/communication/routing/providers/{providerCode}/activation:
+    post:
+      tags: [Admin Communication Routing]
+      operationId: setSmsProviderActivation
+      summary: Enable or disable an SMS provider
+      description: Requires ADMIN session and CSRF protection. Checks send configuration when enabling and audits state changes. Routing rules remain separate; activation does not certify live delivery.
+      parameters:
+      - in: path
+        name: providerCode
+        required: true
+        schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: {type: boolean}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Provider activation saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: {type: string}
+                  providerCode: {type: string}
+                  enabledFlag: {type: string, enum: ['YES', 'NO']}
+        '400': {description: Explicit enabled state required.}
+        '404': {description: SMS provider not found.}
+        '409': {description: Provider adapter or send configuration unavailable.}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v2/admin/communication/notifications/catalogue:
     get:
       tags:
@@ -165,10 +451,16 @@ paths:
             schema:
               type: object
               required:
-              - adminId
               - escalationLevel
               - active
+              oneOf:
+              - required: [adminId]
+              - required: [phone]
               properties:
+                phone:
+                  type: string
+                  pattern: '^[+]?[1-9][0-9]{7,14}$'
+                  description: International phone recipient without platform access; normalized to E.164. Provide phone or adminId, never both.
                 adminId:
                   type: integer
                   format: int64

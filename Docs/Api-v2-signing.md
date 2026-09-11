@@ -16,6 +16,8 @@ CPay API v2 uses a versioned RSA signature contract.
 
 When the same key is reused with the same request body, CPay returns the stored result. When the same key is reused with a different body, CPay rejects the request.
 
+An acquired key is not released when validation, risk or credential resolution fails. Request cleanup stores a replayable `REQUEST_FAILED` result; this is a request-level failure, not evidence that a provider declined the payment. Claims abandoned by a process crash become replayable after 15 minutes through the shared recovery job. The key remains bound to its original body. Check the commercial reference's status before trying a corrected request with a new idempotency key; never resubmit an uncertain payment to discover its outcome. A completed payment response is never replaced by failure cleanup.
+
 ## Canonical string
 
 ```text

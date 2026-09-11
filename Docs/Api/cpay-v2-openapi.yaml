@@ -352,28 +352,20 @@ paths:
           description: Merchant request rate limit exceeded.
   /api/doMobileMoneyRefund:
     post:
-      summary: Refund a successful legacy mobile money collection
-      operationId: legacyDoMobileMoneyRefund
-      description: 'Legacy compatibility endpoint. Authentication is required in the
-        JSON body: Base64 RSA-SHA256 or HMAC-SHA256 signature over the UTF-8 concatenation
-        merchant_number + original_reference + reference + description (no separators).
-        Preserve each field exactly, including amount formatting. OpenAPI cannot express
-        a body-carried signature as a standard security scheme; security: [] does not
-        mean anonymous access. This endpoint operates on production state; X-CPay-Environment
-        does not select a sandbox. Each authenticated admission is billable at the current
-        endpoint rate, including a new retry. Prefer the v2 API for new integrations.
-        Business errors may be returned in a JSON error envelope with HTTP 200; inspect
-        the response body. Refunds the full original successful PAYIN to its original
-        payer using the original gateway. Provide a new unique refund reference; verify
-        status before retrying.'
+      operationId: legacyMobileMoneyRefund
+      summary: Refund the remaining collection balance through the compatibility API
+      description: 'Compatibility endpoint for a successful production PAYIN owned by the merchant. The original payer
+        and gateway determine the compensating payout for the remaining unrefunded amount. The shared refund lifecycle
+        enforces cumulative limits, idempotency and independent approval before any payout. The callback destination
+        is retained across approval. Authentication is the required JSON-body signature: RSA-SHA256 or HMAC-SHA256
+        over merchant_number + original_reference + reference + description using the merchant configured signing
+        method. This is not the v2 signature-header protocol. Acceptance or a pending response does not prove provider
+        settlement. Use the v2 refund resource for partial refund amounts and lifecycle tracking. The response adds
+        refundReference and refundStatus; only COMPLETED proves a successful refund. API access is metered once per
+        authenticated HTTP admission at the published endpoint rate, separately from refund and provider charges.
+        A fresh authenticated retry is another access admission; the shared refund lifecycle still prevents duplicate
+        money movement.'
       security: []
-      x-cito-body-signature:
-        field: signature
-        signedFields:
-        - merchant_number
-        - original_reference
-        - reference
-        - description
       requestBody:
         required: true
         content:
@@ -390,33 +382,40 @@ paths:
               properties:
                 merchant_number:
                   type: string
-                  description: Merchant number
+                  description: Merchant account number.
                 original_reference:
                   type: string
-                  description: Original reference
+                  description: Original successful production collection reference.
                 reference:
                   type: string
-                  description: Reference
+                  description: Unique merchant reference for this refund payout.
                 description:
                   type: string
-                  description: Description
+                  description: Refund reason; included in the signature.
                 callback_url:
                   type: string
-                  description: HTTPS URL for asynchronous outcome notifications.
+                  description: Callback destination, or an empty string when unused.
                 signature:
                   type: string
-                  description: Base64 request signature; never expose signing secrets.
+                  description: Base64-encoded signature of the legacy concatenated request fields.
       responses:
         '200':
-          description: Legacy result or business error envelope; inspect status/error
-            fields.
+          description: Legacy JSON payment or error envelope. Inspect its result and transaction status; HTTP 200
+            alone is not successful settlement.
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: true
         '429':
-          description: Merchant request rate limit exceeded.
+          description: Merchant rate limit exceeded.
+      x-cito-body-signature:
+        field: signature
+        signedFields:
+        - merchant_number
+        - original_reference
+        - reference
+        - description
   /api/v2/native/payments/collect:
     post:
       summary: Submit an adapter-native mobile money collection request
@@ -4227,6 +4226,11 @@ components:
       name: X-CPay-Idempotency-Key
       in: header
       required: false
+      description: >-
+        Merchant-scoped request identity. Identical requests replay their stored result;
+        different bodies conflict. Failed request cleanup replays REQUEST_FAILED without
+        releasing the key. Abandoned claims recover after 15 minutes. Check the payment
+        reference before using a new key; REQUEST_FAILED does not prove provider failure.
       schema:
         type: string
     IdPath:
@@ -4332,6 +4336,9 @@ components:
           $ref: '#/components/schemas/PaymentParty'
     PaymentResult:
       type: object
+      description: >-
+        Payment lifecycle result. REQUEST_FAILED represents an incomplete API request,
+        not a terminal provider outcome; query the reference before retrying.
       properties:
         reference:
           type: string

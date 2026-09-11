@@ -44,11 +44,7 @@ public class IntelligentPaymentRoutingService {
             String operation,
             String accountIdentifier) {
         return rank(
-                request,
-                merchantNumber,
-                operation,
-                accountIdentifier,
-                requestEnvironment(request));
+                request, merchantNumber, operation, accountIdentifier, requestEnvironment(request));
     }
 
     public RoutingPlan rank(
@@ -245,6 +241,45 @@ public class IntelligentPaymentRoutingService {
         }
     }
 
+    /** Called exactly once by the canonical terminal transaction, never for HTTP acceptance. */
+    @Transactional
+    public void recordMobileMoneyOutcome(
+            long merchantId,
+            String reference,
+            String operation,
+            String environment,
+            String channel,
+            String country,
+            String currency,
+            boolean success,
+            long completionLatencyMs) {
+        jdbcTemplate.update(
+                "UPDATE payment_route_decisions SET outcome=:outcome, latency_ms=:latency, completed_at=CURRENT_TIMESTAMP "
+                        + "WHERE merchant_id=:merchant AND transaction_reference=:reference AND operation=:operation "
+                        + "AND environment=:environment AND selected_channel=:channel AND outcome IS NULL",
+                new MapSqlParameterSource("merchant", merchantId)
+                        .addValue("reference", reference)
+                        .addValue("operation", operation)
+                        .addValue("environment", environment)
+                        .addValue("channel", channel)
+                        .addValue("outcome", success ? "SUCCESS" : "FAILED")
+                        .addValue("latency", Math.max(0, completionLatencyMs)));
+        // Sandbox results must not alter production routing health or the circuit breaker.
+        if ("PRODUCTION".equals(environment))
+            recordOutcome(null, channel, country, currency, success, completionLatencyMs);
+    }
+
+    /** A replay can create a fresh routing decision, but must not count another payment outcome. */
+    public void recordMobileMoneyReplay(String decisionReference, String status) {
+        if (decisionReference == null || !("SUCCESSFUL".equals(status) || "FAILED".equals(status)))
+            return;
+        jdbcTemplate.update(
+                "UPDATE payment_route_decisions SET outcome=:outcome, completed_at=CURRENT_TIMESTAMP "
+                        + "WHERE decision_reference=:reference AND outcome IS NULL",
+                new MapSqlParameterSource("reference", decisionReference)
+                        .addValue("outcome", "SUCCESSFUL".equals(status) ? "SUCCESS" : "FAILED"));
+    }
+
     public List<Map<String, Object>> decisions(String merchantNumber, int limit) {
         int safeLimit = Math.max(1, Math.min(limit, 200));
         return jdbcTemplate.queryForList(
@@ -292,7 +327,9 @@ public class IntelligentPaymentRoutingService {
         String env = normalizeEnvironment(environment);
         String normalizedStrategy = normalizeStrategy(strategy);
         String scope =
-                (merchantNumber == null || merchantNumber.isBlank() ? "GLOBAL" : merchantNumber.trim())
+                (merchantNumber == null || merchantNumber.isBlank()
+                                ? "GLOBAL"
+                                : merchantNumber.trim())
                         + "-"
                         + op
                         + "-"
@@ -359,10 +396,14 @@ public class IntelligentPaymentRoutingService {
                         .addValue("max_latency_ms", maxLatencyMs)
                         .addValue("status", active ? "ACTIVE" : "DISABLED"));
         return Map.of(
-                "policyCode", policyCode,
-                "channelCode", channelCode,
-                "environment", policy.environment(),
-                "status", active ? "ACTIVE" : "DISABLED");
+                "policyCode",
+                policyCode,
+                "channelCode",
+                channelCode,
+                "environment",
+                policy.environment(),
+                "status",
+                active ? "ACTIVE" : "DISABLED");
     }
 
     public Map<String, Object> simulate(
@@ -371,11 +412,7 @@ public class IntelligentPaymentRoutingService {
             String operation,
             String accountIdentifier) {
         return simulate(
-                request,
-                merchantNumber,
-                operation,
-                accountIdentifier,
-                requestEnvironment(request));
+                request, merchantNumber, operation, accountIdentifier, requestEnvironment(request));
     }
 
     public Map<String, Object> simulate(
@@ -581,9 +618,10 @@ public class IntelligentPaymentRoutingService {
     }
 
     private String normalizeEnvironment(String value) {
-        String normalized = value == null || value.isBlank()
-                ? "SANDBOX"
-                : value.trim().toUpperCase(Locale.ROOT);
+        String normalized =
+                value == null || value.isBlank()
+                        ? "SANDBOX"
+                        : value.trim().toUpperCase(Locale.ROOT);
         if (!ENVIRONMENTS.contains(normalized)) {
             throw new PaymentGatewayException("environment must be SANDBOX or PRODUCTION");
         }
@@ -625,7 +663,8 @@ public class IntelligentPaymentRoutingService {
             long averageLatencyMs,
             BigDecimal costScore) {}
 
-    public record RoutingPlan(Policy policy, List<RoutingCandidate> candidates, String explanation) {}
+    public record RoutingPlan(
+            Policy policy, List<RoutingCandidate> candidates, String explanation) {}
 
     private record Rule(
             int priorityRank,

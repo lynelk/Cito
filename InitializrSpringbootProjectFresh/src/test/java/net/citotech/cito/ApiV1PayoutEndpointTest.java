@@ -48,7 +48,65 @@ import org.springframework.transaction.PlatformTransactionManager;
 @SuppressWarnings({"rawtypes", "unchecked"})
 class ApiV1PayoutEndpointTest {
 
-    private static final String GATEWAY_ID = "MTNMoMoPaymentGateway";
+    private static final String GATEWAY_ID = "AirtelMoneyPaymentGateway";
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "MTNMoMoPaymentGateway,PENDING", "MTNMoMoPaymentGateway,FAILED",
+                "MTNMoMoPaymentGateway,SUCCESSFUL",
+        "AirtelMoneyOpenApiPaymentGateway,PENDING", "AirtelMoneyOpenApiPaymentGateway,FAILED",
+                "AirtelMoneyOpenApiPaymentGateway,SUCCESSFUL"
+    })
+    void managedPayoutHasNoOuterReservationOrLedgerPosting(String gateway, String status)
+            throws Exception {
+        PayoutControlService controls = mock(PayoutControlService.class);
+        Api api = apiWithDefaults(controls);
+        LegacyLedgerPostingService posting = mock(LegacyLedgerPostingService.class);
+        setField(api, "legacyLedgerPostingService", posting);
+        try (var common = mockStatic(Common.class);
+                var doPay = mockStatic(DoPayGateway.class);
+                var signature = mockStatic(SignatureVerificationService.class);
+                var urls = mockStatic(CallbackUrlValidator.class)) {
+            stubStatics(common, doPay, signature, urls);
+            doPay.when(() -> DoPayGateway.getGatewayIdByMsisdn(anyString(), any()))
+                    .thenReturn(gateway);
+            common.when(() -> Common.getMerchantBalances(anyString(), any()))
+                    .thenReturn(new ArrayList<>(List.of(new Balance("UGX", 100000.0, gateway))));
+            common.when(() -> Common.doPayOut(any(), any(), any(), any()))
+                    .thenAnswer(
+                            call -> {
+                                net.citotech.cito.Model.Transaction tx = call.getArgument(0);
+                                tx.setStatus(status);
+                                return GeneralSuccessResponse.getMessage("000", status);
+                            });
+            assertThat(
+                            new JSONObject(
+                                            execute(
+                                                    api,
+                                                    payoutBody(
+                                                            "900.00", "MANAGED-1", "256770000001"),
+                                                    null))
+                                    .getString("code"))
+                    .isEqualTo("000");
+            common.verify(() -> Common.doPayOut(any(), any(), any(), any()));
+            common.when(() -> Common.doPayIn(any(), any(), any(), any()))
+                    .thenAnswer(
+                            call -> {
+                                net.citotech.cito.Model.Transaction tx = call.getArgument(0);
+                                tx.setStatus(status);
+                                return GeneralSuccessResponse.getMessage("000", status);
+                            });
+            String collection =
+                    api.doMobileMoneyPayIn(
+                            payoutBody("100.00", "MANAGED-IN-1", "256770000001")
+                                    .replace("payee_number", "payer_number"),
+                            mock(HttpServletRequest.class),
+                            mock(HttpServletResponse.class));
+            assertThat(new JSONObject(collection).getString("code")).isEqualTo("000");
+            common.verify(() -> Common.doPayIn(any(), any(), any(), any()));
+        }
+        org.mockito.Mockito.verifyNoInteractions(ledger(api), posting, controls);
+    }
 
     @Test
     void parkedPayoutReturnsParkedEnvelopeWithoutReservingOrCallingProvider() throws Exception {
@@ -251,7 +309,8 @@ class ApiV1PayoutEndpointTest {
         merchant.setName("Test Merchant");
         merchant.setShort_name("Test");
         merchant.setStatus("ACTIVE");
-        merchant.setAllowed_apis(new String[] {Common.API_MOBILE_MONEY_PAYOUT});
+        merchant.setAllowed_apis(
+                new String[] {Common.API_MOBILE_MONEY_PAYOUT, Common.API_MOBILE_MONEY_PAYIN});
         return merchant;
     }
 

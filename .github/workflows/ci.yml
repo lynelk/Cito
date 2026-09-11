@@ -91,7 +91,7 @@ jobs:
             InitializrSpringbootProjectFresh/src/main/resources/db/migration/V63__production_maturity_execution_automation.sql
 
   mysql-migration:
-    name: Clean MySQL 8.4 Migration
+    name: MySQL 8.4 Migration and Payment Lifecycle
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -129,7 +129,7 @@ jobs:
             mysql -uroot -proot-ci-password \
             -e "SET GLOBAL log_bin_trust_function_creators = 1;"
           test "$(docker exec "$MYSQL_CONTAINER" mysql -uroot -proot-ci-password -NBe 'SELECT @@GLOBAL.log_bin_trust_function_creators')" = "1"
-      - name: Apply every Flyway migration to a clean MySQL schema
+      - name: Apply migrations and verify fake-provider accounting and recovery
         env:
           DB_URL: jdbc:mysql://127.0.0.1:3306/cpayadmin?allowPublicKeyRetrieval=true&useSSL=false
           DB_USERNAME: cpay
@@ -231,6 +231,19 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:java"
+          # Default setup owns repository uploads; a second advanced upload is
+          # rejected. Execute all extended queries and enforce findings locally.
+          upload: never
+          output: codeql-results
+      - name: Enforce high and critical CodeQL findings
+        run: python3 ops/release/check_codeql_sarif.py codeql-results
+      - name: Retain complete CodeQL findings for review
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: codeql-security-extended-${{ github.sha }}
+          path: codeql-results/*.sarif
+          if-no-files-found: error
 
   frontend:
     name: Frontend - Install and Build

@@ -87,7 +87,7 @@ public class MtnMomoStatusPollScheduler {
         String sql =
                 "SELECT * FROM "
                         + Common.DB_TABLE_MERCHANT_TRANSACTION_LOG
-                        + " WHERE status IN ('PENDING','UNDETERMINED')"
+                        + " WHERE NOT EXISTS (SELECT 1 FROM mobile_money_executions e WHERE e.transaction_id=merchant_transactions_log.tx_unique_id) AND NOT EXISTS (SELECT 1 FROM mtn_momo_correlations c JOIN merchants m ON m.account_number=c.merchant_number WHERE m.id=merchant_transactions_log.merchant_id AND c.merchant_reference=merchant_transactions_log.tx_merchant_ref) AND status IN ('PENDING','UNDETERMINED')"
                         + " AND gateway_id=:gateway_id"
                         + " AND id>:cursor"
                         + " AND created_on <= DATE_SUB(NOW(), INTERVAL 15 SECOND)"
@@ -128,9 +128,7 @@ public class MtnMomoStatusPollScheduler {
             }
 
             String providerStatus = normalizedStatus(provider);
-            // Apply the new double-entry lifecycle first. It is idempotent, so if the legacy
-            // finalizer fails the still-pending transaction will be retried safely next cycle.
-            ledgerSettlementService.applyTerminalProviderOutcome(tx, providerStatus);
+            // Common.updateTx commits the canonical ledger and compatibility projection together.
 
             String networkReference = safe(provider.getNetworkId());
             if (networkReference.isBlank()) {
@@ -192,7 +190,7 @@ public class MtnMomoStatusPollScheduler {
                         + " r.merchant_reference, a.environment, a.country_code"
                         + " FROM provider_treasury_reservations r"
                         + " JOIN provider_treasury_accounts a ON a.id=r.treasury_account_id"
-                        + " WHERE r.status='PENDING' AND a.channel_code=:channel"
+                        + " WHERE r.status='PENDING' AND NOT EXISTS (SELECT 1 FROM mobile_money_executions e WHERE e.treasury_reservation_id=r.id) AND NOT EXISTS (SELECT 1 FROM mtn_momo_correlations c WHERE c.provider_reference=r.provider_reference) AND a.channel_code=:channel"
                         + " AND r.provider_reference IS NOT NULL AND r.provider_reference<>''"
                         + " AND r.id>:cursor"
                         + " AND r.updated_at <= DATE_SUB(NOW(), INTERVAL 15 SECOND)"

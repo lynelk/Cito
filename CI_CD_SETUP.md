@@ -102,6 +102,8 @@ Before merge:
 
 ## Post-merge verification
 
+The MySQL migration/payment lifecycle gate also runs the deterministic stale-snapshot ledger reservation scenario for single and batch payouts. See [Staging consolidation](Docs/Operations/staging-consolidation-20260910.md) for its financial invariant and the preserved older branch work.
+
 A successful merge does not prove production has deployed it. Where deployment is automatic, verify the actual deployment status and runtime logs. For database changes, confirm the runtime Flyway version rather than assuming migration application from Git history.
 
 Financial post-deploy checks should include health, database connectivity, scheduler locking, ledger balance, reconciliation behavior, settlement replay safety and a fresh backup result.
@@ -114,6 +116,12 @@ Application rollback must respect forward-only financial history and schema evol
 
 The merchant Developers workspace contains the searchable API reference and integration guide. The admin API workbench adds current endpoint rates and an administrator-session-only full-system schema. See [the integration guide](Docs/Api/Cito-Gateway-Integration-Guide.md) and [release notes](Docs/Api/API-REFERENCE-RELEASE.md).
 
-This change requires Flyway V123. Rates start at zero, retain four-decimal precision and use existing billing usage, price-book and invoice records. Verify the exact release in sandbox before promotion. Regenerate the private merchant reference with `python scripts/api_docs/build_portal_reference.py` whenever an owning contract or the guide changes. CI checks this generated output. Backend API-docs generation is enabled by default for the admin workbench; its HTTP routes require an administrator portal session and remain unavailable to public and merchant callers. If the runtime explicitly sets `SPRINGDOC_API_DOCS_ENABLED=false`, the admin system reference remains unavailable until that override is changed.
+This change requires Flyway V128. Rates start at zero, retain four-decimal precision and use existing billing usage, price-book and invoice records. Verify the exact release in sandbox before promotion. Regenerate the private merchant reference with `python scripts/api_docs/build_portal_reference.py` whenever an owning contract or the guide changes. CI checks this generated output. Backend API-docs generation is enabled by default for the admin workbench; its HTTP routes require an administrator portal session and remain unavailable to public and merchant callers. If the runtime explicitly sets `SPRINGDOC_API_DOCS_ENABLED=false`, the admin system reference remains unavailable until that override is changed.
 
 Communications notification policies, provider configuration, evidence and release checks: [Notification orchestration](Docs/Communications/Notification-Orchestration.md).
+
+SMTP transport, mailbox configuration and the optional connection-only production diagnostic: [Administrator email recovery](Docs/Api/admin-password-recovery.md#smtp-configuration). Password-reset and Communications emails share TLS settings and bounded timeouts; application health alone does not verify delivery.
+
+Alert group phone recipients: V125 extends existing memberships to accept either an active administrator ID or an international phone number through the notification API and Communications UI. Phone recipients receive alerts without an administrator account. Repeated saves update membership; deactivate recipients after testing. Apply Flyway through V125 before deploying the corresponding UI. The clean-database release scenario verifies phone normalization, duplicate saves, disabled recipients and critical-alert delivery through the fake provider.
+
+SMS provider activation is an explicit admin action in Communications → Provider catalog, also available at `POST /api/v2/admin/communication/routing/providers/{providerCode}/activation` with `{ "enabled": true }`. Activation is audited and uses the existing provider registry; SMSMobilo requires its configured API key. Routing-rule activation alone does not enable a provider. No migration or automatic provider activation occurs on deployment. Verify the saved provider state separately from live message delivery.
