@@ -37,6 +37,8 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping(path = "/api", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 public class RefundController {
 
+    @Autowired private net.citotech.cito.developer.reference.ApiAccessBillingService apiBilling;
+
     private static final Logger logger = Logger.getLogger(RefundController.class.getName());
 
     @Autowired NamedParameterJdbcTemplate jdbcTemplate;
@@ -106,6 +108,7 @@ public class RefundController {
             String sigError =
                     SignatureVerificationService.verify(merchant, signedData, signatureBase64);
             if (sigError != null) return sigError;
+            apiBilling.admitted(merchant.getId(), null, "PRODUCTION");
 
             RefundRecord refund =
                     refundService.requestRefund(

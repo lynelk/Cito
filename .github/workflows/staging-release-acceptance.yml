@@ -1,0 +1,112 @@
+name: Staging release acceptance
+
+on:
+  push:
+    branches: [main, feature/api-reference-endpoint-billing]
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact accepted commit expected on both staging services; blank resolves main.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cito-public-staging-verification
+  cancel-in-progress: true
+
+# Isolated staging infrastructure, provisioned 2026-09-11. The short-named edge
+# fixes Railway public-domain allocation without cloning/replacing either app.
+# Project: c69c90a9-ab6f-48ff-8e04-1e10a10f92db
+# Environment: efde4ddb-0312-48bc-94b2-a096fd3678b0 (Railway label: production)
+# Edge: e08e9fcd-0686-49a6-b4e3-52e8b7747bca, cito-staging-web, nginx:stable-alpine
+# Upstream: existing frontend 69ef3eaa-05b5-4504-8f5e-2bfaa27f3512, private port8080
+# Backend: existing 11bdd2d3-c202-43b1-824b-35446a0e6a31, private recovered MySQL.
+# Edge preserves host, HTTPS forwarded headers and websocket upgrades; trusts
+# only its container resolver and uses a fixed private frontend upstream.
+# It has no application secrets, database credentials or provider credentials.
+# /readyz checks the application backend; /releasez comes from the UI image.
+# Production infrastructure and the shared staged Railway patch are untouched.
+# This is read-only deployment verification, NOT authenticated/provider UAT.
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      STAGING_BASE: https://cito-staging-web-production.up.railway.app
+      GH_TOKEN: ${{ github.token }}
+      EVENT_SHA: ${{ github.sha }}
+      EVENT_REF: ${{ github.ref_name }}
+      REQUESTED_SHA: ${{ inputs.expected_sha }}
+    steps:
+      - name: Resolve accepted revision and verify deployed surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          export MAIN_SHA=$(gh api repos/lynelk/Cito/branches/main --jq .commit.sha)
+          mkdir -p acceptance
+          python3 - <<'PY'
+          import json,os,re,time,urllib.request,urllib.error
+          from pathlib import Path
+          base=os.environ['STAGING_BASE']
+          expected=os.environ.get('REQUESTED_SHA') or (os.environ['EVENT_SHA'] if os.environ['EVENT_REF']=='main' else os.environ['MAIN_SHA'])
+          if not re.fullmatch('[0-9a-f]{40}',expected):raise SystemExit('Expected a full Git SHA')
+          report={'expected_sha':expected,'base_url':base,'checks':[],
+                  'authenticated_acceptance':'NOT_PERFORMED','provider_transactions':0,
+                  'database_writes':0,'production_changes':0}
+          def get(path):
+              request=urllib.request.Request(base+path,headers={'User-Agent':'Cito-Release-Acceptance/1.0'})
+              try:
+                  with urllib.request.urlopen(request,timeout=15) as response:
+                      return response.status,response.headers,response.read(2_000_000)
+              except urllib.error.HTTPError as error:
+                  return error.code,error.headers,error.read(1000)
+          ready=False
+          for attempt in range(24):
+              try:
+                  a,_,body=get('/releasez'); b,_,health=get('/readyz')
+                  release=json.loads(body);health=json.loads(health)
+                  ready=(a==200 and b==200 and release.get('release_sha')==expected
+                      and health.get('release_sha')==expected and health.get('db')=='UP'
+                      and health.get('status')=='UP' and health.get('gateway_mode')=='SANDBOX')
+                  print(json.dumps({'attempt':attempt+1,'expected':expected,'frontend':release.get('release_sha'),
+                                    'backend':health.get('release_sha'),'db':health.get('db'),'mode':health.get('gateway_mode'),'ready':ready}))
+                  if ready:break
+              except Exception as error:print('Staging not yet ready:',type(error).__name__,str(error)[:180])
+              time.sleep(15)
+          if not ready:
+              Path('acceptance/staging.json').write_text(json.dumps(report,indent=2))
+              raise SystemExit('Staging must run the expected backend and frontend revision in SANDBOX')
+          report['checks'].append({'check':'release_parity_database_sandbox','passed':True,'sha':expected})
+          for path in ('/','/bo','/fo','/fo/developers','/bo/admin/api-reference'):
+              code,headers,body=get(path)
+              ok=code==200 and b'<html' in body.lower()
+              report['checks'].append({'path':path,'http':code,'html':ok})
+              if not ok:raise SystemExit('Portal/web route failed: '+path)
+              if path=='/':
+                  text=body.decode('utf-8')
+                  assets=re.findall(r'(?:src|href)=[\"\'](/assets/[^\"\']+)[\"\']',text)
+                  if not assets:raise SystemExit('No versioned frontend assets in homepage')
+                  for asset in assets:
+                      asset_code,_,_=get(asset)
+                      report['checks'].append({'asset':asset,'http':asset_code})
+                      if asset_code!=200:raise SystemExit('Frontend asset unavailable')
+          for path in ('/v3/api-docs','/api/v2/admin/api-reference/commercial',
+                       '/api/v2/admin/api-reference/rates','/api/v2/portal/api-reference/openapi'):
+              code,_,body=get(path)
+              report['checks'].append({'path':path,'unauthenticated_http':code})
+              if code not in (401,403):raise SystemExit('Protected API did not reject anonymous access: '+path)
+              if b'"openapi"' in body:raise SystemExit('Protected schema leaked')
+          report['read_only_acceptance']='PASS'
+          Path('acceptance/staging.json').write_text(json.dumps(report,indent=2))
+          print(json.dumps(report,indent=2))
+          PY
+      - name: Retain revision-specific staging evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: staging-readonly-acceptance-${{ github.sha }}
+          path: acceptance/

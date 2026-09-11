@@ -50,9 +50,15 @@
         "frontend": {
           "serviceId": "69ef3eaa-05b5-4504-8f5e-2bfaa27f3512",
           "rootDirectory": "clientside"
+        },
+        "database": {
+          "name": "cito-staging-main-mysql",
+          "serviceId": "8109d27e-5d8c-4ed8-af3e-bf6234e9ca3b",
+          "volumeId": "8f5a439b-6477-4506-9880-60a250900cf6",
+          "mountPath": "/var/lib/mysql"
         }
       },
-      "acceptanceNote": "PLANNED describes the target main-tracking deployment contract, not current runtime readiness. The retained services were observed pinned to sandbox commit 9b3198eeda24ef8887d5e48422c55948381f0904 on 2026-09-10; backend startup is blocked by incompatible V123 history. Preserve existing database data and review staged variables before changing sources or applying configuration. See Docs/Operations/staging-consolidation-20260910.md.",
+      "acceptanceNote": "2026-09-11: backend main 0ab5bd5c passed live health with DB UP and gateway SANDBOX; runtime logs verify the recovered persistent database and V127. The API-workbench candidate introduces V128 without modifying main migration history. Frontend/backend exact-revision parity, authenticated UAT and production promotion remain pending; PLANNED is not release acceptance.",
       "isolationPolicy": "NO_PRODUCTION_SECRETS_OR_PROVIDER_BALANCES",
       "dataPolicy": "SYNTHETIC_OR_APPROVED_SANITIZED_DATA_ONLY",
       "promotionPolicy": "EXACT_STAGING_SHA_MUST_PASS_RELEASE_UAT_AND_SMOKE_GATES_BEFORE_PRODUCTION_PROMOTION"

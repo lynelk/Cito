@@ -231,6 +231,19 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:java"
+          # Default setup owns repository uploads; a second advanced upload is
+          # rejected. Execute all extended queries and enforce findings locally.
+          upload: never
+          output: codeql-results
+      - name: Enforce high and critical CodeQL findings
+        run: python3 ops/release/check_codeql_sarif.py codeql-results
+      - name: Retain complete CodeQL findings for review
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: codeql-security-extended-${{ github.sha }}
+          path: codeql-results/*.sarif
+          if-no-files-found: error
 
   frontend:
     name: Frontend - Install and Build

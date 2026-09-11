@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies the complete migration history on pristine MySQL, then a populated V126-to-V127 upgrade,
+ * Verifies the complete migration history on pristine MySQL, then a populated V126-to-V128 upgrade,
  * while retaining database-level audit and financial protections.
  */
 class FlywayMigrationSmokeTest {
@@ -52,7 +52,7 @@ class FlywayMigrationSmokeTest {
                         .migrate();
 
         assertTrue(result.success, "Flyway migration must succeed");
-        assertTrue(result.migrationsExecuted > 0, "The V126 upgrade must execute V127");
+        assertTrue(result.migrationsExecuted > 0, "The V126 upgrade must execute V127 and V128");
         net.citotech.cito.scheduler.MtnReferenceCollationMysqlScenario.afterUpgrade(
                 url, username, password, fixture);
         Flyway.configure()
@@ -62,7 +62,22 @@ class FlywayMigrationSmokeTest {
                 .validate();
 
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            assertEquals("127", latestSuccessfulVersion(connection));
+            assertEquals("128", latestSuccessfulVersion(connection));
+            assertEquals(
+                    1,
+                    scalarCount(
+                            connection,
+                            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() "
+                                    + "AND table_name='api_endpoint_rates' AND column_name='amount' "
+                                    + "AND numeric_precision=19 AND numeric_scale=4 "
+                                    + "AND CAST(column_default AS DECIMAL(19,4))=0"));
+            assertEquals(
+                    1,
+                    scalarCount(
+                            connection,
+                            "SELECT COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() "
+                                    + "AND table_name='api_endpoint_rates' AND constraint_name='chk_api_rate_nonnegative' "
+                                    + "AND constraint_type='CHECK'"));
             assertEquals(4, auditProtectionTriggerCount(connection));
             assertEquals(6, treasuryAccountRoleCount(connection, "MASTER"));
             assertEquals(6, treasuryAccountRoleCount(connection, "COLLECTION"));

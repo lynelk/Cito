@@ -19,6 +19,15 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 class RefundControllerTest {
     private final RefundController controller = new RefundController();
+
+    {
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                controller,
+                "apiBilling",
+                org.mockito.Mockito.mock(
+                        net.citotech.cito.developer.reference.ApiAccessBillingService.class));
+    }
+
     private final MockHttpServletRequest request = new MockHttpServletRequest();
     private final MockHttpServletResponse response = new MockHttpServletResponse();
 

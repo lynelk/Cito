@@ -8,7 +8,8 @@ RUN mvn -q dependency:resolve
 
 # Copy source and build
 COPY src ./src
-RUN mvn -q -DskipTests clean package
+# Source archives contain no .git directory. CI verifies Spotless in a full checkout.
+RUN mvn -q -DskipTests -Dspotless.skip=true clean package
 
 # Stage 2: Runtime image (minimal)
 FROM eclipse-temurin:21-jre-alpine

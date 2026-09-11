@@ -280,6 +280,10 @@ class ApiV1PayoutEndpointTest {
     private Api apiWithDefaults(PayoutControlService controlService) throws Exception {
         NamedParameterJdbcTemplate jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
         Api api = new Api();
+        setField(
+                api,
+                "apiBilling",
+                mock(net.citotech.cito.developer.reference.ApiAccessBillingService.class));
         setField(api, "jdbcTemplate", jdbcTemplate);
         setField(api, "transactionManager", mock(PlatformTransactionManager.class));
         RateLimiterService rateLimiter = mock(RateLimiterService.class);

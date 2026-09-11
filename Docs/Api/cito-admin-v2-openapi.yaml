@@ -10,7 +10,7 @@ servers:
   - url: https://cito.coresynergi.es
     description: Production
 security:
-  - merchantSession: []
+  - AdminPortalSession: []
 tags:
   - name: Portal Workspace
   - name: Admin Payment Credentials
@@ -1057,9 +1057,119 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v2/admin/api-reference/commercial:
+    get:
+      operationId: adminApiReferenceCommercial
+      summary: Download the pruned commercial OpenAPI 3.1 contract
+      security:
+      - AdminPortalSession: []
+      responses:
+        '200':
+          description: Download the pruned commercial OpenAPI 3.1 contract
+          content:
+            application/json:
+              schema:
+                type: object
+        '401': &apiReferenceUnauthorized
+          description: Authentication required
+        '403': &apiReferenceForbidden
+          description: Not authorized for this reference
+  /api/v2/admin/api-reference/guide:
+    get:
+      operationId: adminApiReferenceGuide
+      summary: Download the Cito integration guide
+      security:
+      - AdminPortalSession: []
+      responses:
+        '200':
+          description: Download the Cito integration guide
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401': *apiReferenceUnauthorized
+        '403': *apiReferenceForbidden
+  /api/v2/admin/api-reference/rates:
+    get:
+      operationId: adminApiReferenceRates
+      summary: List registered API access rates
+      security:
+      - AdminPortalSession: []
+      responses:
+        '200':
+          description: List registered API access rates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401': *apiReferenceUnauthorized
+        '403': *apiReferenceForbidden
+    post:
+      operationId: publishApiAccessRate
+      summary: Publish a version-checked API access rate, including zero
+      description: Admin-only, CSRF-protected browser operation. Takes effect immediately. Retains history and audits
+        the authenticated actor. Rates count authenticated requests separately from service charges.
+      security:
+      - AdminPortalSession: []
+      parameters:
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - method
+              - path
+              - amount
+              - currency
+              - expectedVersion
+              properties:
+                method:
+                  type: string
+                  enum:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - HEAD
+                  - OPTIONS
+                path:
+                  type: string
+                  example: /api/v2/payments/{reference}
+                amount:
+                  type: string
+                  pattern: ^\d+(\.\d{1,4})?$
+                  example: '0.0000'
+                currency:
+                  type: string
+                  pattern: ^[A-Z]{3}$
+                  example: UGX
+                expectedVersion:
+                  type: integer
+                  format: int64
+      responses:
+        '200':
+          description: Rate published
+        '400':
+          description: Invalid rate or unknown endpoint
+        '409':
+          description: Rate version changed; reload and retry
+        '401': *apiReferenceUnauthorized
+        '403': *apiReferenceForbidden
+
 components:
   securitySchemes:
-    merchantSession:
+    AdminPortalSession:
+      description: Authenticated administrator portal session; administrator authorization is required.
       type: apiKey
       in: cookie
       name: SESSION

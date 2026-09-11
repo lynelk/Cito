@@ -156,7 +156,21 @@ public class SecurityConfig {
                                                 CookieCsrfTokenRepository.withHttpOnlyFalse())
                                         .csrfTokenRequestHandler(csrfRequestHandler)
                                         .ignoringRequestMatchers(
-                                                CSRF_EXEMPT_API_PATTERNS.toArray(String[]::new)))
+                                                request ->
+                                                        !request.getRequestURI()
+                                                                        .startsWith(
+                                                                                "/api/v2/admin/api-reference")
+                                                                && CSRF_EXEMPT_API_PATTERNS.stream()
+                                                                        .anyMatch(
+                                                                                pattern ->
+                                                                                        new org
+                                                                                                        .springframework
+                                                                                                        .util
+                                                                                                        .AntPathMatcher()
+                                                                                                .match(
+                                                                                                        pattern,
+                                                                                                        request
+                                                                                                                .getRequestURI()))))
                 .headers(
                         headers ->
                                 headers.contentTypeOptions(contentType -> {})
@@ -207,6 +221,11 @@ public class SecurityConfig {
                         auth ->
                                 auth.requestMatchers(HttpMethod.OPTIONS, "/**")
                                         .permitAll()
+                                        .requestMatchers(
+                                                "/v3/api-docs",
+                                                "/v3/api-docs/**",
+                                                "/v3/api-docs.yaml")
+                                        .hasRole("ADMIN")
                                         .requestMatchers(ADMIN_API_PATTERNS.toArray(String[]::new))
                                         .hasRole("ADMIN")
                                         .requestMatchers("/actuator/**")

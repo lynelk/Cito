@@ -1,8 +1,9 @@
+import PublicApiOverview from './PublicApiOverview';
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../styles/cito-landing.css';
 
-const DOCS_URL = 'https://lynelk.github.io/CPay/';
+const DOCS_URL = '/fo/developers';
 const SIGN_IN_PATH = '/login';
 const SIGN_UP_PATH = '/signup';
 
@@ -124,7 +125,7 @@ function CitoLandingPage(): React.ReactElement {
         </section>
 
         <section className="cito-section cito-developers" id="developers">
-          <div className="cito-developer-copy"><p className="cito-eyebrow">For developers</p><h2>Integrate once. Add services as the business grows.</h2><p>Build with documented APIs, first-party signing helpers, webhooks and a controlled sandbox environment. The long-term integration model covers payments and other provider-backed Cito services behind consistent access and governance.</p><div className="cito-developer-actions"><a className="cito-button cito-button-light" href={DOCS_URL}>Cito Payments API documentation</a><Link className="cito-button cito-button-outline-light" to="/developer-platform">Developer platform</Link></div><p className="cito-developer-resources">OpenAPI · Postman · SDKs · Webhooks · Sandbox · Error catalogue · Provider integrations</p></div>
+          <div className="cito-developer-copy"><p className="cito-eyebrow">For developers</p><h2>Integrate once. Add services as the business grows.</h2><p>Build with documented APIs, first-party signing helpers, webhooks and a controlled sandbox environment. The long-term integration model covers payments and other provider-backed Cito services behind consistent access and governance.</p><div className="cito-developer-actions"><a className="cito-button cito-button-light" href={DOCS_URL}>Cito Payments API documentation</a><Link className="cito-button cito-button-outline-light" to="/developer-platform">Developer platform</Link></div><PublicApiOverview /><p className="cito-developer-resources">Searchable OpenAPI · Integration guide · Webhooks · Admin-set API access rates, including zero</p></div>
           <div className="cito-quickstart" aria-label="Cito developer quickstart"><span className="cito-quickstart-label">Start safely</span><ol><li><span>01</span> Create your Cito account</li><li><span>02</span> Choose an entitled service</li><li><span>03</span> Configure sandbox credentials</li><li><span>04</span> Make a test request</li><li><span>05</span> Verify callbacks or result evidence</li><li><span>06</span> Complete production readiness</li></ol></div>
         </section>
 

@@ -1,4 +1,4 @@
-# CPay API Documentation Auto-Update Policy
+# Cito API Documentation Auto-Update Policy
 
 This repository treats the OpenAPI contract and developer documentation as code.
 
@@ -68,3 +68,13 @@ Backward-compatible additions increment the documentation minor version. Breakin
 ## Security
 
 Do not place private keys, provider secrets, callback secrets, production tokens, real customer identifiers, or unmasked PII in OpenAPI examples or generated documentation.
+
+## Merchant portal, admin portal, public web and portable exports
+
+All affected application surfaces must ship together with their contracts. Every PR must assess the merchant portal, admin portal and public website; update changed capabilities, forms, validation, rate display, permissions and truthful public descriptions in the same PR. Do not expose admin-only APIs through public pages or merchant downloads. The existing delivery-parity and brand gates remain mandatory.
+
+Owning contracts are listed in `Docs/Api/README.md` and `scripts/api_docs/build_portal_reference.py`; the legacy CPay contract alone does not own the whole application. The portal's private OpenAPI JSON and copied guide are generated and checked for exact freshness. Full system OpenAPI is generated from the running backend and requires an admin portal session.
+
+The API workflow runs for every PR and every push to main, sandbox and production, including portal, configuration and policy-only changes. It builds `Cito-Gateway-API-Reference.html`, the matching OpenAPI JSON and integration guide from the checked-out revision, together with `source-commit.txt`. Download the artifact named for the accepted commit. Static files already downloaded cannot update themselves; regenerate and replace them when delivering a newer revision. CI checks generation and structure; reviewers must still check semantic accuracy, authorization, billing behavior and applicable policies.
+
+Regeneration: `python3 scripts/api_docs/build_portal_reference.py`, then `python3 scripts/api_docs/build_portal_reference.py --check`, then `python3 scripts/api_docs/build_offline_reference.py build/api-docs/Cito-Gateway-API-Reference.html`. Use the current brand pointer. Never claim that a generated artifact proves a deployment or provider certification.

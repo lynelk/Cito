@@ -72,6 +72,9 @@ public class PriceBookAdminController {
         try {
             Long billingTenantId = longValue(body.get("billingTenantId"));
             String serviceCode = stringValue(body.get("serviceCode"));
+            if ("API_ACCESS".equals(serviceCode))
+                throw new PaymentGatewayException(
+                        "Use the API workbench to publish endpoint access rates");
             String meterCode = stringValue(body.get("meterCode"));
             String chargeType = stringValue(body.get("chargeType"));
             String currency = stringValue(body.get("currency"));

@@ -1,11 +1,11 @@
 package net.citotech.cito.api.v2;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
-import jakarta.servlet.http.HttpServletRequest;
 import net.citotech.cito.Common;
 import net.citotech.cito.Model.Merchant;
 import net.citotech.cito.security.CanonicalRequestSigner;
@@ -16,11 +16,15 @@ import org.springframework.stereotype.Service;
 /** Security helper for /api/v2 request verification. */
 @Service
 public class V2RequestSecurityService {
+    private final net.citotech.cito.developer.reference.ApiAccessBillingService apiBilling;
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final ReplayProtectionService replayProtectionService;
 
-    public V2RequestSecurityService(NamedParameterJdbcTemplate jdbcTemplate,
-                                    ReplayProtectionService replayProtectionService) {
+    public V2RequestSecurityService(
+            NamedParameterJdbcTemplate jdbcTemplate,
+            ReplayProtectionService replayProtectionService,
+            net.citotech.cito.developer.reference.ApiAccessBillingService apiBilling) {
+        this.apiBilling = apiBilling;
         this.jdbcTemplate = jdbcTemplate;
         this.replayProtectionService = replayProtectionService;
     }
@@ -41,16 +45,18 @@ public class V2RequestSecurityService {
         if (merchant == null) {
             throw new V2RequestSecurityException("Merchant was not found");
         }
-        String canonical = CanonicalRequestSigner.canonicalize(
-                request.getMethod(),
-                request.getRequestURI(),
-                canonicalQuery(request),
-                timestamp,
-                nonce,
-                body);
+        String canonical =
+                CanonicalRequestSigner.canonicalize(
+                        request.getMethod(),
+                        request.getRequestURI(),
+                        canonicalQuery(request),
+                        timestamp,
+                        nonce,
+                        body);
         if (!CanonicalRequestSigner.verify(merchant, canonical, requestSignature)) {
             throw new V2RequestSecurityException("Invalid request signature");
         }
+        apiBilling.admitted(merchant.getId(), null, apiBilling.signedEnvironment(request, body));
         return merchant;
     }
 
@@ -61,9 +67,11 @@ public class V2RequestSecurityService {
         }
         return parameters.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .flatMap(entry -> Arrays.stream(entry.getValue())
-                        .sorted()
-                        .map(value -> encode(entry.getKey()) + "=" + encode(value)))
+                .flatMap(
+                        entry ->
+                                Arrays.stream(entry.getValue())
+                                        .sorted()
+                                        .map(value -> encode(entry.getKey()) + "=" + encode(value)))
                 .collect(Collectors.joining("&"));
     }
 
@@ -71,4 +79,3 @@ public class V2RequestSecurityService {
         return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
     }
 }
-

@@ -117,10 +117,10 @@
       "target": "no unaccepted actively exploited/critical Internet-facing finding beyond 72 hours",
       "measurementSource": "CodeQL, OWASP/dependency and vulnerability register",
       "reviewCadence": "WEEKLY",
-      "nextReviewAt": "2026-09-10",
-      "lastReviewedAt": "2026-09-03",
+      "nextReviewAt": "2026-09-18",
+      "lastReviewedAt": "2026-09-11",
       "reviewOutcome": "EVIDENCE_PENDING",
-      "reviewEvidence": "ops/iso/evidence/security-objective-review-2026-09-03.md"
+      "reviewEvidence": "ops/iso/evidence/security-objective-review-2026-09-11.md"
     },
     {
       "id": "OBJ-SM-01",

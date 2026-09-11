@@ -41,6 +41,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping(path = "/api", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 public class Api {
+    @org.springframework.beans.factory.annotation.Autowired
+    private net.citotech.cito.developer.reference.ApiAccessBillingService apiBilling;
+
     private static final DateTimeFormatter SMS_SEND_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -170,6 +173,7 @@ public class Api {
             if (sigError != null) {
                 return sigError;
             }
+            apiBilling.admitted(merchant.getId(), null, "PRODUCTION");
 
             // Now check if the merchant is not suspended
             if (!merchant.getStatus().equals("ACTIVE")) {
@@ -433,6 +437,7 @@ public class Api {
             if (sigError != null) {
                 return sigError;
             }
+            apiBilling.admitted(merchant.getId(), null, "PRODUCTION");
 
             // Now check if the merchant is not suspended
             if (!merchant.getStatus().equals("ACTIVE")) {
@@ -724,6 +729,7 @@ public class Api {
             if (sigError != null) {
                 return sigError;
             }
+            apiBilling.admitted(merchant.getId(), null, "PRODUCTION");
 
             // Now check if the merchant is not suspended
             if (!merchant.getStatus().equals("ACTIVE")) {
@@ -1875,6 +1881,7 @@ public class Api {
             String sigError =
                     SignatureVerificationService.verify(merchant, merchant_number, signatureBase64);
             if (sigError != null) return sigError;
+            apiBilling.admitted(merchant.getId(), null, "PRODUCTION");
             if (!merchant.getStatus().equals("ACTIVE")) {
                 return GeneralException.getError("119", GeneralException.ERRORS_119);
             }
@@ -1972,6 +1979,7 @@ public class Api {
             if (sigError != null) {
                 return sigError;
             }
+            apiBilling.admitted(merchant.getId(), null, "PRODUCTION");
 
             // Now check if the merchant is not suspended
             if (!merchant.getStatus().equals("ACTIVE")) {
@@ -2094,6 +2102,7 @@ public class Api {
             if (sigError != null) {
                 return sigError;
             }
+            apiBilling.admitted(merchant.getId(), null, "PRODUCTION");
 
             // Now check if the merchant is not suspended
             if (!merchant.getStatus().equals("ACTIVE")) {

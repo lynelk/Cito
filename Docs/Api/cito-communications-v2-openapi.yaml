@@ -331,8 +331,7 @@ paths:
       tags:
       - SMS Audience
       operationId: listMerchantSmsContacts
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       responses:
         '200':
           $ref: '#/components/responses/ArrayOk'
@@ -343,8 +342,7 @@ paths:
       tags:
       - SMS Audience
       operationId: saveMerchantSmsContact
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       requestBody:
         required: true
         content:
@@ -364,8 +362,7 @@ paths:
       tags:
       - SMS Audience
       operationId: deleteMerchantSmsContact
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       parameters:
       - $ref: '#/components/parameters/PositiveId'
       responses:
@@ -379,8 +376,7 @@ paths:
       tags:
       - SMS Audience
       operationId: listMerchantSmsGroups
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       responses:
         '200':
           $ref: '#/components/responses/ArrayOk'
@@ -391,8 +387,7 @@ paths:
       tags:
       - SMS Audience
       operationId: saveMerchantSmsGroup
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       requestBody:
         required: true
         content:
@@ -412,8 +407,7 @@ paths:
       tags:
       - SMS Audience
       operationId: addMerchantSmsGroupMembers
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       parameters:
       - name: groupId
         in: path
@@ -448,8 +442,7 @@ paths:
       tags:
       - SMS Sender Identities
       operationId: listMerchantSmsSenderIdentities
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       responses:
         '200':
           $ref: '#/components/responses/ArrayOk'
@@ -460,8 +453,7 @@ paths:
       tags:
       - SMS Sender Identities
       operationId: requestMerchantSmsSenderIdentity
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       requestBody:
         required: true
         content:
@@ -502,8 +494,7 @@ paths:
       tags:
       - Merchant SMS Workspace
       operationId: listMerchantSmsTemplates
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       responses:
         '200':
           $ref: '#/components/responses/ArrayOk'
@@ -515,8 +506,7 @@ paths:
       tags:
       - Merchant SMS Workspace
       operationId: listMerchantSmsDrafts
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       responses:
         '200':
           $ref: '#/components/responses/ArrayOk'
@@ -527,8 +517,7 @@ paths:
       tags:
       - Merchant SMS Workspace
       operationId: saveMerchantSmsDraft
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       requestBody:
         required: true
         content:
@@ -548,8 +537,7 @@ paths:
       tags:
       - Merchant SMS Workspace
       operationId: deleteMerchantSmsDraft
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       parameters:
       - name: draftId
         in: path
@@ -568,8 +556,7 @@ paths:
       tags:
       - SMS Campaigns
       operationId: listMerchantSmsCampaigns
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       parameters:
       - name: limit
         in: query
@@ -609,8 +596,7 @@ paths:
       tags:
       - SMS Campaigns
       operationId: listMerchantSmsDeliveryReports
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       parameters:
       - name: from
         in: query
@@ -650,8 +636,7 @@ paths:
       tags:
       - SMS Campaigns
       operationId: getMerchantSmsBillingSummary
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       responses:
         '200':
           $ref: '#/components/responses/ObjectOk'
@@ -663,8 +648,7 @@ paths:
       tags:
       - SMS Conversations
       operationId: listMerchantSmsConversations
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       parameters:
       - name: limit
         in: query
@@ -684,8 +668,7 @@ paths:
       tags:
       - SMS Conversations
       operationId: listMerchantSmsConversationMessages
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       parameters:
       - $ref: '#/components/parameters/ConversationId'
       - name: limit
@@ -708,8 +691,7 @@ paths:
       tags:
       - SMS Conversations
       operationId: replyToMerchantSmsConversation
-      security:
-      - merchantSession: []
+      security: [{ merchantSession: [] }]
       parameters:
       - $ref: '#/components/parameters/ConversationId'
       requestBody:

@@ -957,3 +957,9 @@
     flex-direction: column;
   }
 }
+
+.cito-public-api-topics label { display: grid; gap: 8px; margin-top: 20px; }
+.cito-public-api-topics input { min-height: 44px; padding: 10px; border-radius: 8px; border: 1px solid var(--cito-slate); color: var(--cito-navy); background: white; width: 100%; }
+.cito-public-api-topics ul { list-style: none; padding: 0; }
+.cito-public-api-topics li { margin: 12px 0; }
+.cito-public-api-topics li p { margin: 4px 0; }

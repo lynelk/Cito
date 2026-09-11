@@ -861,6 +861,62 @@ paths:
       responses:
         '200': {description: Saved notification preference}
         '400': {$ref: '#/components/responses/BadRequest'}
+  /api/v2/portal/api-reference/openapi:
+    get:
+      operationId: merchantApiReferenceOpenapi
+      summary: Download merchant OpenAPI contract
+      description: Documentation retrieval is free and requires a merchant portal session. No administrator operations
+        or unused administrator schemas are included.
+      security:
+      - MerchantSession: []
+      responses:
+        '200':
+          description: Download merchant OpenAPI contract
+          content:
+            application/json:
+              schema:
+                type: object
+        '401': &id001
+          description: Authentication required
+        '403': &id002
+          description: Not authorized for this reference
+  /api/v2/portal/api-reference/guide:
+    get:
+      operationId: merchantApiReferenceGuide
+      summary: Download the integration guide
+      description: Documentation retrieval is free and requires a merchant portal session. No administrator operations
+        or unused administrator schemas are included.
+      security:
+      - MerchantSession: []
+      responses:
+        '200':
+          description: Download the integration guide
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401': *id001
+        '403': *id002
+  /api/v2/portal/api-reference/rates:
+    get:
+      operationId: merchantApiReferenceRates
+      summary: List current commercial API access rates
+      description: Documentation retrieval is free and requires a merchant portal session. No administrator operations
+        or unused administrator schemas are included.
+      security:
+      - MerchantSession: []
+      responses:
+        '200':
+          description: List current commercial API access rates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401': *id001
+        '403': *id002
+
 components:
   securitySchemes:
     CPayV2Signature:

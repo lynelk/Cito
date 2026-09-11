@@ -1,0 +1,203 @@
+name: Cito reviewed main reconciliation
+
+on:
+  push:
+    branches: [feature/api-reference-endpoint-billing]
+    paths:
+      - .github/workflows/release-reconcile-main.yml
+      - ops/release/reconcile_api_reference_20260911.py
+      - ops/release/remediate_security_gate_20260911.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: cito-reviewed-main-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: cpayadmin
+          MYSQL_USER: cpay
+          MYSQL_PASSWORD: cpay-ci-password
+          MYSQL_ROOT_PASSWORD: root-ci-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot-ci-password"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DB_URL: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+      DB_USERNAME: sa
+      DB_PASSWORD: ''
+      MAIL_USERNAME: noreply@example.com
+      MAIL_PASSWORD: ''
+      LOCK_FILE_DIR: /tmp/cpay/locks
+      ACTUATOR_USERNAME: ci-actuator
+      ACTUATOR_PASSWORD: ci-actuator-password
+      ADMIN_API_USERNAME: ci-admin
+      ADMIN_API_PASSWORD: ci-admin-password
+      CALLBACK_SIGNING_SECRET: ci-callback-secret
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify CI is active
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=$(gh api repos/lynelk/Cito/actions/workflows/ci.yml --jq .state)
+          echo "CI_PREVIOUS_STATE=$state"
+          if [ "$state" = disabled_manually ] || [ "$state" = disabled_inactivity ]; then
+            gh api --method PUT repos/lynelk/Cito/actions/workflows/ci.yml/enable
+          fi
+          test "$(gh api repos/lynelk/Cito/actions/workflows/ci.yml --jq .state)" = active
+      - uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: clientside/package-lock.json
+      - name: Prepare reviewed merge and fresh contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Cito release reconciliation'
+          git config user.email 'release-reconciliation@users.noreply.github.com'
+          python3 -m pip install --quiet PyYAML==6.0.2 openapi-spec-validator==0.7.2 markdown2==2.5.4
+          python3 ops/release/reconcile_api_reference_20260911.py
+          python3 ops/release/remediate_security_gate_20260911.py
+          python3 scripts/api_docs/build_portal_reference.py
+          python3 scripts/api_docs/build_portal_reference.py --check
+          python3 scripts/api_docs/test_portal_reference.py
+          python3 scripts/api_docs/validate_openapi.py InitializrSpringbootProjectFresh/src/main/resources/api-reference/merchant-openapi.json
+          python3 Docs/Brand/check_brand.py
+      - name: Backend format and complete verification
+        working-directory: InitializrSpringbootProjectFresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          mvn -B spotless:apply verify --no-transfer-progress -Dspring.flyway.enabled=false > /tmp/cito-backend-verify.log 2>&1 || { tail -100 /tmp/cito-backend-verify.log; exit 1; }
+          tail -16 /tmp/cito-backend-verify.log
+      - name: MySQL migration and payment lifecycle verification
+        shell: bash
+        env:
+          DB_URL: jdbc:mysql://127.0.0.1:3306/cpayadmin?allowPublicKeyRetrieval=true&useSSL=false
+          DB_USERNAME: cpay
+          DB_PASSWORD: cpay-ci-password
+          MERCHANT_CHANNEL_ENCRYPTION_KEY: Y2ktb25seS1ub3QtYS1wcm9kdWN0aW9uLWtleQ==
+          CPAY_KEY_ENCRYPTION_KEY: Y2ktb25seS1ub3QtYS1wcm9kdWN0aW9uLWtleQ==
+        run: |
+          set -euo pipefail
+          mysql_container=$(docker ps --filter ancestor=mysql:8.4 --format '{{.ID}}' | head -n1)
+          test -n "$mysql_container"
+          docker exec "$mysql_container" mysql -uroot -proot-ci-password -e 'SET GLOBAL log_bin_trust_function_creators=1;'
+          cd InitializrSpringbootProjectFresh
+          mvn -B test --no-transfer-progress -Dtest=FlywayMigrationSmokeTest > /tmp/cito-mysql-verify.log 2>&1 || { tail -100 /tmp/cito-mysql-verify.log; exit 1; }
+          tail -20 /tmp/cito-mysql-verify.log
+      - name: Frontend verification
+        working-directory: clientside
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund > /tmp/cito-frontend-verify.log 2>&1
+          npm run typecheck >> /tmp/cito-frontend-verify.log 2>&1 || { tail -80 /tmp/cito-frontend-verify.log; exit 1; }
+          npm test -- src/features/ApiReference.test.tsx src/components/CitoLandingPage.test.tsx >> /tmp/cito-frontend-verify.log 2>&1 || { tail -80 /tmp/cito-frontend-verify.log; exit 1; }
+          npm run build >> /tmp/cito-frontend-verify.log 2>&1 || { tail -80 /tmp/cito-frontend-verify.log; exit 1; }
+          tail -20 /tmp/cito-frontend-verify.log
+      - name: Confirm dependency security fixes without suppressions
+        working-directory: InitializrSpringbootProjectFresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          mvn -B org.owasp:dependency-check-maven:13.0.0:check -DfailBuildOnCVSS=9 '-DnvdDatafeedUrl=https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/nvdcve-{0}.json.gz' -Dformats=HTML,JSON --no-transfer-progress > /tmp/cito-dependency-verify.log 2>&1 || { tail -100 /tmp/cito-dependency-verify.log; exit 1; }
+          tail -18 /tmp/cito-dependency-verify.log
+      - name: Preserve the exact tested candidate before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git add -A
+          parent=$(git rev-parse HEAD)
+          main=$(git rev-parse origin/main)
+          test "$main" = 0ab5bd5cbc919949f132c7e0d6890bcfc38733d3
+          git commit -m 'Reconcile recovered main and API workbench with vendor security fixes' -m 'Preserves governed refund lifecycle and applied migrations; adds V128. Backend, populated MySQL upgrade, frontend and CVSS-9 dependency gates verified. Exact-head CodeQL and staged runtime acceptance remain required. No release ref or runtime database has been changed.'
+          mkdir -p /tmp/cito-validated-candidate
+          git bundle create /tmp/cito-validated-candidate/candidate.bundle HEAD
+          git diff --binary "$parent" HEAD > /tmp/cito-validated-candidate/candidate.patch
+          python3 - "$parent" "$main" <<'PY'
+          import json,subprocess,sys
+          from pathlib import Path
+          def git(*args):return subprocess.check_output(['git',*args],text=True).strip()
+          parent,main=sys.argv[1:]
+          sha=git('rev-parse','HEAD')
+          entries=[]
+          for path in git('diff','--name-only',main,sha).splitlines():
+              line=git('ls-tree',sha,'--',path)
+              if not line:
+                  entries.append({'path':path,'mode':'100644','type':'blob','sha':None})
+              else:
+                  mode,kind,blob=line.split('\t')[0].split()
+                  entries.append({'path':path,'mode':mode,'type':kind,'sha':blob})
+          manifest={'candidate':sha,'tree':git('rev-parse','HEAD^{tree}'),'feature_parent':parent,'main':main,'parents':git('show','-s','--format=%P','HEAD').split(),'entries_relative_to_main':entries}
+          Path('/tmp/cito-validated-candidate/manifest.json').write_text(json.dumps(manifest,indent=2))
+          print('VALIDATED_CANDIDATE_SHA='+sha)
+          print('VALIDATED_TREE_SHA='+manifest['tree'])
+          print('EXPECTED_FEATURE_PARENT='+parent)
+          print('PINNED_MAIN_SHA='+main)
+          PY
+          sha256sum /tmp/cito-validated-candidate/*
+      - name: Save tested source and immutable manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: validated-api-candidate-${{ github.sha }}
+          path: /tmp/cito-validated-candidate/
+          retention-days: 30
+      - name: Publish candidate review branch using native Git transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Avoid one API content-creation request for every changed file. This
+          # pushes only a new exact-SHA review ref; main/sandbox/production and
+          # the feature ref remain untouched. No forced update is permitted.
+          gh auth setup-git
+          sha=$(git rev-parse HEAD)
+          destination="release/api-validated-$sha"
+          git push origin "HEAD:refs/heads/$destination"
+          echo "CANDIDATE_REVIEW_BRANCH=$destination"
+          echo 'Exact-head CI and runtime acceptance remain required before merging or promotion.'
+      - name: Compact verification evidence
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          counts={key:0 for key in ('tests','failures','errors','skipped')}
+          for path in Path('InitializrSpringbootProjectFresh/target/surefire-reports').glob('TEST-*.xml'):
+              root=ET.parse(path).getroot()
+              for key in counts:counts[key]+=int(root.get(key,'0'))
+              for error in root.findall('.//failure')+root.findall('.//error'):
+                  print(path.name,error.get('message','')[:1000])
+          print('TEST_TOTALS',counts)
+          PY
+      - name: Upload verification reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-reconciliation-reports-${{ github.sha }}
+          path: |
+            InitializrSpringbootProjectFresh/target/surefire-reports/
+            InitializrSpringbootProjectFresh/target/dependency-check-report.*

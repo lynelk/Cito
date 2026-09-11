@@ -181,7 +181,14 @@ public class PaymentsV2Controller {
     }
 
     @GetMapping(path = "/channels")
-    public List<PaymentChannelResponse> channels() {
+    public List<PaymentChannelResponse> channels(
+            @RequestParam("merchantNumber") String merchantNumber, HttpServletRequest request) {
+        try {
+            securityService.verify(request, "", merchantNumber);
+        } catch (V2RequestSecurityException e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "Invalid merchant signature");
+        }
         return paymentOrchestrationService.listChannels();
     }
 

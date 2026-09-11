@@ -1,3 +1,4 @@
+import ApiReference from '../features/ApiReference';
 import React from 'react';
 import Messager from './StableMessager';
 import strings from './locale';
@@ -160,7 +161,7 @@ class LayoutMerchantWithOutRouter extends React.Component {
       case 'home': return <><ExperienceWorkspace portal="merchant" section="lifecycle" /><MerchantModuleDashboard {...moduleProps} /></>;
       case 'balances-settlements': return <MerchantModuleMerchantAccount {...moduleProps} />;
       case 'customers': return <ExperienceWorkspace portal="merchant" section="customers" />;
-      case 'developers': return <MerchantModuleSandbox {...moduleProps} />;
+      case 'developers': return <><ApiReference /><MerchantModuleSandbox {...moduleProps} /></>;
       case 'services': return <><MerchantServicePortfolio entitlements={this.state?.entitlements} /><section className="cito-compliance-panel"><div className="cito-section-heading"><div><h3>Advanced service controls</h3><p>Detailed marketplace, recurring, routing, analytics, virtual-account, embedded and connector tools remain available below.</p></div></div><MerchantModuleCitoServices {...moduleProps} /></section></>;
       case 'reports': return <MerchantModuleTransactions {...moduleProps} />;
       case 'business': return <ExperienceWorkspace portal="merchant" section="business" />;

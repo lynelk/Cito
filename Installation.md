@@ -173,6 +173,11 @@ Check, in order:
 
 Installation success does not mean production readiness. Before live traffic, follow `Deployment.md`, the readiness gates under `Docs/Readiness/`, and the reconciliation/finance runbooks. The current Railway database must not be described as native HA until the planned three-data-node + two-HAProxy conversion and controlled failover test are actually completed.
 
+## API reference and endpoint access pricing
+
+The merchant Developers workspace contains the searchable API reference and integration guide. The admin API workbench adds current endpoint rates and an administrator-session-only full-system schema. See [the integration guide](Docs/Api/Cito-Gateway-Integration-Guide.md) and [release notes](Docs/Api/API-REFERENCE-RELEASE.md).
+
+This change requires Flyway V128. Rates start at zero, retain four-decimal precision and use existing billing usage, price-book and invoice records. Verify the exact release in sandbox before promotion. Regenerate the private merchant reference with `python scripts/api_docs/build_portal_reference.py` whenever an owning contract or the guide changes. CI checks this generated output. Backend API-docs generation is enabled by default for the admin workbench; its HTTP routes require an administrator portal session and remain unavailable to public and merchant callers. If the runtime explicitly sets `SPRINGDOC_API_DOCS_ENABLED=false`, the admin system reference remains unavailable until that override is changed.
 
 Communications notification policies, provider configuration, evidence and release checks: [Notification orchestration](Docs/Communications/Notification-Orchestration.md).
 

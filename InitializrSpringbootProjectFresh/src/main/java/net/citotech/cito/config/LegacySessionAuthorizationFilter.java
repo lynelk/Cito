@@ -49,6 +49,13 @@ public class LegacySessionAuthorizationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         bridgeAdminSessionIdentity(session);
+        if (request.getRequestURI().startsWith("/v3/api-docs")) {
+            response.setHeader("Cache-Control", "private, no-store");
+            if (session == null || !(session.getAttribute("user") instanceof User)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+        }
 
         if (!requiresPortalSession(request)) {
             filterChain.doFilter(request, response);

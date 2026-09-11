@@ -1,0 +1,94 @@
+name: Cito release reconciliation audit
+
+on:
+  push:
+    branches: [feature/api-reference-endpoint-billing]
+    paths: [.github/workflows/release-reconciliation-audit.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cito-release-reconciliation-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Inspect branch and CI state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== CI WORKFLOW ==='
+          gh api repos/lynelk/Cito/actions/workflows/ci.yml --jq '{id,name,path,state}'
+          echo '=== RELEASE BRANCHES ==='
+          for branch in main sandbox production; do
+            gh api "repos/lynelk/Cito/branches/$branch" --jq '{name,sha:.commit.sha}'
+          done
+          echo '=== OPEN PRS ==='
+          gh api 'repos/lynelk/Cito/pulls?state=open&per_page=100' --jq '.[] | {number,title,head:.head.sha,base:.base.ref}'
+      - name: Inspect merge conflicts without changing any branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Cito release audit'
+          git config user.email 'release-audit@users.noreply.github.com'
+          echo '=== EXACT AUDIT INPUTS ==='
+          git rev-parse HEAD origin/main
+          set +e
+          git merge --no-commit --no-ff origin/main
+          result=$?
+          set -e
+          echo "MERGE_RESULT=$result"
+          echo '=== CONFLICT PATHS ==='
+          git diff --name-only --diff-filter=U
+          echo '=== CONFLICT HUNKS ==='
+          python3 - <<'PY'
+          import subprocess,re
+          from pathlib import Path
+          paths=subprocess.check_output(['git','diff','--name-only','--diff-filter=U'],text=True).splitlines()
+          for filename in paths:
+              print('\nFILE',filename)
+              content=Path(filename).read_text(errors='replace')
+              blocks=re.findall(r'(?ms)^<<<<<<< .*?^>>>>>>> .*?$',content)
+              for block in blocks:
+                  print(block[:20000])
+              if not blocks:
+                  print('Binary, rename or structural conflict; review index stages.')
+          migrations=Path('InitializrSpringbootProjectFresh/src/main/resources/db/migration')
+          groups={}
+          for path in migrations.glob('V*__*.sql'):
+              groups.setdefault(path.name.split('__')[0],[]).append(path.name)
+          print('\n=== DUPLICATE MIGRATION VERSIONS ===')
+          for version,names in groups.items():
+              if len(names)>1: print(version,sorted(names))
+          print('\n=== RECENT MIGRATIONS ===')
+          for version in sorted(groups,key=lambda x:int(x[1:].split('_')[0]))[-12:]:
+              print(version,sorted(groups[version]))
+          PY
+          git merge --abort 2>/dev/null || true
+      - name: Read-only staging HTTP checks
+        shell: bash
+        run: |
+          set -uo pipefail
+          base=https://cito-staging-backend-production.up.railway.app
+          for path in /status/health /status/release /v3/api-docs /api/v2/portal/api-reference/openapi /api/v2/admin/api-reference/commercial; do
+            echo "=== STAGING $path ==="
+            code=$(curl --silent --show-error --max-time 20 --output /tmp/cito-response --write-out '%{http_code}' "$base$path") || code=NETWORK_ERROR
+            echo "HTTP_STATUS=$code"
+            if [ "$path" = /status/health ] || [ "$path" = /status/release ]; then
+              head -c 3000 /tmp/cito-response 2>/dev/null || true
+              echo
+            fi
+          done
+          echo 'No credentials, payments, SMS, database changes or production writes used by this audit.'
