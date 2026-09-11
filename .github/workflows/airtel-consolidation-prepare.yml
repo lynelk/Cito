@@ -1,0 +1,156 @@
+name: Prepare consolidated Airtel candidate
+on:
+  push:
+    branches: [feature/airtel-consolidated-release-20260911]
+    paths:
+      - .github/workflows/airtel-consolidation-prepare.yml
+      - ops/release/consolidation-source/**
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: cito-airtel-consolidation-preparation
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: cpayadmin
+          MYSQL_ROOT_PASSWORD: recovery-ci-only
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -precovery-ci-only"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DB_URL: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+      DB_USERNAME: sa
+      DB_PASSWORD: ''
+      MAIL_USERNAME: noreply@example.com
+      MAIL_PASSWORD: ''
+      LOCK_FILE_DIR: /tmp/cpay/locks
+      ACTUATOR_USERNAME: ci-actuator
+      ACTUATOR_PASSWORD: ci-actuator-password
+      ADMIN_API_USERNAME: ci-admin
+      ADMIN_API_PASSWORD: ci-admin-password
+      CALLBACK_SIGNING_SECRET: ci-callback-secret
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify source checksum and apply only to the pinned current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse origin/main)" = de3011367b67eac2cad65e508e72966a3f70b5ea
+          python3 - <<'PY'
+          import base64,hashlib,lzma
+          from pathlib import Path
+          root=Path('ops/release/consolidation-source')
+          encoded=''.join((root/f'{i:02d}.b64').read_text().strip() for i in range(1,5))
+          patch=lzma.decompress(base64.b64decode(encoded,validate=True))
+          assert hashlib.sha256(patch).hexdigest()=='392011e3745c89590132d038cf6c30a888b551cbc5accfe4e4c40b4b35347c89'
+          Path('/tmp/cito-consolidation.patch').write_bytes(patch)
+          PY
+          git checkout --detach de3011367b67eac2cad65e508e72966a3f70b5ea
+          git apply --check --unidiff-zero /tmp/cito-consolidation.patch
+          git apply --unidiff-zero /tmp/cito-consolidation.patch
+          git add -N .
+          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,subprocess
+          prefix='InitializrSpringbootProjectFresh/src/main/resources/db/migration/'
+          changed=subprocess.check_output(['git','diff','--name-only'],text=True).splitlines()
+          migrations=[p for p in changed if p.startswith(prefix)]
+          assert migrations==[prefix+'V129__mobile_money_recovery_fencing.sql'], migrations
+          versions=[re.match(r'V(\d+)__',p.name).group(1) for p in Path(prefix).glob('V*.sql')]
+          assert len(versions)==len(set(versions)), 'Duplicate applied migration version'
+          PY
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: clientside/package-lock.json
+      - name: Generate and validate synchronized contracts and governance records
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet PyYAML==6.0.2 openapi-spec-validator==0.7.2 markdown2==2.5.4
+          python3 scripts/api_docs/build_portal_reference.py
+          python3 scripts/api_docs/build_portal_reference.py --check
+          python3 scripts/api_docs/test_portal_reference.py
+          python3 Docs/Brand/check_brand.py
+          python3 ops/iso/validate_iso_governance.py
+          python3 -m py_compile ops/release/staging_authenticated_acceptance.py
+      - name: Format and fully verify backend
+        working-directory: InitializrSpringbootProjectFresh
+        run: |
+          set -euo pipefail
+          mvn -B spotless:apply verify --no-transfer-progress -Dspring.flyway.enabled=false > /tmp/cito-backend.log 2>&1 || { tail -120 /tmp/cito-backend.log; exit 1; }
+          tail -24 /tmp/cito-backend.log
+      - name: Verify populated MySQL upgrade and stale-worker financial fencing
+        env:
+          DB_URL: jdbc:mysql://127.0.0.1:3306/cpayadmin?allowPublicKeyRetrieval=true&useSSL=false
+          DB_USERNAME: root
+          DB_PASSWORD: recovery-ci-only
+        run: |
+          set -euo pipefail
+          container=$(docker ps --filter ancestor=mysql:8.4 --format '{{.ID}}' | head -n1)
+          test -n "$container"
+          docker exec "$container" mysql -uroot -precovery-ci-only -e 'SET GLOBAL log_bin_trust_function_creators=1'
+          cd InitializrSpringbootProjectFresh
+          mvn -B test --no-transfer-progress -Dtest=FlywayMigrationSmokeTest > /tmp/cito-mysql.log 2>&1 || { tail -120 /tmp/cito-mysql.log; exit 1; }
+          tail -24 /tmp/cito-mysql.log
+      - name: Frontend lint, complete test suite, typecheck and production build
+        working-directory: clientside
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund > /tmp/cito-frontend.log 2>&1
+          npm run lint >> /tmp/cito-frontend.log 2>&1 || { tail -120 /tmp/cito-frontend.log; exit 1; }
+          npm run typecheck >> /tmp/cito-frontend.log 2>&1 || { tail -120 /tmp/cito-frontend.log; exit 1; }
+          npm test >> /tmp/cito-frontend.log 2>&1 || { tail -120 /tmp/cito-frontend.log; exit 1; }
+          npm run build >> /tmp/cito-frontend.log 2>&1 || { tail -120 /tmp/cito-frontend.log; exit 1; }
+          tail -24 /tmp/cito-frontend.log
+      - name: Real nginx routing regression
+        run: python3 scripts/ci/check-edge-hidden-paths.py
+      - name: Publish only a new review branch after verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/lynelk/Cito/branches/main --jq .commit.sha)" = de3011367b67eac2cad65e508e72966a3f70b5ea
+          git config user.name 'Cito release preparation'
+          git config user.email 'release-preparation@users.noreply.github.com'
+          git diff --check
+          git add -A
+          git commit -m 'Consolidate Airtel safeguards into unified fenced recovery and operations UI' -m 'Supersedes conflicting recovery proposals through the current canonical engine, adds V129 without rewriting applied history, preserves financial/credential controls and synchronizes portal/web guidance. Unit, MySQL, frontend and edge verification completed by preparation workflow. Exact-head PR gates and new staging acceptance remain required. No production promotion or provider activation.'
+          sha=$(git rev-parse HEAD)
+          mkdir -p /tmp/cito-candidate
+          git bundle create /tmp/cito-candidate/candidate.bundle HEAD
+          git diff --binary de3011367b67eac2cad65e508e72966a3f70b5ea HEAD > /tmp/cito-candidate/candidate.patch
+          git show -s --format='%H %T %P' > /tmp/cito-candidate/manifest.txt
+          cat /tmp/cito-candidate/manifest.txt
+          sha256sum /tmp/cito-candidate/*
+          gh auth setup-git
+          git push origin "HEAD:refs/heads/release/airtel-validated-$sha"
+          echo "CANDIDATE_BRANCH=release/airtel-validated-$sha"
+          echo 'No main, sandbox, production or Railway configuration was changed.'
+      - name: Retain preparation evidence and candidate
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: airtel-consolidation-preparation-${{ github.sha }}
+          path: |
+            /tmp/cito-*.log
+            /tmp/cito-candidate/
+            InitializrSpringbootProjectFresh/target/surefire-reports/
+          retention-days: 14
