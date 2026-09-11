@@ -1,0 +1,98 @@
+name: Cito remediation candidate composition
+
+on:
+  push:
+    branches: [feature/cito-remediation-completion-20260911]
+    paths:
+      - ops/release/compose_remediation_20260911.py
+      - .github/workflows/remediation-compose.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cito-remediation-composition
+  cancel-in-progress: false
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DB_URL: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+      DB_USERNAME: sa
+      DB_PASSWORD: ''
+      MAIL_USERNAME: noreply@example.com
+      MAIL_PASSWORD: ''
+      LOCK_FILE_DIR: /tmp/cpay/locks
+      ACTUATOR_USERNAME: ci-actuator
+      ACTUATOR_PASSWORD: ci-actuator-password
+      ADMIN_API_USERNAME: ci-admin
+      ADMIN_API_PASSWORD: ci-admin-password
+      CALLBACK_SIGNING_SECRET: ci-callback-secret
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: clientside/package-lock.json
+      - name: Compose pinned proposals without discarding conflicting main work
+        run: python3 ops/release/compose_remediation_20260911.py
+      - name: Normalize imported Java using the repository formatter
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B spotless:apply --no-transfer-progress
+      - name: Publish only a new review candidate, never main or production
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name 'Cito remediation candidate'
+          git config user.email 'remediation@users.noreply.github.com'
+          git add -A
+          git commit -m 'Consolidate Airtel recovery proposals on current main with additive migration'
+          destination="release/remediation-candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh auth setup-git
+          git push origin "HEAD:refs/heads/$destination"
+          echo "CANDIDATE_BRANCH=$destination"
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
+      - name: Full backend tests and formatting
+        working-directory: InitializrSpringbootProjectFresh
+        run: |
+          mvn -B verify --no-transfer-progress -Dspring.flyway.enabled=false > /tmp/cito-remediation-backend.log 2>&1 || { tail -120 /tmp/cito-remediation-backend.log; exit 1; }
+          tail -20 /tmp/cito-remediation-backend.log
+      - name: Durable recovery and financial concurrency MySQL tests
+        working-directory: InitializrSpringbootProjectFresh
+        run: |
+          mvn -B test --no-transfer-progress -Ddocker.tests.excludedGroups= '-Dtest=*Airtel*Test*,DoubleEntryLedgerServiceTestcontainersTest' > /tmp/cito-remediation-mysql.log 2>&1 || { tail -160 /tmp/cito-remediation-mysql.log; exit 1; }
+          tail -25 /tmp/cito-remediation-mysql.log
+      - name: Frontend and generated contract validation
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet PyYAML==6.0.2 openapi-spec-validator==0.7.2 markdown2==2.5.4
+          python3 scripts/api_docs/build_portal_reference.py --check
+          cd clientside
+          npm ci --ignore-scripts --no-audit --no-fund > /tmp/cito-remediation-frontend.log 2>&1
+          for command in typecheck lint test build; do
+            npm run "$command" >> /tmp/cito-remediation-frontend.log 2>&1 || { tail -100 /tmp/cito-remediation-frontend.log; exit 1; }
+          done
+          tail -20 /tmp/cito-remediation-frontend.log
+      - name: Preserve honest candidate evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: remediation-composition-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            /tmp/cito-remediation-report/
+            /tmp/cito-remediation-*.log
+            InitializrSpringbootProjectFresh/target/surefire-reports/
+          retention-days: 14
