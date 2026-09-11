@@ -1,0 +1,61 @@
+name: Populated production-baseline upgrade evidence
+on:
+  push:
+    branches: [release/evidence-de301136-20260911]
+    paths: [.github/workflows/populated-promotion-upgrade.yml, ops/release/PopulatedV125UpgradeTest.java]
+permissions:
+  contents: read
+jobs:
+  populated-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        mysql: ['8.4', '9.4']
+    services:
+      mysql:
+        image: mysql:${{ matrix.mysql }}
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only-root-password
+          MYSQL_DATABASE: cpayadmin_qa
+          MYSQL_USER: cpayqa
+          MYSQL_PASSWORD: ci-only-qa-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h127.0.0.1 -pci-only-root-password"
+          --health-interval=10s --health-timeout=5s --health-retries=15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: evidence
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: de3011367b67eac2cad65e508e72966a3f70b5ea
+          path: application
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Prepare isolated upgrade fixture
+        run: |
+          set -euo pipefail
+          test "$(git -C application rev-parse HEAD)" = de3011367b67eac2cad65e508e72966a3f70b5ea
+          docker exec '${{ job.services.mysql.id }}' mysql -uroot -pci-only-root-password -e 'SET GLOBAL log_bin_trust_function_creators=1;'
+          cp evidence/ops/release/PopulatedV125UpgradeTest.java application/InitializrSpringbootProjectFresh/src/test/java/net/citotech/cito/
+      - name: Apply V125 then populated upgrade to V128
+        working-directory: application/InitializrSpringbootProjectFresh
+        env:
+          DB_URL: 'jdbc:mysql://127.0.0.1:3306/cpayadmin_qa?allowPublicKeyRetrieval=true&useSSL=false'
+          DB_USERNAME: cpayqa
+          DB_PASSWORD: ci-only-qa-password
+        run: mvn -B test --no-transfer-progress -Dtest=PopulatedV125UpgradeTest
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: populated-v125-to-v128-mysql-${{ matrix.mysql }}-de301136
+          path: application/InitializrSpringbootProjectFresh/target/surefire-reports/
+          retention-days: 14
