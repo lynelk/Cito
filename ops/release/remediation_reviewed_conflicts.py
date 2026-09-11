@@ -10,11 +10,8 @@ import re
 def airtel_dispatch_on_current(current: str) -> str:
     marker = 'if (AirtelMoneyOpenApiPaymentGateway.isValidMisdn(msisdn)) {'
     starts = [match.start() for match in re.finditer(re.escape(marker), current)]
-    if len(starts) != 2:
-        raise RuntimeError('Expected exactly two Airtel OpenAPI initiation branches')
     replacements = []
     operations = []
-    # Lexical tokens skip quoted text and comments when counting Java braces.
     tokens = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|//[^\n]*|/\*[\s\S]*?\*/|[{}]')
     for start in starts:
         opening = start + len(marker) - 1
@@ -29,10 +26,13 @@ def airtel_dispatch_on_current(current: str) -> str:
                     closing = token.start()
                     break
         if closing is None:
-            raise RuntimeError('Unbalanced Airtel initiation branch')
+            raise RuntimeError('Unbalanced Airtel branch')
         body = current[opening + 1:closing]
         inbound = 'airteloapimm_mmpgw.doPayIn(amount, msisdn, ref, narrative)' in body
         outbound = 'airteloapimm_mmpgw.doPayOut(amount, msisdn, ref, narrative)' in body
+        if not inbound and not outbound:
+            # Legacy status enquiries also validate MSISDN. They are not initiation.
+            continue
         if inbound == outbound or 'gw_airtelmoney_api_public_key' not in body:
             raise RuntimeError('Unexpected Airtel initiation branch contents')
         operation = 'COLLECT' if inbound else 'PAYOUT'
@@ -42,7 +42,7 @@ def airtel_dispatch_on_current(current: str) -> str:
                        '            ')
         replacements.append((opening + 1, closing, replacement))
     if sorted(operations) != ['COLLECT', 'PAYOUT']:
-        raise RuntimeError('Airtel operation pairing changed')
+        raise RuntimeError('Expected exactly one collection and one payout initiation branch')
     result = current
     for start, end, replacement in reversed(replacements):
         result = result[:start] + replacement + result[end:]
@@ -76,8 +76,6 @@ def resolve_known_hunks(path: str, text: str) -> str:
             if ("new URLSearchParams(window.location.search).get('channel')" in ours
                     and "'SANDBOX'));" in ours and 'const [filters, setFilters]' in ours
                     and "channel: channelScope || ''" in theirs):
-                # Keep main's state initializer and clearing semantics. A fixed provider
-                # scope takes precedence over query parameters, never over environment safety.
                 return ours.replace('}, new URLSearchParams', '}, channelScope || (new URLSearchParams', 1).replace(
                     ": 'mtn_momo', 'SANDBOX'));", ": 'mtn_momo'), 'SANDBOX'));", 1).replace(
                     "channel: ''", "channel: channelScope || ''", 1)
