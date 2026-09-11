@@ -72,7 +72,9 @@ public class MerchantOnboardingReadinessService {
         response.put("goLive", goLive(scope));
         response.put("productionRollout", productionRollout(scope));
         response.put("nextAction", lifecycle.get("nextAction"));
-        response.put("readyForProduction", readyForProduction(lifecycle, steps));
+        Map<String, Object> assessment = MerchantReadinessAssessment.assess(lifecycle, steps);
+        response.put("readinessAssessment", assessment);
+        response.put("readyForProduction", assessment.get("readyForProduction"));
         return response;
     }
 
@@ -195,18 +197,6 @@ public class MerchantOnboardingReadinessService {
                                 + "FROM merchant_rollout_stages WHERE merchant_id=:merchantId",
                         scope);
         return rollout.isEmpty() ? Map.of("stageCode", "SANDBOX") : rollout;
-    }
-
-    private boolean readyForProduction(
-            Map<String, Object> lifecycle, List<Map<String, Object>> steps) {
-        if ("LIVE".equals(text(lifecycle.get("status")))) {
-            return true;
-        }
-        return steps.stream()
-                        .filter(step -> truthy(step.get("requiredForActivation")))
-                        .filter(step -> !"PRODUCTION_ACTIVATED".equals(text(step.get("stepCode"))))
-                        .allMatch(step -> DONE_STATUSES.contains(text(step.get("status"))))
-                && blockers(steps).isEmpty();
     }
 
     private boolean stepDone(List<Map<String, Object>> steps, String stepCode) {

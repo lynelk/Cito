@@ -23,23 +23,27 @@ public class MobileMoneyRecoveryLeaseStore {
                         + "WHERE t.status IN ('PENDING','UNDETERMINED') AND e.next_poll_at<=CURRENT_TIMESTAMP "
                         + "AND (e.recovery_claim_until IS NULL OR e.recovery_claim_until<CURRENT_TIMESTAMP(6)) "
                         + "AND (:runtime='PRODUCTION' OR e.environment='SANDBOX') "
-                        + "ORDER BY e.next_poll_at,e.transaction_id LIMIT " + Math.max(1, Math.min(limit, 20)),
+                        + "ORDER BY e.next_poll_at,e.transaction_id LIMIT "
+                        + Math.max(1, Math.min(limit, 20)),
                 new MapSqlParameterSource("runtime", runtimeEnvironment));
     }
 
     public String claim(String id, String runtimeEnvironment) {
         requireRuntime(runtimeEnvironment);
         String token = UUID.randomUUID().toString();
-        int changed = jdbc.update(
-                "UPDATE mobile_money_executions e SET recovery_claim_token=:claim,"
-                        + "recovery_claim_until=TIMESTAMPADD(SECOND,90,CURRENT_TIMESTAMP(6)),"
-                        + "recovery_attempt_count=recovery_attempt_count+1 "
-                        + "WHERE transaction_id=:tx AND next_poll_at<=CURRENT_TIMESTAMP "
-                        + "AND (recovery_claim_until IS NULL OR recovery_claim_until<CURRENT_TIMESTAMP(6)) "
-                        + "AND (:runtime='PRODUCTION' OR environment='SANDBOX') "
-                        + "AND EXISTS (SELECT 1 FROM merchant_transactions_log t WHERE t.tx_unique_id=e.transaction_id "
-                        + "AND t.status IN ('PENDING','UNDETERMINED'))",
-                new MapSqlParameterSource("tx", id).addValue("claim", token).addValue("runtime", runtimeEnvironment));
+        int changed =
+                jdbc.update(
+                        "UPDATE mobile_money_executions e SET recovery_claim_token=:claim,"
+                                + "recovery_claim_until=TIMESTAMPADD(SECOND,90,CURRENT_TIMESTAMP(6)),"
+                                + "recovery_attempt_count=recovery_attempt_count+1 "
+                                + "WHERE transaction_id=:tx AND next_poll_at<=CURRENT_TIMESTAMP "
+                                + "AND (recovery_claim_until IS NULL OR recovery_claim_until<CURRENT_TIMESTAMP(6)) "
+                                + "AND (:runtime='PRODUCTION' OR environment='SANDBOX') "
+                                + "AND EXISTS (SELECT 1 FROM merchant_transactions_log t WHERE t.tx_unique_id=e.transaction_id "
+                                + "AND t.status IN ('PENDING','UNDETERMINED'))",
+                        new MapSqlParameterSource("tx", id)
+                                .addValue("claim", token)
+                                .addValue("runtime", runtimeEnvironment));
         return changed == 1 ? token : null;
     }
 
@@ -51,7 +55,9 @@ public class MobileMoneyRecoveryLeaseStore {
                         + "next_poll_at=TIMESTAMPADD(SECOND,LEAST(1800,60*POW(2,LEAST(recovery_attempt_count,5))),CURRENT_TIMESTAMP) "
                         + "WHERE transaction_id=:tx AND recovery_claim_token=:claim "
                         + "AND recovery_claim_until>CURRENT_TIMESTAMP(6)",
-                new MapSqlParameterSource("tx", id).addValue("claim", claim).addValue("code", code));
+                new MapSqlParameterSource("tx", id)
+                        .addValue("claim", claim)
+                        .addValue("code", code));
     }
 
     public void signal(String id) {

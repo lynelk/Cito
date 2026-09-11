@@ -3,6 +3,7 @@ const topics = [
   ['Payments', 'Collections, payouts, status enquiries and refunds through enabled channels.'],
   ['Authentication', 'Merchant signatures and scoped service credentials protect third-party connections.'],
   ['Webhooks', 'Verified event delivery connects Cito outcomes to your application.'],
+  ['Recovery', 'MTN and Airtel recovery checks the original payment reference without resubmitting it. Pending is not settlement; provider certification remains separate.'],
   ['Billing', 'API access rates are set by Cito administrators and may be zero. Service charges are separate.'],
   ['Documentation', 'Sign in to the merchant portal for searchable OpenAPI, schemas, examples and the integration guide.'],
   ['Testing', 'Use an approved sandbox. Production access depends on readiness and service permissions.'],

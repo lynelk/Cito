@@ -62,7 +62,7 @@ class FlywayMigrationSmokeTest {
                 .validate();
 
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            assertEquals("128", latestSuccessfulVersion(connection));
+            assertEquals("129", latestSuccessfulVersion(connection));
             assertEquals(
                     1,
                     scalarCount(

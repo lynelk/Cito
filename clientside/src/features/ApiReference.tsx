@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown';
+import DeveloperQuickstart from './DeveloperQuickstart';
 import remarkGfm from 'remark-gfm';
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../shared/api/httpClient';
@@ -83,6 +84,7 @@ export default function ApiReference({ admin = false }: { admin?: boolean }): Re
   return <section className="cito-api-reference" aria-label={admin ? 'Administrator API workbench' : 'Developer API reference'}>
     <header><p className="cito-api-eyebrow">Cito Gateway · Developer reference</p><h2>{admin ? 'API workbench' : 'Connect to Cito'}</h2><p>Search endpoints, read integration steps, inspect schemas and review API access rates.</p>
       {admin && <label>API collection <select value={scope} onChange={e => setScope(e.target.value)}><option value="commercial">Commercial and merchant APIs</option><option value="system">Full system · administrator only</option></select></label>}</header>
+    <DeveloperQuickstart onExplore={() => { setTab('reference'); setQuery('capabilities'); }} />
     <div className="cito-api-toolbar"><button type="button" onClick={() => setTab('reference')} aria-pressed={tab === 'reference'}>API reference</button><button type="button" onClick={() => setTab('guide')} aria-pressed={tab === 'guide'}>Integration guide</button>
       <button type="button" disabled={!document} onClick={() => download(`cito-${scope}-openapi.json`, JSON.stringify(document, null, 2), 'application/json')}>Download OpenAPI</button><button type="button" disabled={!guide} onClick={() => download('cito-integration-guide.md', guide, 'text/markdown')}>Download guide</button></div>
     <label>Search documentation and functions<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Try collect, webhook, authentication or billing" /></label>

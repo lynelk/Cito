@@ -1,4 +1,5 @@
 import React from 'react';
+import MerchantReadinessPanel from './MerchantReadinessPanel';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { request } from '../shared/api/httpClient';
 import { useAuth, type Portal } from '../shared/useAuth';
@@ -104,6 +105,7 @@ function LifecycleWorkspace({ merchantId }: { merchantId: number | null }): Reac
   }));
   return (
     <div className="cito-workspace-stack">
+      <MerchantReadinessPanel merchantId={merchantId} />
       {state.data?.blocked_reason ? <Alert variant="warning">{String(state.data.blocked_reason)}</Alert> : null}
       <Section title="Activation status" actions={<StatusBadge status={String(state.data?.status || 'UNKNOWN')} />}>
         <p><strong>Next action:</strong> {String(state.data?.next_action || 'No next action has been assigned.')}</p>
@@ -265,7 +267,9 @@ function IncidentWorkspace(): React.ReactElement {
 
 export default function ExperienceWorkspace({ portal, section }: ExperienceWorkspaceProps): React.ReactElement {
   const { user } = useAuth(portal);
-  const merchantId = merchantIdFrom(user as Record<string, unknown>);
+  const [params] = useSearchParams();
+  const scoped = Number(params.get('merchantId'));
+  const merchantId = portal === 'admin' && Number.isSafeInteger(scoped) && scoped > 0 ? scoped : merchantIdFrom(user as Record<string, unknown>);
   const titles: Record<ExperienceSection, [string, string]> = {
     lifecycle: ['Activation journey', 'One status, owner, blocker, and next action across Cito'],
     search: ['Global search', 'Role- and tenant-scoped results across operational records'],

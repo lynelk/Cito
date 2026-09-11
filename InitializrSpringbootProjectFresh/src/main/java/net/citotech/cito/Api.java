@@ -1660,19 +1660,7 @@ public class Api {
             HttpServletResponse response) {
         try {
             String id = new JSONObject(requestBody).getJSONObject("transaction").getString("id");
-            if (!mobileMoneyRecovery.signal("airtel_open_api", id, id)) {
-                // Historical requests used our transaction UUID as Airtel transaction.id.
-                Transaction tx = Common.getTxByRef(id, jdbcTemplate);
-                if (tx == null
-                        || !net.citotech.cito.gateway.LegacyGatewayIds.AIRTEL_OPEN_API.equals(
-                                tx.getGateway_id())) {
-                    response.setStatus(404);
-                    return GeneralException.getError("109", "Airtel transaction was not found");
-                }
-                tx.setFinalStatusSet(
-                        false); // Never apply the unauthenticated callback's claimed status.
-                Common.updateTx(tx, jdbcTemplate, transactionManager);
-            }
+            mobileMoneyRecovery.signal("airtel_open_api", id, id);
             response.setStatus(202);
             return "{\"code\":\"000\",\"message\":\"Status verification scheduled\"}";
         } catch (Exception e) {

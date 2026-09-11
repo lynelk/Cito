@@ -32,7 +32,7 @@ export default function MerchantReadinessPanel({ merchantId }: { merchantId: num
   return <Section title="Merchant readiness evidence">
     <p role="status"><strong>{assessment ? labels[assessment.state] || 'Unknown readiness' : 'Readiness assessment unavailable'}</strong></p>
     <p>{assessment?.nextAction || 'Ask Operations to review the current activation evidence.'}</p>
-    <Alert variant="info">Account readiness and entitlements do not certify or enable every provider. Check the specific service, credentials, environment and operating limits before use.</Alert>
+    <Alert variant="warning">Account readiness and entitlements do not certify or enable every provider. Check the specific service, credentials, environment and operating limits before use.</Alert>
     {(state.data?.blockers || []).map(step => <p key={step.stepCode}><strong>{step.stepName || step.stepCode}</strong>: {step.blocker || step.guidance || 'Review required'} · Responsible: {step.responsibleParty || 'Unassigned'}</p>)}
   </Section>;
 }

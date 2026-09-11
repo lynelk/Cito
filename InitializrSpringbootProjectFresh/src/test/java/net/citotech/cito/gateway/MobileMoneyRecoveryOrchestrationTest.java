@@ -15,8 +15,15 @@ class MobileMoneyRecoveryOrchestrationTest {
     private final MobileMoneyExecutionService executions = mock(MobileMoneyExecutionService.class);
     private final MobileMoneyRecoveryLeaseStore leases = mock(MobileMoneyRecoveryLeaseStore.class);
     private final BoundedProviderVerification bounded = mock(BoundedProviderVerification.class);
-    private final MobileMoneyRecoveryService recovery = spy(new MobileMoneyRecoveryService(
-            jdbc, executions, mock(MtnMomoStatusClient.class), leases, bounded, "SANDBOX"));
+    private final MobileMoneyRecoveryService recovery =
+            spy(
+                    new MobileMoneyRecoveryService(
+                            jdbc,
+                            executions,
+                            mock(MtnMomoStatusClient.class),
+                            leases,
+                            bounded,
+                            "SANDBOX"));
     private final Map<String, Object> row = Map.of("transaction_id", "original-reference");
 
     @Test
@@ -59,7 +66,8 @@ class MobileMoneyRecoveryOrchestrationTest {
         GateWayResponse proof = new GateWayResponse();
         when(bounded.execute(any())).thenReturn(proof);
         doThrow(new PaymentGatewayException("expired or failed commit"))
-                .when(executions).applyVerified("original-reference", proof, "current-claim");
+                .when(executions)
+                .applyVerified("original-reference", proof, "current-claim");
         recovery.reconcilePending();
         verify(leases).retry("original-reference", "current-claim", "VERIFICATION_DEFERRED");
         verify(executions, never()).apply(anyString(), any());
@@ -67,7 +75,9 @@ class MobileMoneyRecoveryOrchestrationTest {
 
     @Test
     void aCallbackIsOnlyARateLimitedWakeUpHint() {
-        when(jdbc.queryForList(anyString(), any(org.springframework.jdbc.core.namedparam.MapSqlParameterSource.class)))
+        when(jdbc.queryForList(
+                        anyString(),
+                        any(org.springframework.jdbc.core.namedparam.MapSqlParameterSource.class)))
                 .thenReturn(List.of(row));
         recovery.signal("airtel_open_api", "original-reference", "original-reference");
         verify(leases).signal("original-reference");
