@@ -23,6 +23,15 @@ RECIPIENT = 'lynelk@gmail.com'
 STAGE = 'SCOPE'
 
 
+def tls_client_context() -> ssl.SSLContext:
+    """Require verified TLS1.2+ on both implicit TLS and STARTTLS paths."""
+    context = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.check_hostname = True
+    context.verify_mode = ssl.CERT_REQUIRED
+    return context
+
+
 def main() -> None:
     global STAGE
     if (os.environ.get('RAILWAY_PROJECT_ID'), os.environ.get('RAILWAY_ENVIRONMENT_ID'), os.environ.get('RAILWAY_SERVICE_ID')) != (PROJECT, ENVIRONMENT, SERVICE):
@@ -64,11 +73,11 @@ def main() -> None:
     if parseaddr(sender)[1] != sender or '@' not in sender or any(c in sender for c in '\r\n'):
         raise RuntimeError('Invalid configured sender')
     STAGE = 'TLS_CONNECTION'
-    client = smtplib.SMTP_SSL(host,port,timeout=10,context=ssl.create_default_context()) if implicit else smtplib.SMTP(host,port,timeout=10)
+    client = smtplib.SMTP_SSL(host,port,timeout=10,context=tls_client_context()) if implicit else smtplib.SMTP(host,port,timeout=10)
     try:
         client.ehlo()
         if starttls:
-            client.starttls(context=ssl.create_default_context())
+            client.starttls(context=tls_client_context())
             client.ehlo()
         STAGE = 'AUTHENTICATION'
         client.login(username,password)

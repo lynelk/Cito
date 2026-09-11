@@ -24,6 +24,15 @@ KEYS = ('host', 'port', 'ssl.enable', 'starttls.enable', 'auth', 'connectiontime
 STAGE = 'SCOPE'
 
 
+def tls_client_context() -> ssl.SSLContext:
+    """Require verified TLS1.2+ on both implicit TLS and STARTTLS paths."""
+    context = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.check_hostname = True
+    context.verify_mode = ssl.CERT_REQUIRED
+    return context
+
+
 def main() -> None:
     global STAGE
     if (os.environ.get('RAILWAY_PROJECT_ID'), os.environ.get('RAILWAY_ENVIRONMENT_ID'), os.environ.get('RAILWAY_SERVICE_ID')) != (PROJECT, ENVIRONMENT, SERVICE):
@@ -88,7 +97,7 @@ def main() -> None:
             record['tcp'] = 'PASS'
             try:
                 if selected == 465:
-                    sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
+                    sock = tls_client_context().wrap_socket(sock, server_hostname=host)
                     record['tls'] = 'PASS'
                 client = smtplib.SMTP(timeout=5, local_hostname='diagnostic.cito.coresynergi.es')
                 client._host = host
@@ -102,7 +111,7 @@ def main() -> None:
                 if selected != 465:
                     if not client.has_extn('starttls'):
                         raise RuntimeError('STARTTLS not advertised')
-                    client.starttls(context=ssl.create_default_context())
+                    client.starttls(context=tls_client_context())
                     record['tls'] = 'PASS'
                     client.ehlo()
                 client.quit()
