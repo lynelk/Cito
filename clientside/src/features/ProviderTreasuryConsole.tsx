@@ -1,3 +1,4 @@
+import { changeProviderScope, mtnProfile } from './providerConnectionProfile';
 import { request } from '../shared/api/httpClient';
 import MerchantCredentialReviews from './MerchantCredentialReviews';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
@@ -96,17 +97,17 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
   const [notice, setNotice] = useState('');
   const [adjustment, setAdjustment] = useState({ adjustmentType: 'CREDIT', sourceAccountId: '', destinationAccountId: '', amount: '', reason: '', externalReference: '', evidenceReference: '', valueDate: new Date().toISOString().slice(0, 10) });
   const [entitlement, setEntitlement] = useState({ merchantId: '', channelCode: 'airtel_money', environment: 'PRODUCTION', countryCode: 'UG', currencyCode: 'UGX', operation: 'COLLECT', perTransactionLimit: '', dailyLimit: '', notes: '' });
-  const [credential, setCredential] = useState({
-    channelCode: 'airtel_money', environment: 'PRODUCTION', countryCode: 'UG', currencyCode: 'UGX',
+  const [credential, setCredential] = useState(() => changeProviderScope({
+    channelCode: 'mtn_momo', environment: 'SANDBOX',
     collectUrl: '', payoutUrl: '', authHeaderName: '', authHeaderValue: '', tokenAlias: '',
-    baseUrl: '', targetEnvironment: '', baseCurrency: 'UGX', callbackHost: '', callbackUrl: '',
+    ...mtnProfile('SANDBOX'), callbackHost: '', callbackUrl: '',
     collectionApiUser: '', collectionApiKey: '', collectionSubscriptionKey: '', collectionSecondarySubscriptionKey: '',
     disbursementApiUser: '', disbursementApiKey: '', disbursementSubscriptionKey: '', disbursementSecondarySubscriptionKey: '',
     airtelClientId: '', airtelClientSecret: '', airtelApiPin: '', airtelPublicKey: '',
     airtelCountry: 'UG', airtelCurrency: 'UGX', tokenPath: '/auth/oauth2/token',
     collectionPath: '/merchant/v2/payments/', payoutPath: '/standard/v2/disbursements/',
     balancePath: '/standard/v2/users/balance',
-  });
+  }, new URLSearchParams(window.location.search).get('channel') === 'airtel_open_api' ? 'airtel_open_api' : 'mtn_momo', 'SANDBOX'));
   const [filters, setFilters] = useState({ environment: '', channel: '', currency: '', role: '', state: '' });
   const [liveTest, setLiveTest] = useState({
     merchantId: '', channelCode: 'mtn_momo', environment: 'SANDBOX', countryCode: 'UG',
@@ -414,30 +415,25 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
         <Card flush><Table<SharedProviderEntitlement> columns={entitlementColumns} rows={entitlements.data ?? []} rowKey={(row) => row.id} emptyText="No shared-provider entitlements." /></Card>
       </Section>
 
+      <div id="platform-provider-credentials" />
       <Section title="CPay Platform Provider Credentials">
         <Card>
-          <p style={{ color: 'var(--ios-secondary)' }}>Secrets are encrypted at rest. After save, only masked values are returned. Credential editor and approver must be different operators.</p>
+          <p style={{ color: 'var(--ios-secondary)' }}>Secrets are encrypted at rest. After save, only masked values are returned. Credential editor and approver must be different operators. An API key is not a subscription key or portal password. Switching provider or environment clears unsaved credentials and callback values. This release requires both MTN products for connection verification; Collections-only activation is not yet supported.</p>
           <form onSubmit={submitCredential} style={gridStyle}>
             <label>Channel<select style={fieldStyle} value={credential.channelCode} onChange={(e) => {
               const channelCode = e.target.value;
-              setCredential({ ...credential, channelCode,
-                ...(channelCode === 'mtn_momo' ? { baseCurrency: credential.environment === 'SANDBOX' ? 'EUR' : 'UGX', currencyCode: credential.environment === 'SANDBOX' ? 'EUR' : 'UGX', baseUrl: credential.environment === 'SANDBOX' ? 'https://sandbox.momodeveloper.mtn.com' : '', targetEnvironment: credential.environment === 'SANDBOX' ? 'sandbox' : 'mtnuganda' } : {}),
-                ...(channelCode === 'airtel_open_api' ? { baseUrl: credential.environment === 'SANDBOX' ? 'https://openapiuat.airtel.africa' : 'https://openapi.airtel.africa', currencyCode: 'UGX', airtelCountry: 'UG', airtelCurrency: 'UGX' } : {}),
-              });
+              setCredential(changeProviderScope(credential, channelCode, credential.environment));
             }}><option value="airtel_money">Airtel Money</option><option value="airtel_open_api">Airtel Open API</option><option value="mtn_momo">MTN MoMo</option><option value="safaricom_mpesa">Safaricom M-Pesa</option></select></label>
             <label>Environment<select style={fieldStyle} value={credential.environment} onChange={(e) => {
               const environment = e.target.value;
-              setCredential({ ...credential, environment,
-                ...(credential.channelCode === 'mtn_momo' ? { baseCurrency: environment === 'SANDBOX' ? 'EUR' : 'UGX', currencyCode: environment === 'SANDBOX' ? 'EUR' : 'UGX', baseUrl: environment === 'SANDBOX' ? 'https://sandbox.momodeveloper.mtn.com' : '', targetEnvironment: environment === 'SANDBOX' ? 'sandbox' : 'mtnuganda' } : {}),
-                ...(credential.channelCode === 'airtel_open_api' ? { baseUrl: environment === 'SANDBOX' ? 'https://openapiuat.airtel.africa' : 'https://openapi.airtel.africa' } : {}),
-              });
+              setCredential(changeProviderScope(credential, credential.channelCode, environment));
             }}><option>PRODUCTION</option><option>SANDBOX</option></select></label>
-            <label>Country<input required style={fieldStyle} value={credential.countryCode} onChange={(e) => setCredential({ ...credential, countryCode: e.target.value.toUpperCase() })} /></label>
-            <label>Currency<input required style={fieldStyle} value={credential.currencyCode} onChange={(e) => setCredential({ ...credential, currencyCode: e.target.value.toUpperCase() })} /></label>
+            <label>Country<input readOnly={credential.channelCode === 'mtn_momo'} required style={fieldStyle} value={credential.countryCode} onChange={(e) => setCredential({ ...credential, countryCode: e.target.value.toUpperCase() })} /></label>
+            <label>Currency<input readOnly={credential.channelCode === 'mtn_momo'} required style={fieldStyle} value={credential.currencyCode} onChange={(e) => setCredential({ ...credential, currencyCode: e.target.value.toUpperCase() })} /></label>
             {credential.channelCode === 'mtn_momo' ? <>
-              <label>MTN API base URL<input required type="url" style={fieldStyle} value={credential.baseUrl} onChange={(e) => setCredential({ ...credential, baseUrl: e.target.value })} /></label>
-              <label>X-Target-Environment<input required style={fieldStyle} value={credential.targetEnvironment} onChange={(e) => setCredential({ ...credential, targetEnvironment: e.target.value })} /></label>
-              <label>MTN base currency<input required style={fieldStyle} value={credential.baseCurrency} onChange={(e) => setCredential({ ...credential, baseCurrency: e.target.value.toUpperCase() })} /></label>
+              <label>MTN API base URL<input required type="url" readOnly={credential.channelCode === 'mtn_momo'} style={fieldStyle} value={credential.baseUrl} onChange={(e) => setCredential({ ...credential, baseUrl: e.target.value })} /></label>
+              <label>X-Target-Environment<input readOnly required style={fieldStyle} value={credential.targetEnvironment} onChange={(e) => setCredential({ ...credential, targetEnvironment: e.target.value })} /></label>
+              <label>MTN base currency<input readOnly required style={fieldStyle} value={credential.baseCurrency} onChange={(e) => setCredential({ ...credential, baseCurrency: e.target.value.toUpperCase() })} /></label>
               <label>Registered callback host<input required placeholder="payments.example.com" style={fieldStyle} value={credential.callbackHost} onChange={(e) => setCredential({ ...credential, callbackHost: e.target.value })} /></label>
               <label>CPay callback URL<input required type="url" style={fieldStyle} value={credential.callbackUrl} onChange={(e) => setCredential({ ...credential, callbackUrl: e.target.value })} /></label>
               <label>Collection API user<input required type="password" autoComplete="new-password" style={fieldStyle} value={credential.collectionApiUser} onChange={(e) => setCredential({ ...credential, collectionApiUser: e.target.value })} /></label>

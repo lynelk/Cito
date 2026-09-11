@@ -206,3 +206,10 @@ GnuGrid asynchronous callbacks are intentionally unsupported until the provider'
 For Communications, distinguish request acceptance, provider acceptance and final delivery evidence. A successful submission response is not proof that an email reached an inbox or that an SMS reached a handset. Report uncertain delivery as uncertain and use approved test recipients when establishing end-to-end evidence.
 
 For initial developer onboarding, prefer an approved non-money sandbox read or capability-discovery exercise. Verify its exact environment and authorization first; even reads may incur the published API access charge. Do not initiate a payment, payout or vending purchase merely to prove that documentation loads.
+
+
+## MTN configuration ownership and verification
+
+Platform administrators configure CPay-owned MTN connections in `/bo/provider-treasury?channel=mtn_momo#platform-provider-credentials`. Settings -> MTN MoMo links there and retains separate pricing controls. Merchant-owned connections remain in merchant Payment channels and do not expose platform secrets. Stored settings are not connectivity evidence.
+
+The governed platform form derives MTN's API origin, target and currency: Sandbox uses sandbox/EUR; Uganda production uses mtnuganda/UGX. Changing provider or environment clears unsaved credential and callback values. API users/API keys differ from product subscription keys and portal passwords. Use the server-side Verify connection action followed by independent approval; verification requires both MTN products in this release. Authentication alone is not payment or callback certification. No automatic migration or activation of legacy connection settings is performed.
