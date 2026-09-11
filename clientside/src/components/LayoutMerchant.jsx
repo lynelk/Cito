@@ -12,6 +12,7 @@ import {
 } from '../ui';
 import ExperienceWorkspace from '../features/ExperienceWorkspace';
 import MerchantServicePortfolio from '../features/MerchantServicePortfolio';
+import { activeEntitlementCodes } from '../features/merchantEntitlementEvidence';
 
 import MerchantModuleDashboard from './modules/merchant/MerchantModuleDashboard';
 import MerchantModuleAdmins from './modules/merchant/MerchantModuleAdmins';
@@ -128,7 +129,7 @@ class LayoutMerchantWithOutRouter extends React.Component {
 
   async loadEntitlements() {
     const merchantId = Number(this.state.user?.merchant_id || this.state.user?.merchantId);
-    if (!Number.isFinite(merchantId) || merchantId <= 0) {
+    if (!Number.isSafeInteger(merchantId) || merchantId <= 0) {
       this.setState({ entitlements: [] });
       return;
     }
@@ -136,14 +137,9 @@ class LayoutMerchantWithOutRouter extends React.Component {
       const response = await apiFetch(`/api/v2/merchants/${merchantId}/overview`);
       if (!response.ok) return;
       const body = await response.json();
-      const rows = Array.isArray(body.entitlements) ? body.entitlements : [];
-      const disabledStatuses = new Set(['REVOKED', 'EXPIRED', 'DISABLED']);
-      const entitlements = rows
-        .filter((row) => !disabledStatuses.has(String(row.status || '').toUpperCase()))
-        .map((row) => row.service_code || row.serviceCode)
-        .filter(Boolean)
-        .map(String);
-      this.setState({ entitlements });
+      // A request, missing status or expired validity window is not an access grant.
+      // This controls presentation only; backend permissions remain authoritative.
+      this.setState({ entitlements: activeEntitlementCodes(body.entitlements) });
     } catch {
       // Navigation remains usable when entitlement metadata is temporarily unavailable.
     }
