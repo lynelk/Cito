@@ -103,7 +103,7 @@ export default function MerchantServicePortfolio({ entitlements }: Props): React
         <div>
           <p className="cito-workspace-hero__eyebrow">Your Cito service portfolio</p>
           <h2>Use the services your business needs</h2>
-          <p>Payments are only one part of Cito. Communications, identity and credit intelligence, vending, billing and integrations are presented as clear service families and activated through entitlements.</p>
+          <p>Payments are only one part of Cito. Explore communications, identity and credit intelligence, vending, billing and integrations by service family. Entitlements grant workspace access; configuration, certification and production activation remain separate checks.</p>
         </div>
         <div className="cito-workspace-hero__actions">
           <Button variant="ghost" onClick={() => navigate('/fo/help')}>Request service access</Button>
