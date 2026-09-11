@@ -1,0 +1,31 @@
+name: Cito remediation source review
+on:
+  push:
+    branches: [release/remediation-candidate-34613522079-1]
+    paths: [.github/workflows/remediation-source-review.yml]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Export tracked source and selected baseline only
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/cito-source-review
+          git archive --format=tar.gz -o /tmp/cito-source-review/candidate.tar.gz HEAD
+          git archive --format=tar.gz -o /tmp/cito-source-review/main-de301136.tar.gz de3011367b67eac2cad65e508e72966a3f70b5ea
+          git diff --binary de3011367b67eac2cad65e508e72966a3f70b5ea HEAD > /tmp/cito-source-review/candidate.patch
+          git ls-tree -r HEAD > /tmp/cito-source-review/candidate-tree.txt
+          printf '%s\n' "$(git rev-parse HEAD)" > /tmp/cito-source-review/revision.txt
+          sha256sum /tmp/cito-source-review/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cito-source-review-${{ github.sha }}
+          path: /tmp/cito-source-review/
+          retention-days: 3
