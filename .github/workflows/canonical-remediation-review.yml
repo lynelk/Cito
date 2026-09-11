@@ -54,8 +54,7 @@ jobs:
       - name: Apply explicitly reviewed canonical integration
         run: |
           set -euo pipefail
-          python3 ops/release/complete_canonical_remediation.py
-          python3 ops/release/canonical_candidate_checks.py
+          python3 ops/release/canonical_assembly_v2.py
           python3 -m pip install --quiet PyYAML==6.0.2 openapi-spec-validator==0.7.2 markdown2==2.5.4
           python3 scripts/api_docs/build_portal_reference.py
           python3 scripts/api_docs/build_portal_reference.py --check
@@ -101,6 +100,8 @@ jobs:
           git diff --check
           git config user.name 'Cito canonical remediation'
           git config user.email 'remediation@users.noreply.github.com'
+          # Assembly helpers are audit history on the source branch, not application release files.
+          git rm .github/workflows/canonical-remediation-review.yml ops/release/complete_canonical_remediation.py ops/release/canonical_candidate_checks.py ops/release/canonical_assembly_v2.py
           git add -A
           git commit -m 'Complete canonical recovery fencing, truthful readiness and safe developer onboarding'
           branch="release/canonical-remediation-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
