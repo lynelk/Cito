@@ -1035,53 +1035,8 @@ public class DoPayGateway {
 
         if (use_open_api.equals("yes")) {
             if (AirtelMoneyOpenApiPaymentGateway.isValidMisdn(msisdn)) {
-                String global_url =
-                        resolveCredentialValue(
-                                "gw_airtelmoney_api_url",
-                                merchantId,
-                                useMerchantCreds,
-                                jdbcTemplate);
-                String api_username =
-                        resolveCredentialValue(
-                                "gw_airtelmoney_api_username",
-                                merchantId,
-                                useMerchantCreds,
-                                jdbcTemplate);
-                String api_password =
-                        resolveCredentialValue(
-                                "gw_airtelmoney_api_password",
-                                merchantId,
-                                useMerchantCreds,
-                                jdbcTemplate);
-                String api_pin =
-                        resolveCredentialValue(
-                                "gw_airtelmoney_api_pin",
-                                merchantId,
-                                useMerchantCreds,
-                                jdbcTemplate);
-
-                airteloapimm_mmpgw = new AirtelMoneyOpenApiPaymentGateway();
-                airteloapimm_mmpgw.setApiDetails(global_url, api_username, api_password, api_pin);
-                configureAirtelOpenApiEndpoints(
-                        airteloapimm_mmpgw, merchantId, useMerchantCreds, jdbcTemplate);
-                Setting airtelPublicKey =
-                        resolveCredentialSetting(
-                                "gw_airtelmoney_api_public_key",
-                                merchantId,
-                                useMerchantCreds,
-                                jdbcTemplate);
-                if (airtelPublicKey != null)
-                    airteloapimm_mmpgw.setPublicKey(airtelPublicKey.getSetting_value());
-                if (airteloapimm_mmpgw.getPublicKey().isEmpty()) {
-                    GateWayResponse err = new GateWayResponse();
-                    err.setHttpStatus("0");
-                    err.setStatus("ERROR");
-                    err.setTransactionStatus("FAILED");
-                    err.setMessage(
-                            "Airtel Open API public key not configured (gw_airtelmoney_api_public_key).");
-                    return err;
-                }
-                return airteloapimm_mmpgw.doPayIn(amount, msisdn, ref, narrative);
+                return net.citotech.cito.gateway.AirtelRecoveryRegistry.submit(
+                        merchantId, amount, msisdn, ref, narrative, "COLLECT");
             }
         } else {
             if (AirtelMoneyPaymentGateway.isValidMisdn(msisdn)) {
@@ -1532,57 +1487,8 @@ public class DoPayGateway {
         // Do another gateway.
         if (use_open_api.equals("yes")) {
             if (AirtelMoneyOpenApiPaymentGateway.isValidMisdn(msisdn)) {
-
-                String global_url =
-                        resolveCredentialValue(
-                                "gw_airtelmoney_api_url",
-                                merchantId,
-                                useMerchantCreds,
-                                jdbcTemplate);
-                String api_username =
-                        resolveCredentialValue(
-                                "gw_airtelmoney_api_username",
-                                merchantId,
-                                useMerchantCreds,
-                                jdbcTemplate);
-                String api_password =
-                        resolveCredentialValue(
-                                "gw_airtelmoney_api_password",
-                                merchantId,
-                                useMerchantCreds,
-                                jdbcTemplate);
-                String api_pin =
-                        resolveCredentialValue(
-                                "gw_airtelmoney_api_pin",
-                                merchantId,
-                                useMerchantCreds,
-                                jdbcTemplate);
-
-                airteloapimm_mmpgw = new AirtelMoneyOpenApiPaymentGateway();
-                airteloapimm_mmpgw.setApiDetails(global_url, api_username, api_password, api_pin);
-                configureAirtelOpenApiEndpoints(
-                        airteloapimm_mmpgw, merchantId, useMerchantCreds, jdbcTemplate);
-                Setting airtelPublicKey =
-                        resolveCredentialSetting(
-                                "gw_airtelmoney_api_public_key",
-                                merchantId,
-                                useMerchantCreds,
-                                jdbcTemplate);
-                if (airtelPublicKey != null)
-                    airteloapimm_mmpgw.setPublicKey(airtelPublicKey.getSetting_value());
-                if (airteloapimm_mmpgw.getPublicKey().isEmpty()) {
-                    GateWayResponse err = new GateWayResponse();
-                    err.setHttpStatus("0");
-                    err.setStatus("ERROR");
-                    err.setTransactionStatus("FAILED");
-                    err.setMessage(
-                            "Airtel Open API public key not configured (gw_airtelmoney_api_public_key).");
-                    return err;
-                }
-
-                GateWayResponse pResponse =
-                        airteloapimm_mmpgw.doPayOut(amount, msisdn, ref, narrative);
-                return pResponse;
+                return net.citotech.cito.gateway.AirtelRecoveryRegistry.submit(
+                        merchantId, amount, msisdn, ref, narrative, "PAYOUT");
             }
         } else {
             if (AirtelMoneyPaymentGateway.isValidMisdn(msisdn)) {

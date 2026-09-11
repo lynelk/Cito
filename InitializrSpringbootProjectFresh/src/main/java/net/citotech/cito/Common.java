@@ -1740,7 +1740,12 @@ public class Common {
                     newTx.setSafaricomRequestReference(pResponse.getSafaricomRequestReference());
                 }
 
-                String sql_update_final = sql_update + sql_set + " WHERE id=:id";
+                String sql_update_final =
+                        sql_update
+                                + sql_set
+                                + " WHERE id=:id"
+                                + " AND (gateway_id<>'AirtelMoneyOpenApiPaymentGateway'"
+                                + " OR status NOT IN ('SUCCESSFUL','FAILED'))";
 
                 // Update parameters
                 parameters.addValue("id", newTx.getId());
@@ -2205,7 +2210,12 @@ public class Common {
                 newTx.setTx_gateway_ref(pResponse.getNetworkId());
                 newTx.setSafaricomRequestReference(pResponse.getSafaricomRequestReference());
 
-                String sql_update_final = sql_update + sql_set + " WHERE id=:id";
+                String sql_update_final =
+                        sql_update
+                                + sql_set
+                                + " WHERE id=:id"
+                                + " AND (gateway_id<>'AirtelMoneyOpenApiPaymentGateway'"
+                                + " OR status NOT IN ('SUCCESSFUL','FAILED'))";
 
                 // Update parameters
                 parameters.addValue("id", newTx.getId());
