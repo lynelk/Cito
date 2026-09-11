@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-11T08:56:30Z",
+  "applicationSha": "de3011367b67eac2cad65e508e72966a3f70b5ea",
+  "pullRequest": 197,
+  "reviewedPrHead": "2b0f0bac26a298369eaabcf65e1d170850460083",
+  "exactHeadPrWorkflows": {"count": 13, "result": "PASS"},
+  "readOnlyStaging": {"workflowRunId": 34579219038, "jobId": 103198636056, "artifactId": 10190921804, "result": "PASS"},
+  "authenticatedStaging": {
+    "result": "PASS",
+    "qaDeploymentId": "03196a0c-af9d-4b9a-8590-d7803aa0b377",
+    "qaServiceId": "72b7b913-82e8-4616-805f-9461f0f05cd5",
+    "qaRunId": "20260911-authenticated-acceptance-09-scoped",
+    "runnerCommit": "7b2c76021fbfd7376bb2f69f3ac5b36bf347e080",
+    "runnerBlob": "c148f333d0d3cbf494d3d92cfe7a8fbc86e98d12",
+    "runnerPath": "ops/release/staging_acceptance_runner.py",
+    "baseHarnessBlob": "f2fed95694b435713d378efa6e9e7ed42a12aee3",
+    "endToEndChecks": [
+      "Fixed staging project/environment/private database safeguards",
+      "Actual frontend/backend release markers equal the candidate before and after acceptance",
+      "Database UP, gateway SANDBOX and Flyway head 128",
+      "Normal password-based browser login for synthetic admin, merchant owner and viewer; server-side sessions verified",
+      "Anonymous access rejected for protected administrator and merchant schema APIs",
+      "Administrator commercial reference, rates, full system schema, communication catalog and shared credentials read access",
+      "Paired CSRF proof: no token -> HTTP 401; valid token plus complete nonexistent-route DTO -> HTTP 400 INVALID_API_RATE; no valid rate submitted",
+      "Admin and merchant searchable updated guide and download actions",
+      "General Settings links to canonical MTN configuration and no longer offers a cosmetic Test connection button",
+      "MTN Sandbox defaults, Uganda production derived profile, unsaved credential clearing across environment switches",
+      "Provider workspace widths 320, 390, 768 and 1440; keyboard focus and 200 percent text checks",
+      "Merchant scoped channel, environment, dashboard, transaction-report and SMS-report reads",
+      "Merchant denied administrator/global transaction and SMS lists and another merchant overview",
+      "Viewer rejected from credential writes",
+      "All three normal logout actions revoke server sessions",
+      "No browser runtime errors"
+    ],
+    "syntheticFixtureCleanup": "PASS: fixtures suspended, temporary report-read privileges removed, sessions revoked and audit retained",
+    "providerTransactions": 0,
+    "productionChanges": 0,
+    "manualAssistiveTechnologyCertification": "NOT_CLAIMED",
+    "providerAuthenticationAndPaymentCertification": "NOT_PERFORMED"
+  },
+  "testHarnessCorrections": [
+    "Match actual /api/ui legacy authentication namespace rather than timing out on an unprefixed response",
+    "Wait for guide rendering and locate the provider Environment select within its wrapping label",
+    "Use complete invalid-route request DTO for the paired CSRF control instead of failing Jackson required-field deserialization",
+    "Treat /api/v2/portal/transactions and /sms as administrator-only global lists, and verify the actual merchant-scoped report endpoints with two explicit synthetic-owner read privileges",
+    "Serialize logout JSON explicitly"
+  ],
+  "harnessReproduction": "Use the immutable runnerCommit and runnerBlob recorded above against the recorded applicationSha. The original main harness alone predates these test corrections; no application authorization rule or acceptance invariant was weakened to pass.",
+  "populatedUpgrade": {
+    "workflowRunId": 34579741411,
+    "mysql8_4": {"result": "PASS", "jobId": 103200274453, "artifactId": 10191132811},
+    "mysql9_4": {"result": "PASS", "jobId": 103200274751, "artifactId": 10191140138},
+    "sourceVersion": 125,
+    "targetVersion": 128,
+    "scope": "Synthetic populated databases; all historical payment columns preserved; environment views correct; exactly three migrations; Flyway validate passed"
+  },
+  "production": {
+    "branchSha": "56811e29fb872d1e595391c169b0149f15164f38",
+    "lastObservedSchema": 125,
+    "promotion": "NOT_PERFORMED",
+    "backup": "NOT_VERIFIED: native Railway agent metadata/create requests timed out; no backup ID or completion evidence returned",
+    "nextGate": "Operator confirms a fresh completed production MySQL backup and recovery evidence; revalidate candidate/ref/config freshness, then promote through the existing non-forced release process and verify production runtime/schema"
+  }
+}
