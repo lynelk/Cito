@@ -17,6 +17,8 @@ import org.springframework.stereotype.Component;
 /**
  * GnuGrid identity-verification adapter. Provider coverage is configuration-driven so CPay can
  * expose additional official document types without changing NOLI. The default remains Uganda NIN.
+ * Asynchronous results are not supported until the provider authentication contract and durable
+ * request correlation/replay protections have been implemented and certified.
  */
 @Component
 public class GnuGridConnector implements IdentityVerificationConnector {
@@ -53,7 +55,9 @@ public class GnuGridConnector implements IdentityVerificationConnector {
 
     @Override
     public boolean supportsAsync() {
-        return true;
+        // A header-only hook cannot authenticate the request body or prevent replay.
+        // Do not advertise a capability whose provider trust contract is not implemented.
+        return false;
     }
 
     @Override
@@ -94,7 +98,8 @@ public class GnuGridConnector implements IdentityVerificationConnector {
             }
             String reason =
                     status == 0
-                            ? "provider unreachable: " + safeProviderMessage(httpResponse.getErrorMessage())
+                            ? "provider unreachable: "
+                                    + safeProviderMessage(httpResponse.getErrorMessage())
                             : "provider rejected the request (HTTP " + status + ")";
             throw new IdentityVerificationException(reason);
         } catch (IdentityVerificationException e) {
@@ -108,21 +113,17 @@ public class GnuGridConnector implements IdentityVerificationConnector {
     @Override
     public IdentityRecords.VerifiedIdentity parseCallback(
             String callbackBody, Map<String, String> callbackHeaders) {
-        if (callbackBody == null || callbackBody.isBlank()) {
-            throw new IdentityVerificationException("identity callback body is empty");
-        }
-        try {
-            JSONObject json = new JSONObject(callbackBody);
-            String ref = json.optString("reference", "");
-            return parseResponse(ref, callbackBody);
-        } catch (Exception e) {
-            throw new IdentityVerificationException("identity callback payload is unreadable");
-        }
+        // Defence in depth: direct connector callers must not bypass the controller's
+        // fail-closed check or turn an untrusted JSON assertion into a verified identity.
+        throw new IdentityVerificationException(
+                "GnuGrid asynchronous callbacks are not supported pending provider certification.");
     }
 
     @Override
     public boolean validateCallbackHeaders(Map<String, String> callbackHeaders) {
-        return true;
+        // Never infer authenticity from a present header, an outbound API key, or an
+        // invented signing scheme. The provider's body-bound contract must be certified.
+        return false;
     }
 
     private IdentityRecords.VerifiedIdentity sandbox(
@@ -151,10 +152,11 @@ public class GnuGridConnector implements IdentityVerificationConnector {
             return IdentityRecords.VerifiedIdentity.failed(
                     ref, PROVIDER_CODE, providerReference, body);
         }
-        String fullName = firstNonBlank(
-                json.optString("fullName", ""),
-                json.optString("firstName", ""),
-                json.optString("lastName", ""));
+        String fullName =
+                firstNonBlank(
+                        json.optString("fullName", ""),
+                        json.optString("firstName", ""),
+                        json.optString("lastName", ""));
         return IdentityRecords.VerifiedIdentity.matched(
                 ref,
                 PROVIDER_CODE,

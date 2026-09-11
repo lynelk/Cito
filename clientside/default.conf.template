@@ -15,6 +15,24 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # Reject hidden files/directories before regex proxy routes or SPA fallback.
+    # nginx matches the normalized URI, including percent-decoded dot segments.
+    # .well-known is the only exception; nested hidden files remain denied.
+    location ~ /\.(?!well-known(?:/|$)) {
+        add_header Cache-Control "no-store" always;
+        return 404;
+    }
+
+    location = /.well-known {
+        return 404;
+    }
+
+    # Serve only explicitly deployed verification files, never the SPA shell.
+    # Do not use ^~: the hidden-file denial must still apply inside this path.
+    location /.well-known/ {
+        try_files $uri =404;
+    }
+
     # Liveness: nginx itself is serving traffic.
     location = /healthz {
         access_log off;

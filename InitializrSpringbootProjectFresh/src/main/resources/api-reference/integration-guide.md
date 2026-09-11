@@ -1,6 +1,6 @@
 # Cito Gateway integration guide
 
-Version 2.0 · 10 September 2026 · Cito brand baseline 1.2
+Version 2.1 · 11 September 2026 · Cito brand baseline 1.2
 
 This guide explains how to connect an external application, choose the correct authentication contract, understand results and API access charges, and use the developer reference. Cito is the platform; CPay identifiers remain part of the compatible payments protocol.
 
@@ -185,3 +185,24 @@ Status codes and payloads vary across legacy and v2 contracts; use the selected 
 Before production, demonstrate signature verification, rejected invalid/replayed requests, tenant isolation, allowed scopes, equivalent/conflicting idempotent retries, pending-to-final status handling, duplicate webhook handling, zero/nonzero pricing, rejected stale admin rate edits, and sandbox exclusion from production invoices. Confirm the exact deployed release and required migration before claiming readiness.
 
 This document describes the repository change. It is not evidence that a deployment, provider certification or production activation has occurred.
+
+## 13. Service readiness and identity callback safety
+
+Treat configuration, certification and activation as separate facts. Use these terms when planning an integration; this table defines their meaning, not the current state of your account or a claim that every screen implements this lifecycle.
+
+| Readiness term | Required evidence |
+|---|---|
+| Not configured | Required service configuration is missing |
+| Configured | Required fields exist; connectivity, certification and activation are not implied |
+| Sandbox verified | The stated test scenario passed in the approved isolated environment |
+| Certification pending | Required operator/provider or acceptance evidence is still outstanding |
+| Production enabled | The specific merchant, provider and environment have explicit activation approval and configuration |
+| Degraded | A configured or enabled service has an observed health or delivery problem |
+
+For GnuGrid, synchronous verification remains the supported connector path, subject to existing consent, feature, entitlement and configuration controls. `GET /api/v2/identity/capabilities` reports `supportsSync: true` and `supportsAsync: false` for this connector. Synthetic sandbox matches do not constitute real identity checks or provider certification.
+
+GnuGrid asynchronous callbacks are intentionally unsupported until the provider's actual authentication contract and durable pending-request correlation, replay protection and idempotent finalization are implemented and certified. The existing `POST /api/v2/identity/provider/gnugrid/callback` rejects callbacks with HTTP 401 and `INVALID_CALLBACK_SIGNATURE`; a present `X-Gnugrid-Signature` header or the outbound API key does not establish authenticity. Do not retry this endpoint in a loop or use it to mark a customer verified. Direct connector parsing also rejects untrusted callback bodies. This containment is not a claim that a signed asynchronous integration has been completed.
+
+For Communications, distinguish request acceptance, provider acceptance and final delivery evidence. A successful submission response is not proof that an email reached an inbox or that an SMS reached a handset. Report uncertain delivery as uncertain and use approved test recipients when establishing end-to-end evidence.
+
+For initial developer onboarding, prefer an approved non-money sandbox read or capability-discovery exercise. Verify its exact environment and authorization first; even reads may incur the published API access charge. Do not initiate a payment, payout or vending purchase merely to prove that documentation loads.

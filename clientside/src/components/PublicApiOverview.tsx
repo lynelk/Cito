@@ -6,6 +6,9 @@ const topics = [
   ['Billing', 'API access rates are set by Cito administrators and may be zero. Service charges are separate.'],
   ['Documentation', 'Sign in to the merchant portal for searchable OpenAPI, schemas, examples and the integration guide.'],
   ['Testing', 'Use an approved sandbox. Production access depends on readiness and service permissions.'],
+  ['Service readiness', 'Documented, configured, sandbox verified and production enabled are different states. Confirm the service, merchant and environment before use.'],
+  ['Identity', 'GnuGrid supports synchronous verification subject to consent and service controls. Asynchronous callbacks are not supported pending provider certification.'],
+  ['Communications', 'Request acceptance and provider acceptance do not prove final SMS or email delivery. Check the available delivery evidence.'],
 ];
 export default function PublicApiOverview(): React.ReactElement {
   const [query, setQuery] = useState('');
