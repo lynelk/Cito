@@ -45,6 +45,28 @@ refund, count = re.subn(pattern,
 assert count == 1, 'Refund authentication boundary changed'
 (ROOT / refund_path).write_text(refund)
 
+# Tests construct this controller manually, outside Spring dependency injection.
+# Supply the newly required collaborator; do not change any runtime guard or
+# relax the original financial/lifecycle assertions.
+fixture_count = 0
+for test_path in (ROOT / 'InitializrSpringbootProjectFresh/src/test/java').rglob('*Test.java'):
+    text = test_path.read_text()
+    if 'new RefundController()' not in text or '"apiBilling"' in text:
+        continue
+    fixture_pattern = r'(RefundController\s+(\w+)\s*=\s*new RefundController\(\);)'
+    def inject_fixture(match):
+        return (match.group(1) + '\n    {\n'
+                '        org.springframework.test.util.ReflectionTestUtils.setField('
+                + match.group(2) + ', "apiBilling",\n'
+                '                org.mockito.Mockito.mock(net.citotech.cito.developer.reference.ApiAccessBillingService.class));\n'
+                '    }')
+    text, patched = re.subn(fixture_pattern, inject_fixture, text)
+    assert patched > 0, f'Unreviewed manual refund fixture: {test_path}'
+    test_path.write_text(text)
+    fixture_count += patched
+    print('Refund fixture collaborator:', test_path.relative_to(ROOT), patched)
+assert fixture_count > 0, 'Expected at least one manual refund fixture'
+
 # Keep all mechanically merged API changes and the six other legacy operations;
 # replace only the refund operation with the newer, authoritative main contract.
 spec_path = ROOT / 'Docs/Api/cpay-v2-openapi.yaml'
@@ -78,7 +100,6 @@ assert old.exists() and not new.exists(), 'Unexpected API rate migration state'
 main_files = git('ls-tree', '-r', '--name-only', MAIN, str(migration_dir.relative_to(ROOT)))
 assert old.name not in main_files and 'V128__' not in main_files
 old.rename(new)
-# Assert every migration already on main is byte-for-byte intact.
 for filename in main_files.splitlines():
     if filename.endswith('.sql'):
         assert (ROOT / filename).read_text() == source(filename), f'Applied migration changed: {filename}'
@@ -105,12 +126,11 @@ staging['acceptanceNote'] = (
 
 for filename in ('Readme.md', 'Installation.md', 'Deployment.md', 'CI_CD_SETUP.md'):
     path = ROOT / filename
-    text = path.read_text()
-    text = text.replace('This change requires Flyway V123', 'This change requires Flyway V128')
+    text = path.read_text().replace('This change requires Flyway V123', 'This change requires Flyway V128')
     path.write_text(text)
 release = ROOT / 'Docs/Api/API-REFERENCE-RELEASE.md'
 text = release.read_text().replace('Flyway V123 is additive.', 'Flyway V128 is additive.')
-text += '''\n## Reconciliation after database recovery — 11 September 2026\n\nThe current candidate incorporates main 0ab5bd5cbc919949f132c7e0d6890bcfc38733d3. It preserves the newer governed refund lifecycle, cumulative refund limits, independent approvals, idempotency and settlement tracking. API admission metering is added only after signature verification.\n\nThe API-rate migration is now V128, because this PR's earlier V123 never entered main and the recovered active staging database has advanced to V127. Main's existing migration files remain byte-for-byte unchanged. The obsolete experimental V123 database must not be pointed at this release without a separately reviewed migration plan; no Flyway repair, history deletion, database reset or destructive operation is authorized by this reconciliation.\n\nOn 11 September the read-only health probe reported database UP, gateway SANDBOX and exact release 0ab5bd5c. Protected API routes rejected anonymous access. This is not authenticated API acceptance, an external provider certification or a production deployment. Exact candidate CI, MySQL migration/upgrade checks, both staging service SHAs, portal tests and rollback readiness remain release gates.\n\nBrand version: 1.2. Affected surfaces remain the merchant Developers page, administrator API workbench, public website and revision-derived API/HTML exports.\n'''
+text += '''\n## Reconciliation after database recovery — 11 September 2026\n\nThe current candidate incorporates main 0ab5bd5cbc919949f132c7e0d6890bcfc38733d3. It preserves the newer governed refund lifecycle, cumulative refund limits, independent approvals, idempotency and settlement tracking. API admission metering is added only after signature verification. Manually constructed unit-test fixtures receive the required billing collaborator; production guards and original refund assertions are unchanged.\n\nThe API-rate migration is now V128, because this PR's earlier V123 never entered main and the recovered active staging database has advanced to V127. Main's existing migration files remain byte-for-byte unchanged. The obsolete experimental V123 database must not be pointed at this release without a separately reviewed migration plan; no Flyway repair, history deletion, database reset or destructive operation is authorized by this reconciliation.\n\nOn 11 September the read-only health probe reported database UP, gateway SANDBOX and exact release 0ab5bd5c. Protected API routes rejected anonymous access. This is not authenticated API acceptance, an external provider certification or a production deployment. Exact candidate CI, MySQL migration/upgrade checks, both staging service SHAs, portal tests and rollback readiness remain release gates.\n\nBrand version: 1.2. Affected surfaces remain the merchant Developers page, administrator API workbench, public website and revision-derived API/HTML exports.\n'''
 release.write_text(text)
 subprocess.run(['git', 'add', '-A'], cwd=ROOT, check=True)
 assert not git('diff', '--name-only', '--diff-filter=U').strip()
