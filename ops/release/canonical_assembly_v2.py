@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble only the pinned candidate; replace the obsolete fixture anchor with reviewed source.
-
-The final publication removes composition scaffolding. Tests use the actual existing
-MySQL finance scenario and its canonical service, not an invented simplified ledger.
-"""
+"""Pinned candidate assembly. Tests extend the actual existing financial scenario."""
 from pathlib import Path
 
 script = Path(__file__).with_name('complete_canonical_remediation.py')
@@ -38,8 +34,26 @@ replace(TEST + 'FlywayMigrationSmokeTest.java', 'assertEquals("128", latestSucce
 
 '''
 source = text[:start] + replacement + text[end:]
-exec(compile(source, str(script), 'exec'), {'__file__': str(script), '__name__': '__main__'})
-# The verified fixture now sets its own due time; no guessed collection variable is injected.
+context = {'__file__': str(script), '__name__': '__main__'}
+exec(compile(source, str(script), 'exec'), context)
+replace = context['replace']
+JAVA, TEST = context['JAVA'], context['TEST']
+# ANSI conditional expressions work identically in MySQL and the existing H2 unit fixture.
+path = JAVA + 'gateway/MobileMoneyExecutionService.java'
+replace(path, "IF(:claim IS NULL,recovery_last_code,'VERIFIED_PROVIDER')", "CASE WHEN :claim IS NULL THEN recovery_last_code ELSE 'VERIFIED_PROVIDER' END")
+replace(path, "IF(:claim IS NOT NULL OR :status IN ('SUCCESSFUL','FAILED'),NULL,recovery_claim_token)", "CASE WHEN :claim IS NOT NULL OR :status IN ('SUCCESSFUL','FAILED') THEN NULL ELSE recovery_claim_token END")
+replace(path, "IF(:claim IS NOT NULL OR :status IN ('SUCCESSFUL','FAILED'),NULL,recovery_claim_until)", "CASE WHEN :claim IS NOT NULL OR :status IN ('SUCCESSFUL','FAILED') THEN NULL ELSE recovery_claim_until END")
+# Keep the H2 test's schema aligned; the actual complete V129 migration is exercised on real MySQL.
+replace(TEST + 'gateway/MobileMoneyExecutionServiceTest.java',
+        '        merchant.setId(10L);', '''        for (String column : List.of("recovery_claim_token VARCHAR(36)", "recovery_claim_until TIMESTAMP(6)",
+                "recovery_attempt_count INT NOT NULL DEFAULT 0", "recovery_last_code VARCHAR(64)", "recovery_last_signal_at TIMESTAMP(6)")) {
+            jdbc.getJdbcTemplate().execute("ALTER TABLE mobile_money_executions ADD COLUMN " + column);
+        }
+        merchant.setId(10L);''')
+replace('clientside/src/components/Layout.jsx', "import ExperienceWorkspace from '../features/ExperienceWorkspace';", "import ExperienceWorkspace from '../features/ExperienceWorkspace';\nimport AdminMerchantReadiness from '../features/AdminMerchantReadiness';")
+replace('clientside/src/components/Layout.jsx', 'case \'merchant-readiness\': return <ExperienceWorkspace portal="admin" section="lifecycle" />;', "case 'merchant-readiness': return <AdminMerchantReadiness />;")
+replace('clientside/src/components/MainMenu.jsx', "    { value: 'merchants-accounts', text: 'Merchants / Businesses', Icon: Icons.StoreIcon },", "    { value: 'merchants-accounts', text: 'Merchants / Businesses', Icon: Icons.StoreIcon },\n    { value: 'merchant-readiness', text: 'Merchant readiness', Icon: Icons.ShieldIcon },")
+replace('clientside/src/components/PublicApiOverview.tsx', "  ['Webhooks', 'Verified event delivery connects Cito outcomes to your application.'],", "  ['Webhooks', 'Verified event delivery connects Cito outcomes to your application.'],\n  ['Recovery', 'MTN and Airtel recovery checks the original payment reference without resubmitting it. Pending is not settlement; provider certification remains separate.'],")
 checks = Path(__file__).with_name('canonical_candidate_checks.py')
 check_source = checks.read_text()
 cut = check_source.index("path = root / 'InitializrSpringbootProjectFresh/src/test/java/net/citotech/cito/gateway/MobileMoneyMysqlScenario.java'")
