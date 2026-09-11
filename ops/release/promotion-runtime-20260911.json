@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "candidateApplicationSha": "de3011367b67eac2cad65e508e72966a3f70b5ea",
+  "productionPromotion": "NOT_PERFORMED",
+  "productionBackup": "NOT_VERIFIED_NATIVE_AGENT_TIMEOUT",
+  "staging": {
+    "projectId": "c69c90a9-ab6f-48ff-8e04-1e10a10f92db",
+    "environmentId": "efde4ddb-0312-48bc-94b2-a096fd3678b0",
+    "baseUrl": "https://cito-staging-web-production.up.railway.app",
+    "backend": {
+      "serviceId": "11bdd2d3-c202-43b1-824b-35446a0e6a31",
+      "deploymentId": "38d6129d-7fd4-43bb-9cac-2466d4c96712",
+      "sleepApplication": false,
+      "reason": "Sleeping backend caused non-JSON readiness failure during acceptance; explicitly keep the acceptance target running.",
+      "runtimeMarker": {"CITO_RELEASE_ACCEPTANCE_ID": "de301136-no-sleep-20260911"}
+    },
+    "frontend": {
+      "serviceId": "69ef3eaa-05b5-4504-8f5e-2bfaa27f3512",
+      "deploymentId": "f5109f44-6297-4210-a29a-10746ebc2a6e",
+      "sleepApplication": false
+    },
+    "qa": {
+      "serviceId": "72b7b913-82e8-4616-805f-9461f0f05cd5",
+      "name": "cito-staging-release-qa",
+      "image": "mcr.microsoft.com/playwright/python:v1.55.0-noble",
+      "restartPolicyType": "NEVER",
+      "publicDomains": [],
+      "databaseScope": "Only the designated staging backend DB_URL/DB_USERNAME/DB_PASSWORD references; no production secrets",
+      "fixturePolicy": "New random in-memory credentials; synthetic admin, two merchants and owner/viewer users; suspend fixtures and revoke their sessions after each attempt; no provider secrets or funds",
+      "sourcePolicy": "Download immutable GitHub source, verify its Git blob identity before execution, record QA_RELEASE_SHA and QA_RUN_ID",
+      "dependencies": ["requests==2.32.5", "PyMySQL==1.1.2", "bcrypt==4.3.0", "playwright==1.55.0"],
+      "shutdownPolicy": "After acceptance, remove effective database access by blanking DB references and set an inert one-shot command with NEVER restart"
+    },
+    "oldRecoveryPatch": "No longer pending when re-read; no blanket acceptance or discard performed in this release",
+    "lastObservedStagedChanges": null
+  },
+  "populatedUpgradeEvidence": {
+    "applicationSha": "de3011367b67eac2cad65e508e72966a3f70b5ea",
+    "workflowRunId": 34579741411,
+    "mysql8_4": {"jobId": 103200274453, "status": "PASS", "artifactId": 10191132811},
+    "mysql9_4": {"jobId": 103200274751, "status": "PASS", "artifactId": 10191140138},
+    "scope": "Disposable loopback MySQL, V125 populated with synthetic historical payment, exact V126-V128 migrations, preserved old columns and final schema/view validation",
+    "notEvidenceOf": ["production backup", "production migration application", "live provider certification"]
+  }
+}
