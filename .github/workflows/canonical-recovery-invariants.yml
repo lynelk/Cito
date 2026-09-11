@@ -1,0 +1,81 @@
+name: Canonical recovery invariants
+
+on:
+  pull_request:
+    branches: [main, production]
+  push:
+    branches: [main, production]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: canonical-recovery-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mysql:
+    name: Canonical recovery MySQL ${{ matrix.version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['8.4', '9.4']
+    services:
+      mysql:
+        image: mysql:${{ matrix.version }}
+        env:
+          MYSQL_DATABASE: cpayadmin
+          MYSQL_USER: cpay
+          MYSQL_PASSWORD: cpay-ci-password
+          MYSQL_ROOT_PASSWORD: root-ci-password
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot-ci-password" --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      DB_URL: jdbc:mysql://127.0.0.1:3306/cpayadmin?allowPublicKeyRetrieval=true&useSSL=false
+      DB_USERNAME: cpay
+      DB_PASSWORD: cpay-ci-password
+      MAIL_USERNAME: noreply@example.com
+      MAIL_PASSWORD: ''
+      LOCK_FILE_DIR: /tmp/cpay/locks
+      ACTUATOR_USERNAME: ci-actuator
+      ACTUATOR_PASSWORD: ci-actuator-password
+      ADMIN_API_USERNAME: ci-admin
+      ADMIN_API_PASSWORD: ci-admin-password
+      CALLBACK_SIGNING_SECRET: ci-callback-secret
+      MERCHANT_CHANNEL_ENCRYPTION_KEY: Y2ktb25seS1ub3QtYS1wcm9kdWN0aW9uLWtleQ==
+      CPAY_KEY_ENCRYPTION_KEY: Y2ktb25seS1ub3QtYS1wcm9kdWN0aW9uLWtleQ==
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+      - name: Prepare disposable database for immutable audit triggers
+        env:
+          MYSQL_IMAGE: mysql:${{ matrix.version }}
+        run: |
+          set -euo pipefail
+          id=$(docker ps --filter "ancestor=$MYSQL_IMAGE" --format '{{.ID}}' | head -1)
+          test -n "$id"
+          docker exec "$id" mysql -uroot -proot-ci-password -e 'SET GLOBAL log_bin_trust_function_creators=1;'
+      - name: Populated migration, original attribution, fencing and financial rollback
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B test --no-transfer-progress -Dtest=FlywayMigrationSmokeTest
+      - name: Competing workers, restart, expired claims and independent billing invariants
+        if: matrix.version == '8.4'
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B test --no-transfer-progress -Ddocker.tests.excludedGroups= '-Dtest=MobileMoneyRecoveryLeaseStoreTestcontainersTest,DoubleEntryLedgerServiceTestcontainersTest,*Billing*TestcontainersTest,*Outbox*TestcontainersTest,ChargeShadowComparisonServiceTestcontainersTest,RatedChargeRepositoryTestcontainersTest,UsagePaymentReconciliationServiceTestcontainersTest,PaymentPipelineReconciliationTestcontainersTest'
+      - name: Retain actual test evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: canonical-recovery-mysql-${{ matrix.version }}-${{ github.sha }}
+          path: InitializrSpringbootProjectFresh/target/surefire-reports/
+          retention-days: 14
