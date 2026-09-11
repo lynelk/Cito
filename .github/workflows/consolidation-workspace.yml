@@ -1,0 +1,42 @@
+name: Cito consolidation workspace
+
+on:
+  push:
+    branches: [feature/cito-consolidated-release-20260911]
+    paths: [.github/workflows/consolidation-workspace.yml]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  source-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Capture exact existing source histories without changing release refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/pull/184/head:refs/heads/review-pr184 refs/pull/185/head:refs/heads/review-pr185
+          test "$(git rev-parse origin/main)" = de3011367b67eac2cad65e508e72966a3f70b5ea
+          test "$(git rev-parse review-pr184)" = ae17f944f25caa41d1090194fd1681c3cc5ee53d
+          test "$(git rev-parse review-pr185)" = 292bccb6ec69b71199eb30eaa590fa9fa86cff2a
+          mkdir -p /tmp/cito-review
+          git bundle create /tmp/cito-review/repository.bundle HEAD origin/main origin/production review-pr184 review-pr185
+          git bundle verify /tmp/cito-review/repository.bundle
+          git show-ref --head > /tmp/cito-review/refs.txt
+          git merge-base origin/main review-pr184 > /tmp/cito-review/pr184-base.txt
+          git merge-base origin/main review-pr185 > /tmp/cito-review/pr185-base.txt
+          git diff --stat origin/main...review-pr184 > /tmp/cito-review/pr184-stat.txt
+          git diff --stat origin/main...review-pr185 > /tmp/cito-review/pr185-stat.txt
+          sha256sum /tmp/cito-review/repository.bundle
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cito-consolidation-workspace-${{ github.sha }}
+          path: /tmp/cito-review/
+          retention-days: 3
