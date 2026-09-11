@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import Messager from '../StableMessager';
 import { withRouter } from '../../shared/router/compat';
 import { isSensitiveSetting, maskedSettingValue } from './settingsGridHelpers';
@@ -17,6 +18,11 @@ const SETTINGS_SECTIONS = [
     { id: 'mpesa', title: 'M-Pesa', groupNames: ['Safaricom'], icon: Icons.StoreIcon, provider: true },
     { id: 'notifications', title: 'Notifications', groupNames: ['SMS'], icon: Icons.SmsIcon },
     { id: 'security', title: 'Security & Keys', groupNames: ['Security', 'Keys'], icon: Icons.ShieldIcon },
+];
+
+const APPLICATION_ENVIRONMENT_OPTIONS = [
+    { value: 'production', label: 'Production' },
+    { value: 'sandbox', label: 'Sandbox' },
 ];
 
 const ENVIRONMENT_OPTIONS = [
@@ -43,6 +49,10 @@ function settingLabel(row) {
 
 function settingValue(row) {
     return row?.setting_value == null ? '' : String(row.setting_value);
+}
+
+function isManagedMtnConnectionSetting(row) {
+    return settingGroup(row) === 'MTN' && !/(cost_of|customer_charge)/i.test(settingName(row));
 }
 
 function settingGroup(row) {
@@ -199,7 +209,7 @@ class ModuleSettingsC extends React.Component {
         apiFetch(apiUrl("/settings/updateSettings"), {
             method: 'POST', mode: 'cors', cache: 'no-cache', credentials: 'include',
             headers: { 'Content-Type': 'application/json' }, redirect: 'follow', referrer: 'no-referrer',
-            body: JSON.stringify(this.state.data)
+            body: JSON.stringify(this.dirtyRows().filter(row => !isManagedMtnConnectionSetting(row)))
         }).then((response) => response.text()).then((response_) => {
             this.props.loader("STOP");
             let res;
@@ -234,6 +244,7 @@ class ModuleSettingsC extends React.Component {
     sectionRows(section) {
         return this.state.data
             .filter(row => section.groupNames.includes(settingGroup(row)))
+            .filter(row => !isManagedMtnConnectionSetting(row))
             .filter(row => rowMatches(row, this.state.search));
     }
 
@@ -243,7 +254,7 @@ class ModuleSettingsC extends React.Component {
     }
 
     missingRows() {
-        return this.state.data.filter(row => isRequiredLike(row) && isBlank(row));
+        return this.state.data.filter(row => !isManagedMtnConnectionSetting(row) && isRequiredLike(row) && isBlank(row));
     }
 
     discardChanges() {
@@ -259,14 +270,6 @@ class ModuleSettingsC extends React.Component {
         const summary = changes.slice(0, 8).map(row => `• ${settingLabel(row)}`).join('\n');
         const more = changes.length > 8 ? `\n• ${changes.length - 8} more changes` : '';
         this.messager.alert({ title: "Review changes", icon: "info", msg: `${summary}${more}` });
-    }
-
-    testConnection(section) {
-        this.messager.alert({
-            title: `${section.title} check`,
-            icon: "info",
-            msg: "Connection validation controls are ready for this integration section."
-        });
     }
 
     renderEditor(row, index) {
@@ -398,27 +401,21 @@ class ModuleSettingsC extends React.Component {
         const missingCount = rows.filter(row => isRequiredLike(row) && isBlank(row)).length;
         const env = rows.find(row => /env/i.test(settingName(row))) || this.findSetting('application_settings_state');
         const currency = rows.find(row => /currency/i.test(settingName(row)));
-        const statusTone = missingCount > 0 ? 'warning' : 'success';
+        const statusTone = missingCount > 0 ? 'warning' : 'neutral';
         return (
             <section className="cpay-settings-provider-hero">
                 <div className="cpay-settings-provider-logo">{section.title.slice(0, 2)}</div>
                 <div>
                     <h3>{section.title}</h3>
                     <p>{settingValue(env) || 'Production'} · Uganda · {settingValue(currency) || 'UGX'}</p>
-                    <Badge tone={statusTone}>{missingCount > 0 ? `${missingCount} missing` : 'Connected'}</Badge>
+                    <Badge tone={statusTone}>{missingCount > 0 ? `${missingCount} missing` : 'Not verified here'}</Badge>
                 </div>
-                <dl>
-                    <div><dt>Last successful request</dt><dd>09:31 AM</dd></div>
-                    <div><dt>Last failed request</dt><dd>None in last 24h</dd></div>
-                </dl>
-                <div className="cpay-settings-provider-actions">
-                    <Button variant="ghost" className="ios-btn--sm" onClick={() => this.testConnection(section)}>
-                        <Icons.RefreshIcon size={15} />Test connection
-                    </Button>
-                    <Button variant="ghost" className="ios-btn--sm">
-                        <Icons.HistoryIcon size={15} />View logs
-                    </Button>
-                </div>
+                <p>Stored settings do not prove provider authentication or payment readiness.</p>
+                {['mtn', 'airtel'].includes(section.id) ? (
+                    <Link className="ios-btn ios-btn--ghost" to={`/bo/provider-treasury?channel=${section.id === 'mtn' ? 'mtn_momo' : 'airtel_open_api'}#platform-provider-credentials`}>
+                        Open governed provider connection
+                    </Link>
+                ) : <p>Provider verification evidence is not available in this settings view.</p>}
             </section>
         );
     }
@@ -443,7 +440,14 @@ class ModuleSettingsC extends React.Component {
                     </div>
                     <Badge tone={rows.length > 0 ? 'info' : 'neutral'}>{rows.length} settings</Badge>
                 </header>
-                {this.renderProviderOverview(section, rows)}
+                {section.id === 'mtn' ? (
+                    <section className="cpay-settings-card" aria-label="MTN connection configuration">
+                        <h3>MTN connection configuration has moved</h3>
+                        <p>Configure MTN API users, API keys, subscription keys and callbacks in the governed provider workspace. Sandbox uses EUR; Uganda production uses UGX and mtnuganda. Saving general settings does not activate the connection.</p>
+                        <Link className="ios-btn ios-btn--primary" to="/bo/provider-treasury?channel=mtn_momo#platform-provider-credentials">Configure and verify MTN MoMo</Link>
+                        <p>Legacy connection values are retained for compatibility, not copied or activated automatically. The pricing controls below remain separate from authentication.</p>
+                    </section>
+                ) : this.renderProviderOverview(section, rows)}
                 {rows.length === 0 ? (
                     <section className="cpay-settings-card cpay-settings-empty">
                         <h3>No settings found</h3>
@@ -456,7 +460,7 @@ class ModuleSettingsC extends React.Component {
 
     renderStatusCards() {
         const providerSections = SETTINGS_SECTIONS.filter(section => section.provider);
-        const connected = providerSections.filter(section => {
+        const configured = providerSections.filter(section => {
             const rows = this.state.data.filter(row => section.groupNames.includes(settingGroup(row)));
             return rows.length > 0 && rows.some(row => !isBlank(row));
         }).length;
@@ -465,8 +469,8 @@ class ModuleSettingsC extends React.Component {
         const emailRows = this.state.data.filter(row => settingGroup(row) === 'Email');
         const emailConnected = emailRows.some(row => /smtp.host/i.test(settingName(row)) && !isBlank(row));
         const cards = [
-            { id: 'mtn', icon: Icons.CardsIcon, label: 'Integrations', value: `${connected} Connected`, meta: `${missingCount} items need attention` },
-            { id: 'email', icon: Icons.MailIcon, label: 'Email Service', value: emailConnected ? 'Connected' : 'Not configured', meta: emailConnected ? 'SMTP settings available' : 'Add SMTP details' },
+            { id: 'mtn', icon: Icons.CardsIcon, label: 'Integrations', value: `${configured} with stored settings`, meta: `${missingCount} items need attention` },
+            { id: 'email', icon: Icons.MailIcon, label: 'Email Service', value: emailConnected ? 'Configured, not verified' : 'Not configured', meta: emailConnected ? 'SMTP settings available' : 'Add SMTP details' },
             { id: 'general', icon: Icons.ShieldIcon, label: 'Missing Configuration', value: `${missingCount} Items`, meta: 'Require your attention' },
             { id: 'general', icon: Icons.HistoryIcon, label: 'Recent Changes', value: `${dirtyCount} Pending`, meta: dirtyCount > 0 ? 'Unsaved in this session' : 'No unsaved changes' },
         ];
@@ -511,11 +515,11 @@ class ModuleSettingsC extends React.Component {
                         <Select
                             id="settings-environment"
                             value={settingValue(environmentSetting) || 'production'}
-                            options={ENVIRONMENT_OPTIONS}
+                            options={APPLICATION_ENVIRONMENT_OPTIONS}
                             onValueChange={(value) => environmentSetting ? this.updateValue(environmentSetting, value) : null}
                         />
                         <Button variant="ghost" className="ios-btn--sm" onClick={() => this.reviewChanges()}>
-                            <Icons.HistoryIcon size={15} />Audit history
+                            <Icons.HistoryIcon size={15} />Review pending changes
                         </Button>
                         <Button variant="ghost" className="ios-btn--sm" onClick={() => this.getData()}>
                             <Icons.RefreshIcon size={15} />Refresh
