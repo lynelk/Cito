@@ -51,7 +51,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Verify CI is active and inspect reconciliation registration
+      - name: Verify CI is active
         shell: bash
         run: |
           set -euo pipefail
@@ -61,7 +61,6 @@ jobs:
             gh api --method PUT repos/lynelk/Cito/actions/workflows/ci.yml/enable
           fi
           test "$(gh api repos/lynelk/Cito/actions/workflows/ci.yml --jq .state)" = active
-          gh api repos/lynelk/Cito/actions/workflows --jq '.workflows[] | select(.path | test("ci.yml|reconcile|audit")) | {id,name,path,state}'
       - uses: actions/setup-java@v6
         with:
           java-version: '21'
@@ -126,44 +125,60 @@ jobs:
           set -euo pipefail
           mvn -B org.owasp:dependency-check-maven:13.0.0:check -DfailBuildOnCVSS=9 '-DnvdDatafeedUrl=https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/nvdcve-{0}.json.gz' -Dformats=HTML,JSON --no-transfer-progress > /tmp/cito-dependency-verify.log 2>&1 || { tail -100 /tmp/cito-dependency-verify.log; exit 1; }
           tail -18 /tmp/cito-dependency-verify.log
-      - name: Publish validated Git objects without moving any branch
+      - name: Preserve the exact tested candidate before publication
         shell: bash
         run: |
           set -euo pipefail
           git diff --check
           git add -A
-          git diff --cached --stat
-          python3 - <<'PY'
-          import base64,json,os,subprocess,urllib.request
+          parent=$(git rev-parse HEAD)
+          main=$(git rev-parse origin/main)
+          test "$main" = 0ab5bd5cbc919949f132c7e0d6890bcfc38733d3
+          git commit -m 'Reconcile recovered main and API workbench with vendor security fixes' -m 'Preserves governed refund lifecycle and applied migrations; adds V128. Backend, populated MySQL upgrade, frontend and CVSS-9 dependency gates verified. Exact-head CodeQL and staged runtime acceptance remain required. No release ref or runtime database has been changed.'
+          mkdir -p /tmp/cito-validated-candidate
+          git bundle create /tmp/cito-validated-candidate/candidate.bundle HEAD
+          git diff --binary "$parent" HEAD > /tmp/cito-validated-candidate/candidate.patch
+          python3 - "$parent" "$main" <<'PY'
+          import json,subprocess,sys
           from pathlib import Path
-          repo='lynelk/Cito'
-          token=os.environ['GH_TOKEN']
-          def git(*args):
-              return subprocess.check_output(['git',*args],text=True).strip()
-          def api(path,data):
-              request=urllib.request.Request('https://api.github.com/repos/'+repo+'/'+path,data=json.dumps(data).encode(),headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},method='POST')
-              with urllib.request.urlopen(request,timeout=60) as result:return json.load(result)
-          parent=git('rev-parse','HEAD')
-          main=git('rev-parse','origin/main')
-          assert main=='0ab5bd5cbc919949f132c7e0d6890bcfc38733d3'
+          def git(*args):return subprocess.check_output(['git',*args],text=True).strip()
+          parent,main=sys.argv[1:]
+          sha=git('rev-parse','HEAD')
           entries=[]
-          for filename in git('diff','--cached','--name-only',parent).splitlines():
-              if not filename:continue
-              staged=git('ls-files','--stage','--',filename)
-              if not staged:
-                  entries.append({'path':filename,'mode':'100644','type':'blob','sha':None})
-                  continue
-              mode,_,stage=staged.split('\t')[0].split()
-              assert stage=='0'
-              blob=api('git/blobs',{'content':base64.b64encode(Path(filename).read_bytes()).decode(),'encoding':'base64'})
-              entries.append({'path':filename,'mode':mode,'type':'blob','sha':blob['sha']})
-          tree=api('git/trees',{'base_tree':git('rev-parse',parent+'^{tree}'),'tree':entries})
-          commit=api('git/commits',{'message':'Reconcile recovered main and API workbench with vendor security fixes\n\nPreserves financial lifecycle and applied migration history; adds V128. Full backend, clean MySQL, frontend and dependency gates verified. Exact-head CodeQL and runtime acceptance are still required. No runtime data or release branch changed.','tree':tree['sha'],'parents':[parent,main]})
-          print('VALIDATED_CANDIDATE_SHA='+commit['sha'])
+          for path in git('diff','--name-only',main,sha).splitlines():
+              line=git('ls-tree',sha,'--',path)
+              if not line:
+                  entries.append({'path':path,'mode':'100644','type':'blob','sha':None})
+              else:
+                  mode,kind,blob=line.split('\t')[0].split()
+                  entries.append({'path':path,'mode':mode,'type':kind,'sha':blob})
+          manifest={'candidate':sha,'tree':git('rev-parse','HEAD^{tree}'),'feature_parent':parent,'main':main,'parents':git('show','-s','--format=%P','HEAD').split(),'entries_relative_to_main':entries}
+          Path('/tmp/cito-validated-candidate/manifest.json').write_text(json.dumps(manifest,indent=2))
+          print('VALIDATED_CANDIDATE_SHA='+sha)
+          print('VALIDATED_TREE_SHA='+manifest['tree'])
           print('EXPECTED_FEATURE_PARENT='+parent)
           print('PINNED_MAIN_SHA='+main)
-          print('No refs changed. External exact-head review and release checks remain required.')
           PY
+          sha256sum /tmp/cito-validated-candidate/*
+      - name: Save tested source and immutable manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: validated-api-candidate-${{ github.sha }}
+          path: /tmp/cito-validated-candidate/
+          retention-days: 30
+      - name: Publish candidate review branch using native Git transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Avoid one API content-creation request for every changed file. This
+          # pushes only a new exact-SHA review ref; main/sandbox/production and
+          # the feature ref remain untouched. No forced update is permitted.
+          gh auth setup-git
+          sha=$(git rev-parse HEAD)
+          destination="release/api-validated-$sha"
+          git push origin "HEAD:refs/heads/$destination"
+          echo "CANDIDATE_REVIEW_BRANCH=$destination"
+          echo 'Exact-head CI and runtime acceptance remain required before merging or promotion.'
       - name: Compact verification evidence
         if: always()
         run: |
@@ -175,7 +190,7 @@ jobs:
               root=ET.parse(path).getroot()
               for key in counts:counts[key]+=int(root.get(key,'0'))
               for error in root.findall('.//failure')+root.findall('.//error'):
-                  print(path.name, error.get('message','')[:1000])
+                  print(path.name,error.get('message','')[:1000])
           print('TEST_TOTALS',counts)
           PY
       - name: Upload verification reports
