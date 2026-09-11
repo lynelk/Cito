@@ -1,0 +1,77 @@
+name: Prepare reviewed Airtel unification
+
+on:
+  push:
+    branches: [work/airtel-unification-preparation-20260911]
+    paths:
+      - .github/workflows/prepare-airtel-unification.yml
+      - ops/release/prepare_airtel_unification_20260911.py
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cito-airtel-unification-preparation
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Assemble pinned source without accepting conflicts
+        run: python3 ops/release/prepare_airtel_unification_20260911.py
+      - name: Regenerate synchronized portal references
+        run: |
+          python3 -m pip install --quiet PyYAML==6.0.2
+          python3 scripts/api_docs/build_portal_reference.py
+          python3 scripts/api_docs/build_portal_reference.py --check
+          python3 scripts/api_docs/test_portal_reference.py
+          python3 Docs/Brand/check_brand.py
+      - name: Apply the existing formatter to changed Java only
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B spotless:apply --no-transfer-progress
+      - name: Validate source diff and preserve one review candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/lynelk/Cito/branches/main --jq .commit.sha)" = de3011367b67eac2cad65e508e72966a3f70b5ea
+          git diff --check
+          test -z "$(git diff --name-only --diff-filter=U)"
+          python3 - <<'PY'
+          import json, subprocess
+          manifest=json.load(open('ops/release/airtel-unification-source-manifest.json'))
+          for path,expected in manifest['unchanged_applied_migration_hashes'].items():
+              actual=subprocess.check_output(['git','hash-object',path],text=True).strip()
+              if actual != expected: raise SystemExit('Applied migration changed: '+path)
+          PY
+          git config user.name 'Cito reviewed recovery preparation'
+          git config user.email 'cito-release@users.noreply.github.com'
+          git add -A
+          git commit -m 'Unify Airtel canonical recovery and merchant guidance on current main; add V129'
+          gh auth setup-git
+          destination=feature/airtel-recovery-unified-20260911
+          test -z "$(git ls-remote --heads origin "$destination")"
+          git push origin "HEAD:refs/heads/$destination"
+          echo "REVIEW_BRANCH=$destination"
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
+          echo 'All normal PR, financial, migration and staged acceptance gates remain mandatory. No deployment performed.'
+      - name: Preserve source assembly evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: airtel-source-assembly-${{ github.sha }}
+          path: ops/release/airtel-unification-source-manifest.json
+          if-no-files-found: warn
