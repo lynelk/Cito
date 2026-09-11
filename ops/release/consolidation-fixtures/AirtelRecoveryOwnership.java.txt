@@ -1,0 +1,27 @@
+package net.citotech.cito.gateway;
+
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+
+/** Journaled attempts have one finalization owner; historical polling cannot compete with them. */
+public final class AirtelRecoveryOwnership {
+    private AirtelRecoveryOwnership() {}
+
+    public static boolean ownsLegacy(NamedParameterJdbcTemplate jdbc, long transactionId) {
+        return !jdbc.queryForList(
+                "SELECT id FROM airtel_recovery WHERE transaction_id=:transaction LIMIT 1 FOR SHARE",
+                new MapSqlParameterSource("transaction", transactionId)).isEmpty();
+    }
+
+    public static boolean ownsShared(NamedParameterJdbcTemplate jdbc, long merchantId,
+            String reference, String environment) {
+        if (merchantId <= 0 || reference == null || reference.isBlank()
+                || environment == null || environment.isBlank()) return false;
+        return !jdbc.queryForList(
+                "SELECT id FROM airtel_recovery WHERE merchant_id=:merchant"
+                        + " AND BINARY merchant_reference=BINARY :reference"
+                        + " AND environment=:environment AND credential_source='PLATFORM_SHARED' LIMIT 1 FOR SHARE",
+                new MapSqlParameterSource("merchant", merchantId)
+                        .addValue("reference", reference).addValue("environment", environment)).isEmpty();
+    }
+}

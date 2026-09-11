@@ -1,0 +1,33 @@
+package net.citotech.cito.gateway;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.concurrent.Flow;
+import org.junit.jupiter.api.Test;
+
+class AirtelStatusBodyLimitTest {
+    @Test void boundedResponsePreservesBytesUntilCompletion() {
+        var body = new AirtelStatusClient.BoundedBody();
+        var subscription = mock(Flow.Subscription.class);
+        body.onSubscribe(subscription);
+        body.onNext(List.of(ByteBuffer.wrap(new byte[]{1, 2}), ByteBuffer.wrap(new byte[]{3})));
+        assertThat(body.getBody().toCompletableFuture().isDone()).isFalse();
+        body.onComplete();
+        assertThat(body.getBody().toCompletableFuture().join()).containsExactly((byte)1, (byte)2, (byte)3);
+        verify(subscription, times(2)).request(1);
+        verify(subscription, never()).cancel();
+    }
+    @Test void oversizedResponseCancelsBeforeUnboundedAllocation() {
+        var body = new AirtelStatusClient.BoundedBody();
+        var subscription = mock(Flow.Subscription.class);
+        body.onSubscribe(subscription);
+        body.onNext(List.of(ByteBuffer.allocate(65536)));
+        body.onNext(List.of(ByteBuffer.allocate(1)));
+        verify(subscription).cancel();
+        assertThatThrownBy(() -> body.getBody().toCompletableFuture().join())
+                .hasCauseInstanceOf(PaymentGatewayException.class);
+    }
+}

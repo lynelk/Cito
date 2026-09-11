@@ -1,0 +1,69 @@
+package net.citotech.cito.gateway;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import java.math.BigDecimal;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
+class AirtelRecoveryEvidenceTest {
+    @Test
+    void savedSubmissionRejectionStillRequiresAuthenticatedOriginalReferenceStatus() {
+        var store = mock(AirtelRecoveryStore.class);
+        var credentials = mock(AirtelRecoveryCredentials.class);
+        var client = mock(AirtelStatusClient.class);
+        var approved = AirtelStatusClientTest.credentials();
+        String identity = AirtelRecoveryCredentials.identity(approved, "SANDBOX", "UG", "UGX");
+        var entry = new AirtelRecoveryStore.Entry(1, "original-ref", 42, "M42", "REF42", null,
+                "COLLECT", "SANDBOX", "UG", "UGX", "MERCHANT", identity,
+                new BigDecimal("100.0000"), "hash", null, 0, "SUBMISSION_REJECTED_400", null);
+        when(store.due(20)).thenReturn(List.of(entry));
+        when(store.claim(1)).thenReturn("claim");
+        when(credentials.load(42, "MERCHANT", "SANDBOX", "UG", "UGX")).thenReturn(approved);
+        when(client.verify("COLLECT", "original-ref", "SANDBOX", "UG", "UGX", entry.amount(), approved))
+                .thenReturn(new AirtelStatusClient.Verified("PENDING", ""));
+        var service = new AirtelRecoveryService(null, null, store, credentials, client,
+                null, null, null, "SANDBOX");
+        assertThat(service.reconcile(20)).isZero();
+        verify(client).verify("COLLECT", "original-ref", "SANDBOX", "UG", "UGX", entry.amount(), approved);
+        verify(store).retry(entry, "claim", "PROVIDER_PENDING");
+        verify(store, never()).resolved(any(), anyString(), anyString(), anyString());
+        verify(store, never()).locked(anyLong(), anyString());
+    }
+
+    @Test
+    void immutableCanonicalIdIsNotReplacedEvenWithSameRequestHash() {
+        var original = AirtelRecoveryInvariantTest.entry("LEGACY_PLATFORM");
+        var replacement = copy(original, 8L, original.provider(), original.merchantReference());
+        assertThat(AirtelRecoveryStore.sameAttempt(original, replacement)).isFalse();
+        assertThat(AirtelRecoveryStore.sameAttempt(original, original)).isTrue();
+    }
+
+    @Test
+    void originalProviderIdAndCaseSensitiveMerchantReferenceCannotBeSubstituted() {
+        var original = AirtelRecoveryInvariantTest.entry("LEGACY_PLATFORM");
+        assertThat(AirtelRecoveryStore.sameAttempt(original,
+                copy(original, original.transactionId(), "other-provider", original.merchantReference())))
+                .isFalse();
+        assertThat(AirtelRecoveryStore.sameAttempt(original,
+                copy(original, original.transactionId(), original.provider(), "ref42"))).isFalse();
+    }
+
+    @Test
+    void nativeReplayReturnsOriginalProviderInsteadOfSubmittingANewCandidate() {
+        var legacy = AirtelRecoveryInvariantTest.entry("LEGACY_PLATFORM");
+        var original = copy(legacy, null, "old-provider", "native-ref");
+        var retry = copy(legacy, null, "new-unsubmitted-candidate", "native-ref");
+        assertThat(AirtelRecoveryStore.sameAttempt(original, retry)).isTrue();
+    }
+
+    private static AirtelRecoveryStore.Entry copy(AirtelRecoveryStore.Entry e,
+            Long transactionId, String provider, String reference) {
+        return new AirtelRecoveryStore.Entry(e.id(), provider, e.merchantId(), e.merchantNumber(),
+                reference, transactionId, e.operation(), e.environment(), e.country(), e.currency(),
+                e.source(), e.identity(), e.amount(), e.requestHash(), e.callbackUrl(),
+                e.attempts(), e.submissionRejection(), e.terminalStatus());
+    }
+}
