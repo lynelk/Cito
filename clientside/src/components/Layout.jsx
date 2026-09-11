@@ -11,6 +11,7 @@ import {
   EnvironmentSwitcher, ThemeToggle, Icons,
 } from '../ui';
 import ExperienceWorkspace from '../features/ExperienceWorkspace';
+import AdminMerchantReadiness from '../features/AdminMerchantReadiness';
 
 import ModuleInsights from './modules/ModuleInsights';
 import ModuleCitoPlatform from './modules/ModuleCitoPlatform';
@@ -187,6 +188,7 @@ class LayoutWithOutRouter extends React.Component {
       case 'administration': return <ModuleAdmins {...moduleProps} />;
       case 'api-reference': return <ApiReference admin />;
       case 'engineering': return <ProductionMaturityDashboard {...moduleProps} />;
+      case 'merchant-readiness': return <AdminMerchantReadiness />;
       case 'search': return <ExperienceWorkspace portal="admin" section="search" />;
       case 'support': return <ExperienceWorkspace portal="admin" section="support" />;
       case 'notifications': return <ExperienceWorkspace portal="admin" section="notifications" />;

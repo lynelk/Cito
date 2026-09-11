@@ -249,7 +249,14 @@ test('merchant service portfolio is responsive and entitlement-aware', async ({ 
   await expect(page.getByRole('heading', { name: /use the services your business needs/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Communications', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Identity, Credit & Scoring', exact: true }).first()).toBeVisible();
-  await expect(page.getByText(/enabled for your account/i).first()).toBeVisible();
+  // Entitlement allows workspace access; it does not prove provider readiness or activation.
+  const cards = page.locator('.cito-service-card');
+  const payments = cards.filter({ has: page.getByRole('heading', { name: 'Payments', exact: true }) });
+  const vending = cards.filter({ has: page.getByRole('heading', { name: 'Vending & Value-Added Services', exact: true }) });
+  await expect(payments.getByText('Access granted · readiness separate', { exact: true })).toBeVisible();
+  await expect(vending.getByText('Available by entitlement', { exact: true })).toBeVisible();
+  await expect(page.getByText(/enabled for your account/i)).toHaveCount(0);
+  await expect(page.getByText(/activated through entitlements/i)).toHaveCount(0);
   await expect(page.getByText(/checking access/i)).toHaveCount(0);
   await assertTopbarWithinViewport(page);
   await assertNoDocumentOverflow(page);

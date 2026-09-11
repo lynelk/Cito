@@ -89,6 +89,16 @@ class MobileMoneyExecutionServiceTest {
                         Path.of(
                                 "src/main/resources/db/migration/V126__mobile_money_execution_integrity.sql"));
         jdbc.getJdbcTemplate().execute(migration.substring(0, migration.indexOf("ALTER TABLE")));
+        for (String column :
+                List.of(
+                        "recovery_claim_token VARCHAR(36)",
+                        "recovery_claim_until TIMESTAMP(6)",
+                        "recovery_attempt_count INT NOT NULL DEFAULT 0",
+                        "recovery_last_code VARCHAR(64)",
+                        "recovery_last_signal_at TIMESTAMP(6)")) {
+            jdbc.getJdbcTemplate()
+                    .execute("ALTER TABLE mobile_money_executions ADD COLUMN " + column);
+        }
         merchant.setId(10L);
         merchant.setAccount_number("M10");
         merchant.setStatus("ACTIVE");

@@ -370,12 +370,30 @@ public class MobileMoneyExecutionService {
      * Status, canonical ledger, compatibility projection, treasury and outboxes commit together.
      */
     public void apply(String transactionId, GateWayResponse response) {
+        apply(transactionId, response, null);
+    }
+
+    public void applyVerified(
+            String transactionId, GateWayResponse response, String recoveryClaim) {
+        if (recoveryClaim == null || recoveryClaim.isBlank()) {
+            throw new PaymentGatewayException("A recovery claim is required");
+        }
+        apply(transactionId, response, recoveryClaim);
+    }
+
+    private void apply(String transactionId, GateWayResponse response, String recoveryClaim) {
         transactions.executeWithoutResult(
                 ignored -> {
-                    MapSqlParameterSource p = new MapSqlParameterSource("tx", transactionId);
+                    MapSqlParameterSource p =
+                            new MapSqlParameterSource("tx", transactionId)
+                                    .addValue("claim", recoveryClaim, java.sql.Types.VARCHAR);
                     List<Map<String, Object>> rows =
                             jdbc.queryForList(
-                                    "SELECT * FROM mobile_money_executions WHERE transaction_id=:tx FOR UPDATE",
+                                    "SELECT * FROM mobile_money_executions WHERE transaction_id=:tx "
+                                            + (recoveryClaim == null
+                                                    ? ""
+                                                    : "AND recovery_claim_token=:claim AND recovery_claim_until>CURRENT_TIMESTAMP(6) ")
+                                            + "FOR UPDATE",
                                     p);
                     if (rows.size() != 1)
                         throw new PaymentGatewayException("Payment execution was not found");
@@ -422,7 +440,10 @@ public class MobileMoneyExecutionService {
                             "UPDATE merchant_transactions_log SET status=:status,tx_update_trace=:trace WHERE tx_unique_id=:tx AND status NOT IN ('SUCCESSFUL','FAILED')",
                             p);
                     jdbc.update(
-                            "UPDATE mobile_money_executions SET last_polled_at=CURRENT_TIMESTAMP,next_poll_at=TIMESTAMPADD(SECOND,60,CURRENT_TIMESTAMP) WHERE transaction_id=:tx",
+                            "UPDATE mobile_money_executions SET last_polled_at=CURRENT_TIMESTAMP,next_poll_at=TIMESTAMPADD(SECOND,60,CURRENT_TIMESTAMP),"
+                                    + "recovery_last_code=CASE WHEN :claim IS NULL THEN recovery_last_code ELSE 'VERIFIED_PROVIDER' END,"
+                                    + "recovery_claim_token=CASE WHEN :claim IS NOT NULL OR :status IN ('SUCCESSFUL','FAILED') THEN NULL ELSE recovery_claim_token END,"
+                                    + "recovery_claim_until=CASE WHEN :claim IS NOT NULL OR :status IN ('SUCCESSFUL','FAILED') THEN NULL ELSE recovery_claim_until END WHERE transaction_id=:tx",
                             p);
                     tx.setStatus(status);
                     if (terminal(status)) {

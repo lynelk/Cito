@@ -1,6 +1,7 @@
 import { changeProviderScope, mtnProfile } from './providerConnectionProfile';
 import { request } from '../shared/api/httpClient';
 import MerchantCredentialReviews from './MerchantCredentialReviews';
+import { filterProviderRows, filterProviderAdjustments } from './providerScope';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button, Card, Section, Table, Toolbar } from '../ui';
@@ -71,15 +72,15 @@ function age(seconds?: number | null): string {
   return `${Math.floor(seconds / 3600)}h ago`;
 }
 
-export default function ProviderTreasuryConsole(): React.ReactElement {
+export default function ProviderTreasuryConsole({ channelScope }: { channelScope?: string } = {}): React.ReactElement {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth('admin');
-  const accounts = useTreasuryAccounts();
-  const adjustments = useTreasuryAdjustments();
-  const entitlements = useSharedProviderEntitlements();
-  const credentials = usePlatformCredentials();
+  const accountsQuery = useTreasuryAccounts();
+  const adjustmentsQuery = useTreasuryAdjustments();
+  const entitlementsQuery = useSharedProviderEntitlements();
+  const credentialsQuery = usePlatformCredentials();
   const testMerchants = useProviderTestMerchants();
-  const liveTests = useProviderLiveTests();
+  const liveTestsQuery = useProviderLiveTests();
   const createAdjustment = useCreateTreasuryAdjustment();
   const approveAdjustment = useApproveTreasuryAdjustment();
   const rejectAdjustment = useRejectTreasuryAdjustment();
@@ -94,9 +95,14 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
   const createLiveTest = useCreateProviderLiveTest();
   const approveLiveTest = useApproveProviderLiveTest();
 
+  const accounts = { ...accountsQuery, data: filterProviderRows(accountsQuery.data, channelScope) };
+  const credentials = { ...credentialsQuery, data: filterProviderRows(credentialsQuery.data, channelScope) };
+  const entitlements = { ...entitlementsQuery, data: filterProviderRows(entitlementsQuery.data, channelScope) };
+  const liveTests = { ...liveTestsQuery, data: filterProviderRows(liveTestsQuery.data, channelScope) };
+  const adjustments = { ...adjustmentsQuery, data: filterProviderAdjustments(adjustmentsQuery.data, accounts.data, channelScope) };
   const [notice, setNotice] = useState('');
   const [adjustment, setAdjustment] = useState({ adjustmentType: 'CREDIT', sourceAccountId: '', destinationAccountId: '', amount: '', reason: '', externalReference: '', evidenceReference: '', valueDate: new Date().toISOString().slice(0, 10) });
-  const [entitlement, setEntitlement] = useState({ merchantId: '', channelCode: 'airtel_money', environment: 'PRODUCTION', countryCode: 'UG', currencyCode: 'UGX', operation: 'COLLECT', perTransactionLimit: '', dailyLimit: '', notes: '' });
+  const [entitlement, setEntitlement] = useState({ merchantId: '', channelCode: channelScope || 'airtel_money', environment: 'PRODUCTION', countryCode: 'UG', currencyCode: 'UGX', operation: 'COLLECT', perTransactionLimit: '', dailyLimit: '', notes: '' });
   const [credential, setCredential] = useState(() => changeProviderScope({
     channelCode: 'mtn_momo', environment: 'SANDBOX',
     collectUrl: '', payoutUrl: '', authHeaderName: '', authHeaderValue: '', tokenAlias: '',
@@ -107,10 +113,10 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
     airtelCountry: 'UG', airtelCurrency: 'UGX', tokenPath: '/auth/oauth2/token',
     collectionPath: '/merchant/v2/payments/', payoutPath: '/standard/v2/disbursements/',
     balancePath: '/standard/v2/users/balance',
-  }, new URLSearchParams(window.location.search).get('channel') === 'airtel_open_api' ? 'airtel_open_api' : 'mtn_momo', 'SANDBOX'));
-  const [filters, setFilters] = useState({ environment: '', channel: '', currency: '', role: '', state: '' });
+  }, channelScope || (new URLSearchParams(window.location.search).get('channel') === 'airtel_open_api' ? 'airtel_open_api' : 'mtn_momo'), 'SANDBOX'));
+  const [filters, setFilters] = useState({ environment: '', channel: channelScope || '', currency: '', role: '', state: '' });
   const [liveTest, setLiveTest] = useState({
-    merchantId: '', channelCode: 'mtn_momo', environment: 'SANDBOX', countryCode: 'UG',
+    merchantId: '', channelCode: channelScope || 'mtn_momo', environment: 'SANDBOX', countryCode: 'UG',
     currencyCode: 'UGX', operation: 'COLLECT', amount: '', party: '', mfaCode: '',
     confirmProduction: false, idempotencyKey: crypto.randomUUID() as string,
   });
@@ -161,6 +167,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
     event.preventDefault();
     createEntitlement.mutate({
       ...entitlement,
+      channelCode: channelScope || entitlement.channelCode,
       merchantId: Number(entitlement.merchantId),
       perTransactionLimit: entitlement.perTransactionLimit || null,
       dailyLimit: entitlement.dailyLimit || null,
@@ -207,7 +214,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
       if (credential.tokenAlias) providerCredentials.tokenAlias = credential.tokenAlias;
     }
     saveCredential.mutate({
-      channelCode: credential.channelCode,
+      channelCode: channelScope || credential.channelCode,
       environment: credential.environment,
       countryCode: credential.countryCode,
       currencyCode: credential.currencyCode,
@@ -220,6 +227,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
     event.preventDefault();
     createLiveTest.mutate({
       ...liveTest,
+      channelCode: channelScope || liveTest.channelCode,
       merchantId: Number(liveTest.merchantId),
     }, {
       onSuccess: (result) => {
@@ -339,7 +347,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
         <Card>
           <div style={gridStyle}>
             <label>Environment<select style={fieldStyle} value={filters.environment} onChange={(e) => setFilters({ ...filters, environment: e.target.value })}><option value="">All</option><option>PRODUCTION</option><option>SANDBOX</option></select></label>
-            <label>Provider<select style={fieldStyle} value={filters.channel} onChange={(e) => setFilters({ ...filters, channel: e.target.value })}><option value="">All</option><option value="mtn_momo">MTN MoMo</option><option value="airtel_open_api">Airtel Open API</option><option value="airtel_money">Airtel Money</option><option value="safaricom_mpesa">Safaricom M-Pesa</option></select></label>
+            <label>Provider<select disabled={Boolean(channelScope)} style={fieldStyle} value={filters.channel} onChange={(e) => setFilters({ ...filters, channel: e.target.value })}><option value="">All</option><option value="mtn_momo">MTN MoMo</option><option value="airtel_open_api">Airtel Open API</option><option value="airtel_money">Airtel Money</option><option value="safaricom_mpesa">Safaricom M-Pesa</option></select></label>
             <label>Currency<input style={fieldStyle} value={filters.currency} placeholder="All" onChange={(e) => setFilters({ ...filters, currency: e.target.value.toUpperCase() })} /></label>
             <label>Account role<select style={fieldStyle} value={filters.role} onChange={(e) => setFilters({ ...filters, role: e.target.value })}><option value="">All</option><option>MASTER</option><option>COLLECTION</option><option>DISBURSEMENT</option></select></label>
             <label>Reconciliation<select style={fieldStyle} value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })}><option value="">All</option><option>MATCHED</option><option>VARIANCE</option><option>UNRECONCILED</option></select></label>
@@ -362,7 +370,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
           <form onSubmit={submitLiveTest} style={gridStyle}>
             <label>Merchant<select required style={fieldStyle} value={liveTest.merchantId} onChange={(e) => setLiveTest({ ...liveTest, merchantId: e.target.value })}><option value="">Select an active merchant</option>{(testMerchants.data ?? []).map((merchant) => <option key={merchant.id} value={merchant.id}>{merchant.name} · {merchant.merchantNumber}</option>)}</select></label>
             <label>Operation<select style={fieldStyle} value={liveTest.operation} onChange={(e) => setLiveTest({ ...liveTest, operation: e.target.value })}><option>COLLECT</option><option>PAYOUT</option></select></label>
-            <label>Provider<select style={fieldStyle} value={liveTest.channelCode} onChange={(e) => setLiveTest({ ...liveTest, channelCode: e.target.value })}><option value="mtn_momo">MTN MoMo</option><option value="airtel_open_api">Airtel Open API</option></select></label>
+            <label>Provider<select disabled={Boolean(channelScope)} style={fieldStyle} value={liveTest.channelCode} onChange={(e) => setLiveTest({ ...liveTest, channelCode: e.target.value })}><option value="mtn_momo">MTN MoMo</option><option value="airtel_open_api">Airtel Open API</option></select></label>
             <label>Environment<select style={fieldStyle} value={liveTest.environment} onChange={(e) => setLiveTest({ ...liveTest, environment: e.target.value, currencyCode: e.target.value === 'SANDBOX' && liveTest.channelCode === 'mtn_momo' ? 'EUR' : 'UGX', mfaCode: '', confirmProduction: false })}><option>SANDBOX</option><option>PRODUCTION</option></select></label>
             <label>Country<input required style={fieldStyle} value={liveTest.countryCode} onChange={(e) => setLiveTest({ ...liveTest, countryCode: e.target.value.toUpperCase() })} /></label>
             <label>Currency<input required style={fieldStyle} value={liveTest.currencyCode} onChange={(e) => setLiveTest({ ...liveTest, currencyCode: e.target.value.toUpperCase() })} /></label>
@@ -401,7 +409,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
         <Card>
           <form onSubmit={submitEntitlement} style={gridStyle}>
             <label>Merchant ID<input required style={fieldStyle} inputMode="numeric" value={entitlement.merchantId} onChange={(e) => setEntitlement({ ...entitlement, merchantId: e.target.value })} /></label>
-            <label>Channel<select style={fieldStyle} value={entitlement.channelCode} onChange={(e) => setEntitlement({ ...entitlement, channelCode: e.target.value })}><option value="airtel_money">Airtel Money</option><option value="airtel_open_api">Airtel Open API</option><option value="mtn_momo">MTN MoMo</option><option value="safaricom_mpesa">Safaricom M-Pesa</option></select></label>
+            <label>Channel<select disabled={Boolean(channelScope)} style={fieldStyle} value={entitlement.channelCode} onChange={(e) => setEntitlement({ ...entitlement, channelCode: e.target.value })}><option value="airtel_money">Airtel Money</option><option value="airtel_open_api">Airtel Open API</option><option value="mtn_momo">MTN MoMo</option><option value="safaricom_mpesa">Safaricom M-Pesa</option></select></label>
             <label>Operation<select style={fieldStyle} value={entitlement.operation} onChange={(e) => setEntitlement({ ...entitlement, operation: e.target.value })}><option>COLLECT</option><option>PAYOUT</option></select></label>
             <label>Environment<select style={fieldStyle} value={entitlement.environment} onChange={(e) => setEntitlement({ ...entitlement, environment: e.target.value })}><option>PRODUCTION</option><option>SANDBOX</option></select></label>
             <label>Country<input required style={fieldStyle} value={entitlement.countryCode} onChange={(e) => setEntitlement({ ...entitlement, countryCode: e.target.value.toUpperCase() })} /></label>
@@ -420,7 +428,7 @@ export default function ProviderTreasuryConsole(): React.ReactElement {
         <Card>
           <p style={{ color: 'var(--ios-secondary)' }}>Secrets are encrypted at rest. After save, only masked values are returned. Credential editor and approver must be different operators. An API key is not a subscription key or portal password. Switching provider or environment clears unsaved credentials and callback values. This release requires both MTN products for connection verification; Collections-only activation is not yet supported.</p>
           <form onSubmit={submitCredential} style={gridStyle}>
-            <label>Channel<select style={fieldStyle} value={credential.channelCode} onChange={(e) => {
+            <label>Channel<select disabled={Boolean(channelScope)} style={fieldStyle} value={credential.channelCode} onChange={(e) => {
               const channelCode = e.target.value;
               setCredential(changeProviderScope(credential, channelCode, credential.environment));
             }}><option value="airtel_money">Airtel Money</option><option value="airtel_open_api">Airtel Open API</option><option value="mtn_momo">MTN MoMo</option><option value="safaricom_mpesa">Safaricom M-Pesa</option></select></label>

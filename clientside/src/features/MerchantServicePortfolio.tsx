@@ -25,7 +25,7 @@ const families: ServiceFamily[] = [
     description: 'Collect, pay out, refund and reconcile through Cito Payments / CPay using the channels approved for your business.',
     capabilities: ['CPay', 'MTN MoMo', 'Airtel Money', 'Yo! Payments', 'FlexiPay', 'M-Pesa'],
     entitlementHints: ['CPAY', 'PAYMENT', 'PAYOUT', 'COLLECTION'],
-    route: '/bo/partner/payments',
+    route: '/fo/payments',
     action: 'Open payments',
   },
   {
@@ -35,7 +35,7 @@ const families: ServiceFamily[] = [
     description: 'Send and automate customer communications through configured SMS, WhatsApp Business and USSD providers with delivery evidence and routing controls.',
     capabilities: ['SMS', 'WhatsApp Business', 'USSD', 'Notifications', 'Provider failover'],
     entitlementHints: ['SMS', 'WHATSAPP', 'USSD', 'COMMUNICATION', 'MESSAGE'],
-    route: '/bo/partner/sms',
+    route: '/fo/sms',
     action: 'Open communications',
   },
   {
@@ -53,7 +53,7 @@ const families: ServiceFamily[] = [
     description: 'Offer airtime, data, utilities and device-backed services through one Cito-managed vending layer.',
     capabilities: ['Airtime', 'Data', 'Utilities', 'Devices', 'QR journeys'],
     entitlementHints: ['VENDING', 'AIRTIME', 'UTILITY', 'DATA_BUNDLE', 'DEVICE'],
-    route: '/bo/partner/vending',
+    route: '/fo/vending',
     action: 'Open vending',
   },
   {
@@ -71,7 +71,7 @@ const families: ServiceFamily[] = [
     description: 'Connect your systems through APIs, webhooks, developer projects and certified provider integrations.',
     capabilities: ['APIs', 'Webhooks', 'Developer projects', 'Connectors', 'Automation'],
     entitlementHints: ['API', 'WEBHOOK', 'INTEGRATION', 'CONNECTOR'],
-    route: '/bo/partner/developers',
+    route: '/fo/developers',
     action: 'Open developer workspace',
   },
 ];
@@ -90,7 +90,7 @@ function entitlementState(family: ServiceFamily, entitlements?: string[]): { lab
   if (!Array.isArray(entitlements)) return { label: 'Checking access', tone: 'neutral' };
   const enabled = entitlements.map((item) => String(item).toUpperCase());
   if (family.entitlementHints.some((hint) => enabled.some((item) => item.includes(hint)))) {
-    return { label: 'Enabled for your account', tone: 'success' };
+    return { label: 'Access granted · readiness separate', tone: 'neutral' };
   }
   return { label: 'Available by entitlement', tone: 'warning' };
 }
@@ -103,11 +103,11 @@ export default function MerchantServicePortfolio({ entitlements }: Props): React
         <div>
           <p className="cito-workspace-hero__eyebrow">Your Cito service portfolio</p>
           <h2>Use the services your business needs</h2>
-          <p>Payments are only one part of Cito. Communications, identity and credit intelligence, vending, billing and integrations are presented as clear service families and activated through entitlements.</p>
+          <p>Payments are only one part of Cito. Explore communications, identity and credit intelligence, vending, billing and integrations by service family. Entitlements grant workspace access; configuration, certification and production activation remain separate checks.</p>
         </div>
         <div className="cito-workspace-hero__actions">
-          <Button variant="ghost" onClick={() => navigate('/bo/partner/help')}>Request service access</Button>
-          <Button variant="primary" onClick={() => navigate('/bo/partner/developers')}>Test in sandbox</Button>
+          <Button variant="ghost" onClick={() => navigate('/fo/help')}>Request service access</Button>
+          <Button variant="primary" onClick={() => navigate('/fo/developers')}>Open developer reference</Button>
         </div>
       </header>
 

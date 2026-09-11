@@ -4,34 +4,52 @@ import java.util.*;
 import net.citotech.cito.Model.*;
 import net.citotech.cito.money.MoneyAmount;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-/** Callbacks are wake-up signals; authenticated provider lookup is the settlement evidence. */
+/**
+ * Callbacks are hints. Only bounded authenticated lookup plus a current fenced claim can settle.
+ */
 @Service
 public class MobileMoneyRecoveryService {
     private final NamedParameterJdbcTemplate jdbc;
     private final MobileMoneyExecutionService executions;
     private final MtnMomoStatusClient mtn;
+    private final MobileMoneyRecoveryLeaseStore leases;
+    private final BoundedProviderVerification verification;
+    private final String runtimeEnvironment;
     private static final org.slf4j.Logger log =
             org.slf4j.LoggerFactory.getLogger(MobileMoneyRecoveryService.class);
 
     public MobileMoneyRecoveryService(
             NamedParameterJdbcTemplate jdbc,
             MobileMoneyExecutionService executions,
-            MtnMomoStatusClient mtn) {
+            MtnMomoStatusClient mtn,
+            MobileMoneyRecoveryLeaseStore leases,
+            BoundedProviderVerification verification,
+            @Value("${custom.gatewaystate:SANDBOX}") String runtimeEnvironment) {
         this.jdbc = jdbc;
         this.executions = executions;
         this.mtn = mtn;
+        this.leases = leases;
+        this.verification = verification;
+        this.runtimeEnvironment = runtimeEnvironment.trim().toUpperCase(Locale.ROOT);
+        MobileMoneyRecoveryLeaseStore.requireRuntime(this.runtimeEnvironment);
     }
 
     public boolean signal(String channel, String reference, String externalId) {
+        if (!MobileMoneyExecutionService.managed(channel)
+                || reference == null
+                || reference.length() > 64) return false;
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT * FROM mobile_money_executions WHERE channel_code=:channel AND provider_reference=:reference",
+                        "SELECT transaction_id FROM mobile_money_executions WHERE channel_code=:channel AND provider_reference=:reference "
+                                + "AND (:runtime='PRODUCTION' OR environment='SANDBOX')",
                         new MapSqlParameterSource("channel", channel)
-                                .addValue("reference", reference));
+                                .addValue("reference", reference)
+                                .addValue("runtime", runtimeEnvironment));
         if (rows.isEmpty()) return false;
         if (rows.size() != 1) throw new PaymentGatewayException("Provider reference is ambiguous");
         Map<String, Object> row = rows.get(0);
@@ -39,38 +57,40 @@ public class MobileMoneyRecoveryService {
                 && !externalId.isBlank()
                 && !externalId.equals(row.get("transaction_id")))
             throw new PaymentGatewayException("Provider external reference does not match payment");
-        // Persist a wake-up. The worker rate-limits network verification under its shared lock.
-        jdbc.update(
-                "UPDATE mobile_money_executions SET next_poll_at=LEAST(next_poll_at,CURRENT_TIMESTAMP) WHERE transaction_id=:tx",
-                new MapSqlParameterSource("tx", row.get("transaction_id")));
+        leases.signal(String.valueOf(row.get("transaction_id")));
         return true;
     }
 
     @Scheduled(fixedDelayString = "${cpay.mobile-money.status-poll.delay-ms:15000}")
     @SchedulerLock(name = "mobileMoneyRecovery", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1S")
     public void reconcilePending() {
-        List<Map<String, Object>> rows =
-                jdbc.queryForList(
-                        "SELECT e.* FROM mobile_money_executions e JOIN merchant_transactions_log t ON t.tx_unique_id=e.transaction_id WHERE t.status IN ('PENDING','UNDETERMINED') AND e.next_poll_at<=CURRENT_TIMESTAMP ORDER BY e.next_poll_at,e.transaction_id LIMIT 100",
-                        new MapSqlParameterSource());
-        for (Map<String, Object> row : rows) {
-            // Advance even failed lookups so a broken credential cannot starve later payments.
-            jdbc.update(
-                    "UPDATE mobile_money_executions SET next_poll_at=DATE_ADD(CURRENT_TIMESTAMP,INTERVAL 60 SECOND),last_polled_at=CURRENT_TIMESTAMP WHERE transaction_id=:tx",
-                    new MapSqlParameterSource("tx", row.get("transaction_id")));
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(90);
+        for (Map<String, Object> row : leases.due(runtimeEnvironment, 10)) {
+            if (Thread.currentThread().isInterrupted() || System.nanoTime() >= deadline) break;
+            String id = text(row, "transaction_id");
+            String claim = leases.claim(id, runtimeEnvironment);
+            if (claim == null) continue;
             try {
-                verify(row);
-            } catch (RuntimeException e) {
+                GateWayResponse outcome = verification.execute(() -> readOnlyOutcome(row));
+                executions.applyVerified(id, outcome, claim);
+            } catch (RuntimeException error) {
+                leases.retry(id, claim, "VERIFICATION_DEFERRED");
                 log.warn(
                         "Mobile-money verification deferred for transaction {} ({})",
-                        row.get("transaction_id"),
-                        e.getClass().getSimpleName());
+                        id,
+                        error.getClass().getSimpleName());
             }
         }
     }
 
-    public void verify(Map<String, Object> row) {
+    GateWayResponse readOnlyOutcome(Map<String, Object> row) {
         String id = text(row, "transaction_id"), operation = text(row, "operation");
+        if (!MobileMoneyExecutionService.managed(text(row, "channel_code"))
+                || (!"COLLECT".equals(operation) && !"PAYOUT".equals(operation))
+                || (!"PRODUCTION".equals(runtimeEnvironment)
+                        && !"SANDBOX".equals(text(row, "environment")))) {
+            throw new PaymentGatewayException("Recovery scope does not match this runtime");
+        }
         Transaction transaction = executions.load(id);
         Map<String, Object> credentials = executions.snapshot(row);
         GateWayResponse response;
@@ -131,7 +151,7 @@ public class MobileMoneyRecoveryService {
             gateway.requireMatchingCommercialAttributes(
                     transaction.getOriginalAmountDecimal(), transaction.getCurrency());
         }
-        executions.apply(id, response);
+        return response;
     }
 
     private static String text(Map<String, Object> row, String key) {

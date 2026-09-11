@@ -165,6 +165,44 @@ public final class MobileMoneyMysqlScenario {
                                             + collect
                                             + "')"))
                     .isZero();
+            jdbc.update(
+                    "UPDATE mobile_money_executions SET next_poll_at=TIMESTAMPADD(SECOND,-1,CURRENT_TIMESTAMP) WHERE transaction_id=:tx",
+                    Map.of("tx", collect));
+            var recoveryLeases = new MobileMoneyRecoveryLeaseStore(jdbc);
+            String expiredClaim = recoveryLeases.claim(collect, "PRODUCTION");
+            assertThat(expiredClaim).isNotNull();
+            jdbc.update(
+                    "UPDATE mobile_money_executions SET recovery_claim_until=TIMESTAMPADD(SECOND,-1,CURRENT_TIMESTAMP(6)) WHERE transaction_id=:tx",
+                    Map.of("tx", collect));
+            String recoveryClaim = recoveryLeases.claim(collect, "PRODUCTION");
+            assertThat(recoveryClaim).isNotNull().isNotEqualTo(expiredClaim);
+            assertThatThrownBy(
+                            () ->
+                                    service.applyVerified(
+                                            collect,
+                                            outcome("SUCCESSFUL", "stale-proof"),
+                                            expiredClaim))
+                    .isInstanceOf(PaymentGatewayException.class);
+            assertThatThrownBy(
+                            () ->
+                                    service.applyVerified(
+                                            collect,
+                                            outcome("SUCCESSFUL", "foreign-proof"),
+                                            "foreign-claim"))
+                    .isInstanceOf(PaymentGatewayException.class);
+            assertThat(service.load(collect).getStatus()).isEqualTo("PENDING");
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT COUNT(*) FROM ledger_transactions WHERE source_reference=:tx",
+                                    Map.of("tx", collect),
+                                    Integer.class))
+                    .isZero();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT COUNT(*) FROM merchant_statement WHERE transactions_log_id=(SELECT id FROM merchant_transactions_log WHERE tx_unique_id=:tx)",
+                                    Map.of("tx", collect),
+                                    Integer.class))
+                    .isZero();
             // A failure after ledger and statement writes rolls everything back, including
             // treasury.
             doThrow(new IllegalStateException("synthetic outbox outage"))
@@ -172,9 +210,17 @@ public final class MobileMoneyMysqlScenario {
                     .recordPaymentSettled(any(), any(), any());
             assertThatThrownBy(
                             () ->
-                                    service.apply(
-                                            collect, outcome("SUCCESSFUL", "financial-collect")))
+                                    service.applyVerified(
+                                            collect,
+                                            outcome("SUCCESSFUL", "financial-collect"),
+                                            recoveryClaim))
                     .hasMessageContaining("synthetic");
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT recovery_claim_token FROM mobile_money_executions WHERE transaction_id=:tx",
+                                    Map.of("tx", collect),
+                                    String.class))
+                    .isEqualTo(recoveryClaim);
             assertThat(service.load(collect).getStatus()).isEqualTo("PENDING");
             assertThat(ledger.availableMerchantBalance(id, "UGX")).isEqualByComparingTo("0");
             assertThat(
@@ -191,6 +237,14 @@ public final class MobileMoneyMysqlScenario {
                                     String.class))
                     .isEqualTo("PENDING");
             doNothing().when(usage).recordPaymentSettled(any(), any(), any());
+            service.applyVerified(
+                    collect, outcome("SUCCESSFUL", "financial-collect"), recoveryClaim);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT recovery_claim_token FROM mobile_money_executions WHERE transaction_id=:tx",
+                                    Map.of("tx", collect),
+                                    String.class))
+                    .isNull();
             try (var workers = Executors.newFixedThreadPool(2)) {
                 var first =
                         workers.submit(

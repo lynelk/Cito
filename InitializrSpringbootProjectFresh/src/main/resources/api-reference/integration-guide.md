@@ -213,3 +213,14 @@ For initial developer onboarding, prefer an approved non-money sandbox read or c
 Platform administrators configure CPay-owned MTN connections in `/bo/provider-treasury?channel=mtn_momo#platform-provider-credentials`. Settings -> MTN MoMo links there and retains separate pricing controls. Merchant-owned connections remain in merchant Payment channels and do not expose platform secrets. Stored settings are not connectivity evidence.
 
 The governed platform form derives MTN's API origin, target and currency: Sandbox uses sandbox/EUR; Uganda production uses mtnuganda/UGX. Changing provider or environment clears unsaved credential and callback values. API users/API keys differ from product subscription keys and portal passwords. Use the server-side Verify connection action followed by independent approval; verification requires both MTN products in this release. Authentication alone is not payment or callback certification. No automatic migration or activation of legacy connection settings is performed.
+
+
+## 14. Canonical recovery and evidence-derived onboarding
+
+MTN and Airtel native payments, compatibility APIs and merchant batches use the same durable `mobile_money_executions` lifecycle. Recovery uses the originally stored provider reference and encrypted credential snapshot; it does not create another payment. Provider callbacks are rate-limited wake-up hints, not settlement authority. A failed or timed-out lookup leaves the outcome pending and holds intact. Fenced claims are checked inside the canonical transaction that posts status, ledger, treasury, projections and outbox evidence. Stale/expired claims cannot finalize. Status lookups have a bounded deadline and scheduler budget; a sandbox runtime cannot recover production entries. Historical entries without canonical attribution require controlled reconciliation rather than guessed finality.
+
+The merchant activation journey and administrator merchant-readiness view use the same onboarding assessment. Empty required-step sets, untimestamped completions, waived tests and a LIVE label without activation evidence never imply provider certification. `readyForProduction` remains a readiness assessment, not an activation command. Individual provider, service, country, currency, credential and environment approvals remain separate. Administrators inspect `/bo/admin/merchant-readiness?merchantId=APPROVED_MERCHANT_ID`; merchant scope is enforced by the existing backend controller.
+
+The developer quickstart button filters documentation locally and never sends a request. Review the connected deployment, authentication and current access price before an explicitly approved non-money test. The workbench itself is not a sandbox.
+
+Production SMTP transport was independently reachable from a sibling diagnostic worker on 11 September 2026; this is not proof of application authentication or inbox delivery. Do not claim email delivery from transport success alone.

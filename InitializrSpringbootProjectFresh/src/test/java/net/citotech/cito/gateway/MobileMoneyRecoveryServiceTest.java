@@ -16,7 +16,14 @@ class MobileMoneyRecoveryServiceTest {
         var jdbc = mock(NamedParameterJdbcTemplate.class);
         var executions = mock(MobileMoneyExecutionService.class);
         var mtn = mock(MtnMomoStatusClient.class);
-        var recovery = new MobileMoneyRecoveryService(jdbc, executions, mtn);
+        var recovery =
+                new MobileMoneyRecoveryService(
+                        jdbc,
+                        executions,
+                        mtn,
+                        mock(MobileMoneyRecoveryLeaseStore.class),
+                        mock(BoundedProviderVerification.class),
+                        "PRODUCTION");
         Transaction tx = new Transaction();
         tx.setCurrency("UGX");
         tx.setOriginalAmountDecimal(new BigDecimal("10.1234"));
@@ -77,7 +84,7 @@ class MobileMoneyRecoveryServiceTest {
                             anyString(),
                             anyMap()))
                     .thenReturn(status);
-            assertThatThrownBy(() -> recovery.verify(row))
+            assertThatThrownBy(() -> recovery.readOnlyOutcome(row))
                     .isInstanceOf(PaymentGatewayException.class);
         }
         verify(executions, never()).apply(anyString(), any());
@@ -90,7 +97,8 @@ class MobileMoneyRecoveryServiceTest {
                                 "10.1234",
                                 "UGX",
                                 "256770000000"));
-        recovery.verify(row);
-        verify(executions).apply(eq("transaction-id"), any());
+        recovery.readOnlyOutcome(row);
+        verify(executions, never()).apply(anyString(), any());
+        verify(executions, never()).applyVerified(anyString(), any(), anyString());
     }
 }

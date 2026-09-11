@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Messager from '../../StableMessager';
+import PaymentRecoveryNotice from './PaymentRecoveryNotice';
 import { withRouter } from '../../../shared/router/compat';
 import common from "../../Common";
 import strings from '../../locale';
@@ -251,6 +252,7 @@ function MerchantModuleTransactionsC(props) {
                 {detailRow('Merchant number', r.merchant_number)}
                 {detailRow('Gateway ID', r.gateway_id)}
                 {detailRow('Status', <Badge tone={statusTone(r.status)}>{r.status}</Badge>)}
+                <PaymentRecoveryNotice status={r.status} />
                 {detailRow('Amount', "UGX " + (r.original_amount_formatted || ''))}
                 {detailRow('Merchant Reference', r.tx_merchant_ref)}
                 {detailRow('Network Ref', r.tx_gateway_ref)}

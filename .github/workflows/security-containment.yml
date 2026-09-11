@@ -23,3 +23,11 @@ jobs:
       - uses: actions/checkout@v7
       - name: Exercise real nginx with synthetic local fixtures
         run: python3 scripts/ci/check-edge-hidden-paths.py
+  smtp-tls-policy:
+    name: SMTP Diagnostic TLS Policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify TLS minimum, certificate checks and both transport paths offline
+        run: python3 -m unittest discover -s ops/diagnostics -p 'test_smtp_tls_policy.py' -v

@@ -44,6 +44,7 @@ class BillingTraceChainServiceTestcontainersTest {
     @Container
     private static final MySQLContainer MYSQL =
             new MySQLContainer("mysql:8.0.36")
+                    .withCommand("--log-bin-trust-function-creators=1")
                     .withDatabaseName("cpay_test")
                     .withUsername("cpay")
                     .withPassword("cpay");
@@ -106,6 +107,8 @@ class BillingTraceChainServiceTestcontainersTest {
                 invoiceService.createDraft(
                         31L, "UGX", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30));
         invoiceService.stageCharges(invoiceId);
+        net.citotech.cito.billing.SyntheticBillingEvidence.recordCompleteSource(
+                jdbcTemplate, invoiceRepository, invoiceId);
         gateService.submit(invoiceId, "billing-maker");
         gateService.approve(invoiceId, "billing-checker", null);
         long ledgerTransactionId = invoiceService.finalizeInvoice(invoiceId, "billing-finalizer");
@@ -145,6 +148,8 @@ class BillingTraceChainServiceTestcontainersTest {
                 invoiceService.createDraft(
                         32L, "UGX", LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
         invoiceService.stageCharges(invoiceId);
+        net.citotech.cito.billing.SyntheticBillingEvidence.recordCompleteSource(
+                jdbcTemplate, invoiceRepository, invoiceId);
         gateService.submit(invoiceId, "billing-maker");
         gateService.approve(invoiceId, "billing-checker", null);
         invoiceService.finalizeInvoice(invoiceId, "billing-finalizer");
@@ -206,12 +211,16 @@ class BillingTraceChainServiceTestcontainersTest {
     private String insertUsageEventAndRatedCharge(
             NamedParameterJdbcTemplate jdbcTemplate, long billingTenantId) {
         String sourceReference = "TX-TRACE-" + java.util.UUID.randomUUID();
+        String fixtureDate =
+                billingTenantId == 31L
+                        ? "2026-09-15 12:00:00"
+                        : billingTenantId == 32L ? "2026-10-15 12:00:00" : "2026-08-15 12:00:00";
 
         MapSqlParameterSource usageEvent = new MapSqlParameterSource();
         usageEvent.addValue("billing_tenant_id", billingTenantId);
         usageEvent.addValue("service_code", "PAYMENT");
         usageEvent.addValue("meter_code", "collection_count");
-        usageEvent.addValue("event_time", "2026-08-15 12:00:00");
+        usageEvent.addValue("event_time", fixtureDate);
         usageEvent.addValue("currency", "UGX");
         usageEvent.addValue("source_reference", sourceReference);
         usageEvent.addValue("idempotency_key", "usage:" + sourceReference);
@@ -234,7 +243,7 @@ class BillingTraceChainServiceTestcontainersTest {
         ratedCharge.addValue("currency", "UGX");
         ratedCharge.addValue("rounding_policy", "HALF_UP_SCALE_2");
         ratedCharge.addValue("idempotency_key", "rated:" + sourceReference);
-        ratedCharge.addValue("computed_at", "2026-08-15 12:00:00");
+        ratedCharge.addValue("computed_at", fixtureDate);
         jdbcTemplate.update(
                 "INSERT INTO billing_rated_charges (billing_tenant_id, price_book_version_id, "
                         + "service_code, meter_code, charge_type, source_reference, base_amount, "
