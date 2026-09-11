@@ -2,7 +2,7 @@
 """Exact-source acceptance runner with canonical UI routing and paired CSRF controls.
 
 The application under test is unchanged. Missing-token rejection is compared with
-an authenticated valid-token request containing the same deliberately invalid rate.
+an authenticated valid-token request for a deliberately nonexistent rate endpoint.
 No valid commercial rate or money request is submitted.
 """
 import hashlib
@@ -29,9 +29,10 @@ for parent in ('workbench', 'reference'):
     source = source.replace(old, "visible(" + parent + ".get_by_text('MTN configuration ownership and verification', exact=True))")
 old = "            check('admin_csrf_enforced', admin.request.post(BASE + '/api/v2/admin/api-reference/rates', data={}).status == 403)"
 assert source.count(old) == 1
-source = source.replace(old, '''            negative = admin.request.post(BASE + '/api/v2/admin/api-reference/rates', headers={'Content-Type': 'application/json'}, data='{}')
+source = source.replace(old, '''            invalid_rate = json.dumps({'method': 'POST', 'path': '/__qa_nonexistent_rate_route__', 'amount': '0.0000', 'currency': 'UGX', 'expectedVersion': 0})
+            negative = admin.request.post(BASE + '/api/v2/admin/api-reference/rates', headers={'Content-Type': 'application/json'}, data=invalid_rate)
             token = admin.request.get(BASE + '/api/ui/auth/csrf').json()
-            control = admin.request.post(BASE + '/api/v2/admin/api-reference/rates', headers={token['headerName']: token['token'], 'Content-Type': 'application/json'}, data='{}')
+            control = admin.request.post(BASE + '/api/v2/admin/api-reference/rates', headers={token['headerName']: token['token'], 'Content-Type': 'application/json'}, data=invalid_rate)
             control_code = control.json().get('code') if 'application/json' in control.headers.get('content-type', '') else None
             print(json.dumps({'csrf_denial_http': negative.status, 'csrf_control_http': control.status, 'csrf_control_code': control_code}), flush=True)
             check('admin_csrf_enforced', negative.status in (401, 403) and control.status == 400 and control_code == 'INVALID_API_RATE')''')
@@ -40,7 +41,7 @@ def visible(locator):
     locator.wait_for(state='visible', timeout=20000)
     return locator.is_visible()
 
-print('QA_TEST_ADAPTER: canonical UI auth routing, render waits and paired explicit-JSON CSRF negative/control; no valid write submitted', flush=True)
+print('QA_TEST_ADAPTER: canonical UI auth routing, render waits and paired CSRF negative/control with complete nonexistent-route DTO; no valid write submitted', flush=True)
 try:
     exec(compile(source, 'staging_authenticated_acceptance.py', 'exec'), {'__name__': '__main__', 'visible': visible})
 except SystemExit as error:
