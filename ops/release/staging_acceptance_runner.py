@@ -23,6 +23,9 @@ assert source.count(old) == 1
 source = source.replace(old, "urlsplit(response.url).path.removeprefix('/api/ui') == endpoint")
 source = source.replace("BASE + '/auth/csrf'", "BASE + '/api/ui/auth/csrf'")
 source = source.replace("BASE + '/auth/logout'", "BASE + '/api/ui/auth/logout'")
+old = "form.get_by_label('Environment', exact=True)"
+assert source.count(old) == 2
+source = source.replace(old, "form.locator('label').filter(has_text=re.compile(r'^Environment')).locator('select')")
 for parent in ('workbench', 'reference'):
     old = parent + ".get_by_text('MTN configuration ownership and verification', exact=True).is_visible(timeout=20000)"
     assert source.count(old) == 1
@@ -41,7 +44,7 @@ def visible(locator):
     locator.wait_for(state='visible', timeout=20000)
     return locator.is_visible()
 
-print('QA_TEST_ADAPTER: canonical UI auth routing, render waits and paired CSRF negative/control with complete nonexistent-route DTO; no valid write submitted', flush=True)
+print('QA_TEST_ADAPTER: canonical UI auth routing, explicit render/select locators and paired CSRF negative/control with complete nonexistent-route DTO; no valid write submitted', flush=True)
 try:
     exec(compile(source, 'staging_authenticated_acceptance.py', 'exec'), {'__name__': '__main__', 'visible': visible})
 except SystemExit as error:
