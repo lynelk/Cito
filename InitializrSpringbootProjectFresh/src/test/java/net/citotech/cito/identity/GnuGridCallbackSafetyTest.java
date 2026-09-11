@@ -29,19 +29,32 @@ class GnuGridCallbackSafetyTest {
         assertFalse(connector.validateCallbackHeaders(Map.of()));
         assertFalse(connector.validateCallbackHeaders(Map.of("X-Gnugrid-Signature", "")));
         assertFalse(connector.validateCallbackHeaders(Map.of("X-Gnugrid-Signature", "forged")));
-        assertFalse(connector.validateCallbackHeaders(
-                Map.of("X-Gnugrid-Signature", "test-outbound-key")));
-        assertFalse(connector.validateCallbackHeaders(
-                Map.of("x-gnugrid-signature", "forged", "Authorization", "Bearer test-outbound-key")));
+        assertFalse(
+                connector.validateCallbackHeaders(
+                        Map.of("X-Gnugrid-Signature", "test-outbound-key")));
+        assertFalse(
+                connector.validateCallbackHeaders(
+                        Map.of(
+                                "x-gnugrid-signature",
+                                "forged",
+                                "Authorization",
+                                "Bearer test-outbound-key")));
     }
 
     @Test
     void directParsingCannotBypassCallbackAuthentication() {
-        for (String body : new String[] {null, "", "not-json",
-                "{\"reference\":\"IDV-test\",\"verified\":true}",
-                "{\"reference\":\"IDV-test\",\"verified\":false}"}) {
-            assertThrows(IdentityVerificationException.class,
-                    () -> connector.parseCallback(body, Map.of("X-Gnugrid-Signature", "forged")));
+        String[] bodies = {
+            null,
+            "",
+            "not-json",
+            "{\"reference\":\"IDV-test\",\"verified\":true}",
+            "{\"reference\":\"IDV-test\",\"verified\":false}"
+        };
+        Map<String, String> headers = Map.of("X-Gnugrid-Signature", "forged");
+        for (String body : bodies) {
+            assertThrows(
+                    IdentityVerificationException.class,
+                    () -> connector.parseCallback(body, headers));
         }
     }
 
@@ -50,21 +63,22 @@ class GnuGridCallbackSafetyTest {
         IdentityVerificationService service = mock(IdentityVerificationService.class);
         IdentityVerificationController controller =
                 new IdentityVerificationController(service, List.of(connector));
+        String body = "{\"reference\":\"IDV-test\",\"verified\":true}";
         for (String signature : List.of("", "forged", "test-outbound-key")) {
-            var response = controller.gnugridCallback(
-                    "{\"reference\":\"IDV-test\",\"verified\":true}", signature);
+            var response = controller.gnugridCallback(body, signature);
             assertEquals(401, response.getStatusCode().value());
             assertTrue(response.getBody() instanceof Map<?, ?>);
-            assertEquals("INVALID_CALLBACK_SIGNATURE",
-                    ((Map<?, ?>) response.getBody()).get("code"));
+            Map<?, ?> result = (Map<?, ?>) response.getBody();
+            assertEquals("INVALID_CALLBACK_SIGNATURE", result.get("code"));
         }
         verifyNoInteractions(service);
     }
 
     @Test
     void synchronousSandboxMatchRemainsAvailable() {
-        var request = new IdentityRecords.IdentityVerificationRequest(
-                "IDV-test-match", 1L, "NIN", "UG", "SYNTHETIC00012", "Test Subject", "");
+        var request =
+                new IdentityRecords.IdentityVerificationRequest(
+                        "IDV-test-match", 1L, "NIN", "UG", "SYNTHETIC00012", "Test Subject", "");
         var result = connector.verify(request);
         assertTrue(result.match());
         assertEquals("sandbox-IDV-test-match", result.providerReference());
@@ -72,8 +86,9 @@ class GnuGridCallbackSafetyTest {
 
     @Test
     void synchronousSandboxFailureRemainsAvailable() {
-        var request = new IdentityRecords.IdentityVerificationRequest(
-                "IDV-test-fail", 1L, "NIN", "UG", "SYNTHETIC00011", "Test Subject", "");
+        var request =
+                new IdentityRecords.IdentityVerificationRequest(
+                        "IDV-test-fail", 1L, "NIN", "UG", "SYNTHETIC00011", "Test Subject", "");
         assertFalse(connector.verify(request).match());
     }
 }

@@ -98,7 +98,8 @@ public class GnuGridConnector implements IdentityVerificationConnector {
             }
             String reason =
                     status == 0
-                            ? "provider unreachable: " + safeProviderMessage(httpResponse.getErrorMessage())
+                            ? "provider unreachable: "
+                                    + safeProviderMessage(httpResponse.getErrorMessage())
                             : "provider rejected the request (HTTP " + status + ")";
             throw new IdentityVerificationException(reason);
         } catch (IdentityVerificationException e) {
@@ -151,10 +152,11 @@ public class GnuGridConnector implements IdentityVerificationConnector {
             return IdentityRecords.VerifiedIdentity.failed(
                     ref, PROVIDER_CODE, providerReference, body);
         }
-        String fullName = firstNonBlank(
-                json.optString("fullName", ""),
-                json.optString("firstName", ""),
-                json.optString("lastName", ""));
+        String fullName =
+                firstNonBlank(
+                        json.optString("fullName", ""),
+                        json.optString("firstName", ""),
+                        json.optString("lastName", ""));
         return IdentityRecords.VerifiedIdentity.matched(
                 ref,
                 PROVIDER_CODE,
