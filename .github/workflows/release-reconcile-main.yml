@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/release-reconcile-main.yml
       - ops/release/reconcile_api_reference_20260911.py
+      - ops/release/remediate_security_gate_20260911.py
   workflow_dispatch:
 
 permissions:
@@ -19,7 +20,7 @@ concurrency:
 jobs:
   reconcile:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     services:
       mysql:
         image: mysql:8.4
@@ -50,7 +51,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Restore existing CI gate when disabled
+      - name: Verify CI is active and inspect reconciliation registration
         shell: bash
         run: |
           set -euo pipefail
@@ -60,7 +61,7 @@ jobs:
             gh api --method PUT repos/lynelk/Cito/actions/workflows/ci.yml/enable
           fi
           test "$(gh api repos/lynelk/Cito/actions/workflows/ci.yml --jq .state)" = active
-          echo CI_GATE_ACTIVE
+          gh api repos/lynelk/Cito/actions/workflows --jq '.workflows[] | select(.path | test("ci.yml|reconcile|audit")) | {id,name,path,state}'
       - uses: actions/setup-java@v6
         with:
           java-version: '21'
@@ -79,6 +80,7 @@ jobs:
           git config user.email 'release-reconciliation@users.noreply.github.com'
           python3 -m pip install --quiet PyYAML==6.0.2 openapi-spec-validator==0.7.2 markdown2==2.5.4
           python3 ops/release/reconcile_api_reference_20260911.py
+          python3 ops/release/remediate_security_gate_20260911.py
           python3 scripts/api_docs/build_portal_reference.py
           python3 scripts/api_docs/build_portal_reference.py --check
           python3 scripts/api_docs/test_portal_reference.py
@@ -86,7 +88,11 @@ jobs:
           python3 Docs/Brand/check_brand.py
       - name: Backend format and complete verification
         working-directory: InitializrSpringbootProjectFresh
-        run: mvn -B spotless:apply verify --no-transfer-progress -Dspring.flyway.enabled=false
+        shell: bash
+        run: |
+          set -euo pipefail
+          mvn -B spotless:apply verify --no-transfer-progress -Dspring.flyway.enabled=false > /tmp/cito-backend-verify.log 2>&1 || { tail -100 /tmp/cito-backend-verify.log; exit 1; }
+          tail -16 /tmp/cito-backend-verify.log
       - name: MySQL migration and payment lifecycle verification
         shell: bash
         env:
@@ -101,15 +107,25 @@ jobs:
           test -n "$mysql_container"
           docker exec "$mysql_container" mysql -uroot -proot-ci-password -e 'SET GLOBAL log_bin_trust_function_creators=1;'
           cd InitializrSpringbootProjectFresh
-          mvn -B test --no-transfer-progress -Dtest=FlywayMigrationSmokeTest
+          mvn -B test --no-transfer-progress -Dtest=FlywayMigrationSmokeTest > /tmp/cito-mysql-verify.log 2>&1 || { tail -100 /tmp/cito-mysql-verify.log; exit 1; }
+          tail -20 /tmp/cito-mysql-verify.log
       - name: Frontend verification
         working-directory: clientside
+        shell: bash
         run: |
           set -euo pipefail
-          npm ci --ignore-scripts --no-audit --no-fund
-          npm run typecheck
-          npm test -- src/features/ApiReference.test.tsx src/components/CitoLandingPage.test.tsx
-          npm run build
+          npm ci --ignore-scripts --no-audit --no-fund > /tmp/cito-frontend-verify.log 2>&1
+          npm run typecheck >> /tmp/cito-frontend-verify.log 2>&1 || { tail -80 /tmp/cito-frontend-verify.log; exit 1; }
+          npm test -- src/features/ApiReference.test.tsx src/components/CitoLandingPage.test.tsx >> /tmp/cito-frontend-verify.log 2>&1 || { tail -80 /tmp/cito-frontend-verify.log; exit 1; }
+          npm run build >> /tmp/cito-frontend-verify.log 2>&1 || { tail -80 /tmp/cito-frontend-verify.log; exit 1; }
+          tail -20 /tmp/cito-frontend-verify.log
+      - name: Confirm dependency security fixes without suppressions
+        working-directory: InitializrSpringbootProjectFresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          mvn -B org.owasp:dependency-check-maven:13.0.0:check -DfailBuildOnCVSS=9 '-DnvdDatafeedUrl=https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/nvdcve-{0}.json.gz' -Dformats=HTML,JSON --no-transfer-progress > /tmp/cito-dependency-verify.log 2>&1 || { tail -100 /tmp/cito-dependency-verify.log; exit 1; }
+          tail -18 /tmp/cito-dependency-verify.log
       - name: Publish validated Git objects without moving any branch
         shell: bash
         run: |
@@ -142,15 +158,31 @@ jobs:
               blob=api('git/blobs',{'content':base64.b64encode(Path(filename).read_bytes()).decode(),'encoding':'base64'})
               entries.append({'path':filename,'mode':mode,'type':'blob','sha':blob['sha']})
           tree=api('git/trees',{'base_tree':git('rev-parse',parent+'^{tree}'),'tree':entries})
-          commit=api('git/commits',{'message':'Merge recovered main into API workbench; preserve refund controls and add V128\n\nVerified full backend, fresh contracts, MySQL lifecycle and frontend before publishing this candidate. No runtime data or release branch was changed.','tree':tree['sha'],'parents':[parent,main]})
+          commit=api('git/commits',{'message':'Reconcile recovered main and API workbench with vendor security fixes\n\nPreserves financial lifecycle and applied migration history; adds V128. Full backend, clean MySQL, frontend and dependency gates verified. Exact-head CodeQL and runtime acceptance are still required. No runtime data or release branch changed.','tree':tree['sha'],'parents':[parent,main]})
           print('VALIDATED_CANDIDATE_SHA='+commit['sha'])
           print('EXPECTED_FEATURE_PARENT='+parent)
           print('PINNED_MAIN_SHA='+main)
-          print('No refs changed. External exact-head review and release checks are still required.')
+          print('No refs changed. External exact-head review and release checks remain required.')
+          PY
+      - name: Compact verification evidence
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          counts={key:0 for key in ('tests','failures','errors','skipped')}
+          for path in Path('InitializrSpringbootProjectFresh/target/surefire-reports').glob('TEST-*.xml'):
+              root=ET.parse(path).getroot()
+              for key in counts:counts[key]+=int(root.get(key,'0'))
+              for error in root.findall('.//failure')+root.findall('.//error'):
+                  print(path.name, error.get('message','')[:1000])
+          print('TEST_TOTALS',counts)
           PY
       - name: Upload verification reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: release-reconciliation-reports-${{ github.sha }}
-          path: InitializrSpringbootProjectFresh/target/surefire-reports/
+          path: |
+            InitializrSpringbootProjectFresh/target/surefire-reports/
+            InitializrSpringbootProjectFresh/target/dependency-check-report.*
