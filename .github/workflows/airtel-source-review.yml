@@ -1,0 +1,36 @@
+name: Airtel pinned source review
+on:
+  push:
+    branches: [feature/airtel-consolidated-release-20260911]
+    paths: [.github/workflows/airtel-source-review.yml]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Export only committed source history for offline review
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse origin/main)" = de3011367b67eac2cad65e508e72966a3f70b5ea
+          git branch review-main de3011367b67eac2cad65e508e72966a3f70b5ea
+          git branch review-airtel-184 ae17f944f25caa41d1090194fd1681c3cc5ee53d
+          git branch review-airtel-185 292bccb6ec69b71199eb30eaa590fa9fa86cff2a
+          mkdir -p review-source
+          git bundle create review-source/cito-review.bundle review-main review-airtel-184 review-airtel-185 HEAD
+          git bundle verify review-source/cito-review.bundle
+          git show -s --format='%H %T %s' review-main review-airtel-184 review-airtel-185 HEAD > review-source/manifest.txt
+          sha256sum review-source/cito-review.bundle
+          cat review-source/manifest.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cito-airtel-pinned-source-${{ github.sha }}
+          path: review-source/
+          retention-days: 7
