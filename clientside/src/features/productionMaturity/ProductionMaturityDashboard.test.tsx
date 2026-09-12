@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProductionMaturityDashboard from './ProductionMaturityDashboard';
 
@@ -39,6 +39,7 @@ function successfulFetch() {
 
 describe('ProductionMaturityDashboard', () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -74,6 +75,8 @@ describe('ProductionMaturityDashboard', () => {
     expect(screen.getByText(/compliance operations/i)).toBeInTheDocument();
     expect(screen.getByText(/cross-border readiness/i)).toBeInTheDocument();
     expect(screen.getByText(/automation validation/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Response received')).toHaveLength(7);
+    expect(screen.queryByText('Live', { exact: true })).not.toBeInTheDocument();
   });
 
   it('renders explicit failure states instead of manufacturing zeros', async () => {
@@ -84,10 +87,31 @@ describe('ProductionMaturityDashboard', () => {
 
     renderDashboard();
 
-    const alerts = await screen.findAllByRole('alert');
+    // The independent evidence query can fail before the summary query. Await
+    // the summary's actual error instead of inspecting whichever alert wins.
+    await screen.findByText(/Production maturity APIs could not be loaded:.*Forbidden/i);
+    const alerts = screen.getAllByRole('alert');
     expect(alerts.length).toBeGreaterThan(0);
     const combined = alerts.map((alert) => alert.textContent || '').join(' ');
     expect(combined).toMatch(/could not be loaded/i);
     expect(combined).toMatch(/forbidden/i);
+    const totals = screen.getByLabelText('Production maturity summary');
+    expect(within(totals).getAllByText('Unavailable')).toHaveLength(2);
+    expect(within(totals).queryByText('0', { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText('Live', { exact: true })).not.toBeInTheDocument();
+  });
+
+  it('does not label an empty-body response as live or readable evidence', async () => {
+    const fetch = successfulFetch();
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => String(input).includes('/api/v2/product-experience/dashboard/widgets')
+      ? response(null) : fetch(input)));
+    renderDashboard();
+    await screen.findByText('Merchant onboarding');
+    const card = screen.getByText('Merchant onboarding').closest('article');
+    expect(card).not.toBeNull();
+    expect(within(card!).getAllByText('Unavailable')).toHaveLength(2);
+    const totals = screen.getByLabelText('Production maturity summary');
+    expect(within(totals).getByText('6', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText('Live', { exact: true })).not.toBeInTheDocument();
   });
 });

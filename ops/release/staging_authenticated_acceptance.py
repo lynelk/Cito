@@ -66,7 +66,7 @@ def main() -> int:
     try:
         with db.cursor() as cursor:
             cursor.execute('SELECT version FROM flyway_schema_history WHERE success=1 AND version IS NOT NULL ORDER BY installed_rank DESC LIMIT 1')
-            check('flyway_head_128', cursor.fetchone()[0] == '128')
+            check('flyway_head_129', cursor.fetchone()[0] == '129')
             cursor.execute('INSERT INTO admins(name,email,phone,password,status) VALUES(%s,%s,%s,%s,%s)', (fixture_name, admin_email, '', password_hash, 'ACTIVE'))
             admin_id = cursor.lastrowid
             for account in merchant_numbers:
@@ -110,7 +110,7 @@ def main() -> int:
                 return ctx, page
 
             anonymous = context()
-            for endpoint in ('/v3/api-docs', '/api/v2/admin/api-reference/commercial', '/api/v2/portal/api-reference/openapi'):
+            for endpoint in ('/v3/api-docs', '/api/v2/admin/api-reference/commercial', '/api/v2/portal/api-reference/openapi', '/api/v2/admin/platform-evidence/scorecard'):
                 check('anonymous_denied_' + endpoint, anonymous.request.get(BASE + endpoint).status in (401, 403))
 
             admin, admin_page = login('admin', admin_email)
@@ -118,6 +118,40 @@ def main() -> int:
                 response = admin.request.get(BASE + endpoint)
                 check('admin_authorized_' + endpoint, response.status == 200)
                 response.json()
+            evidence_response = admin.request.get(BASE + '/api/v2/admin/platform-evidence/scorecard')
+            check('admin_evidence_authorized', evidence_response.status == 200)
+            evidence = evidence_response.json()
+            check('durable_evidence_markers', evidence.get('evidenceBasis') == 'DURABLE_RECORDS_ONLY' and evidence.get('targetsReportedAsActuals') is False)
+            expected_metrics = {
+                'commercial': ('founding20Candidates', 'founding20Active', 'founding20Live', 'activePackageAssignments', 'embeddedProgrammesLive'),
+                'developer': ('activeProjects', 'productionEligibleProjects', 'apiRequests7d', 'activeApiMerchants30d', 'successfulApiRequests7d'),
+                'adoption': ('productionMerchants30d', 'productionCommands30d', 'liveOnboardingWorkflows', 'approvedGoLiveChecklists'),
+            }
+            for group, keys in expected_metrics.items():
+                values = evidence.get(group)
+                check('valid_evidence_' + group, isinstance(values, dict) and all(type(values.get(key)) is int and 0 <= values[key] <= 9007199254740991 for key in keys))
+            providers = evidence.get('providerCertification')
+            check('provider_specific_reviewed_coverage', isinstance(providers, list) and all(
+                isinstance(row, dict)
+                and isinstance(row.get('providerCode'), str) and bool(row['providerCode'].strip()) and row['providerCode'] != '*'
+                and isinstance(row.get('channelCode'), str) and bool(row['channelCode'].strip()) and row['channelCode'] != '*'
+                and type(row.get('approvedScenarios')) is int and type(row.get('requiredScenarios')) is int
+                and 0 <= row['approvedScenarios'] <= row['requiredScenarios'] <= 9007199254740991
+                for row in providers))
+            check('separate_provider_metadata', isinstance(evidence.get('providerDefinitions'), list))
+            admin_page.goto(BASE + '/bo/production-maturity')
+            panel = admin_page.get_by_role('region', name='Commercial and adoption evidence', exact=True)
+            panel.get_by_role('heading', name='Commercial & adoption evidence', exact=True).wait_for(state='visible')
+            check('evidence_measured_groups', panel.get_by_text('Measured', exact=True).count() == 3)
+            check('historical_coverage_not_certification', panel.get_by_text('Reviewed scenario records do not certify the current credentials, environment, live delivery or settlement.', exact=True).is_visible())
+            for width in (320, 390, 768, 1440):
+                admin_page.set_viewport_size({'width': width, 'height': 1000})
+                check('evidence_layout_' + str(width), admin_page.evaluate('document.documentElement.scrollWidth <= window.innerWidth + 2'))
+            admin_page.set_viewport_size({'width': 390, 'height': 1000})
+            admin_page.evaluate("document.documentElement.style.fontSize='200%'")
+            check('evidence_200_percent_text', panel.get_by_role('heading', name='Commercial & adoption evidence', exact=True).is_visible() and admin_page.evaluate('document.documentElement.scrollWidth <= window.innerWidth + 2'))
+            admin_page.evaluate("document.documentElement.style.fontSize=''")
+            admin_page.set_viewport_size({'width': 1440, 'height': 1000})
             check('admin_csrf_enforced', admin.request.post(BASE + '/api/v2/admin/api-reference/rates', data={}).status == 403)
             admin_page.goto(BASE + '/bo/admin/api-reference')
             workbench = admin_page.get_by_role('region', name='Administrator API workbench')
@@ -157,7 +191,7 @@ def main() -> int:
                 response = merchant.request.get(BASE + endpoint)
                 check('merchant_authorized_' + endpoint, response.status == 200)
                 response.json()
-            for endpoint in ('/v3/api-docs', '/api/v2/admin/api-reference/commercial', '/api/v2/admin/shared-provider/credentials'):
+            for endpoint in ('/v3/api-docs', '/api/v2/admin/api-reference/commercial', '/api/v2/admin/shared-provider/credentials', '/api/v2/admin/platform-evidence/scorecard'):
                 check('merchant_admin_boundary_' + endpoint, merchant.request.get(BASE + endpoint).status in (401, 403))
             check('merchant_cross_tenant_denied', merchant.request.get(BASE + '/api/v2/merchants/' + str(merchant_ids[1]) + '/overview').status in (401, 403, 404))
             merchant_page.goto(BASE + '/fo/developers')
