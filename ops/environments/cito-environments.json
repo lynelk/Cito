@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sourceOfTruth": {
     "repository": "lynelk/Cito",
     "policy": "All application, configuration-contract, workflow, runbook and release-marker changes must be committed to this repository. Runtime-only changes must be reconciled back to GitHub immediately and may not remain as undocumented drift."
@@ -11,6 +11,8 @@
       "status": "ACTIVE",
       "environmentId": "bec50941-04c7-426d-8bc3-883cbdece892",
       "branch": "production",
+      "acceptedReleaseSha": "ea41bb69009b4cfd3accea99f1a0ff154ce3de3d",
+      "schemaVersion": 129,
       "commitPolicy": "BACKEND_FRONTEND_MATCH_BRANCH_HEAD",
       "services": {
         "backend": {
@@ -18,7 +20,8 @@
           "serviceId": "ba6fd4b7-e61d-48d1-987d-7f6dc56c1e84",
           "rootDirectory": "InitializrSpringbootProjectFresh",
           "replicas": 2,
-          "region": "ams"
+          "region": "ams",
+          "healthcheckPath": "/status/health"
         },
         "frontend": {
           "name": "cito-frontend",
@@ -26,20 +29,30 @@
           "rootDirectory": "clientside",
           "replicas": 2,
           "region": "ams",
-          "publicDomain": "cito.coresynergi.es"
+          "publicDomain": "cito.coresynergi.es",
+          "healthcheckPath": "/readyz",
+          "sleepApplication": false,
+          "availabilityPolicy": "ALWAYS_ON"
         },
         "database": {
           "name": "MySQL",
-          "serviceId": "26c20665-9b31-47b6-ac2c-a984c9b0c6d4"
+          "serviceId": "26c20665-9b31-47b6-ac2c-a984c9b0c6d4",
+          "image": "mysql:9.7.2",
+          "replicas": 1,
+          "qualificationPolicy": "CITO_MYSQL_8_4_9_4_AND_EXACT_PRODUCTION_9_7_2_CI",
+          "haStatus": "SINGLE_PRIMARY_PENDING_HA_CONVERSION"
         }
-      }
+      },
+      "acceptanceNote": "2026-09-12: production frontend/backend deployed accepted exact SHA ea41bb69009b4cfd3accea99f1a0ff154ce3de3d; Flyway migrated V125 through V129; fresh owner-provided production backup evidence recorded before promotion. Frontend sleeping was disabled and the always-on two-replica deployment succeeded. Provider credentials/certification and database HA remain separate operational evidence items."
     },
     "staging": {
-      "status": "PLANNED",
+      "status": "ACCEPTED",
       "projectName": "Cito Staging",
       "projectId": "c69c90a9-ab6f-48ff-8e04-1e10a10f92db",
       "environmentId": "efde4ddb-0312-48bc-94b2-a096fd3678b0",
       "branch": "main",
+      "acceptedReleaseSha": "ea41bb69009b4cfd3accea99f1a0ff154ce3de3d",
+      "schemaVersion": 129,
       "commitPolicy": "BACKEND_FRONTEND_MATCH_BRANCH_HEAD",
       "autoDeploy": true,
       "services": {
@@ -58,7 +71,7 @@
           "mountPath": "/var/lib/mysql"
         }
       },
-      "acceptanceNote": "2026-09-11: backend main 0ab5bd5c passed live health with DB UP and gateway SANDBOX; runtime logs verify the recovered persistent database and V127. The API-workbench candidate introduces V128 without modifying main migration history. Frontend/backend exact-revision parity, authenticated UAT and production promotion remain pending; PLANNED is not release acceptance.",
+      "acceptanceNote": "2026-09-12: authenticated browser/API acceptance passed on exact SHA ea41bb69009b4cfd3accea99f1a0ff154ce3de3d with Flyway V129, canonical recovery schema, admin/merchant login, CSRF, tenant/RBAC boundaries, readiness parity, responsive views, developer quickstart, session revocation, zero provider transactions and QA cleanup.",
       "isolationPolicy": "NO_PRODUCTION_SECRETS_OR_PROVIDER_BALANCES",
       "dataPolicy": "SYNTHETIC_OR_APPROVED_SANITIZED_DATA_ONLY",
       "promotionPolicy": "EXACT_STAGING_SHA_MUST_PASS_RELEASE_UAT_AND_SMOKE_GATES_BEFORE_PRODUCTION_PROMOTION"
