@@ -1,0 +1,124 @@
+openapi: 3.1.0
+info:
+  title: Cito Admin Communications Operations API
+  version: 2.0.0
+  description: Administrative communication-provider activation and diagnostic operations. Provider acceptance and final handset delivery are intentionally reported separately.
+servers:
+  - url: https://cito.coresynergi.es
+tags:
+  - name: Admin Communications
+paths:
+  /api/v2/admin/communication/routing/providers/{providerCode}/activation:
+    post:
+      tags: [Admin Communications]
+      operationId: setCommunicationProviderActivation
+      summary: Enable or disable an SMS provider
+      security:
+        - adminSession: []
+      parameters:
+        - name: providerCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Provider activation state updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Explicit activation state was not supplied.
+        '401':
+          description: Administrator login required.
+        '403':
+          description: Administrator role required.
+        '404':
+          description: SMS provider was not found.
+        '409':
+          description: Provider adapter or send configuration is incomplete.
+  /api/v2/admin/communication/routing/providers/{providerCode}/test-sms:
+    post:
+      tags: [Admin Communications]
+      operationId: testCommunicationSmsProvider
+      summary: Send one explicit administrator SMS provider diagnostic
+      description: Sends a fixed Cito diagnostic message through the selected enabled provider. Provider acceptance is not treated as proof of handset delivery.
+      security:
+        - adminSession: []
+      parameters:
+        - name: providerCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipient]
+              properties:
+                recipient:
+                  type: string
+                  pattern: '^\\+?[0-9]{7,15}$'
+                senderId:
+                  type:
+                    - string
+                    - 'null'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Provider diagnostic completed. Inspect providerAccepted and deliveryConfirmed independently.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, providerCode, status, providerAccepted, deliveryConfirmed]
+                properties:
+                  code:
+                    type: string
+                  providerCode:
+                    type: string
+                  status:
+                    type: string
+                  normalizedCode:
+                    type: string
+                  providerMessageId:
+                    type: string
+                  providerAccepted:
+                    type: boolean
+                  deliveryConfirmed:
+                    type: boolean
+                additionalProperties: false
+        '400':
+          description: Recipient number is invalid.
+        '401':
+          description: Administrator login required.
+        '403':
+          description: Administrator role required.
+        '404':
+          description: SMS provider was not found.
+        '409':
+          description: Provider is disabled or its send configuration is incomplete.
+components:
+  securitySchemes:
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
