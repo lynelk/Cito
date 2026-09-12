@@ -65,6 +65,7 @@ jobs:
           python scripts/api_docs/changed_controller_contract.py "$BASE_SHA" "$HEAD_SHA"
           Docs/Api/cpay-v2-openapi.yaml Docs/Api/cito-platform-v2-openapi.yaml
           Docs/Api/cito-onboarding-v2-openapi.yaml Docs/Api/cito-admin-v2-openapi.yaml
+          Docs/Api/cito-platform-evidence-v2-openapi.yaml
           Docs/Api/billing-baas-v2-openapi.yaml
           Docs/Api/cito-communications-v2-openapi.yaml Docs/Api/cito-billing-baas-v2.1-openapi.yaml
 
