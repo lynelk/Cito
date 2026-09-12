@@ -29,8 +29,6 @@ BACKEND_PREFIXES = (
 )
 FRONTEND_PREFIXES = ("clientside/src/",)
 
-# One-sided changes in these paths can change capability/process semantics and therefore require
-# a deliberate exception reference instead of silently drifting the other application surface.
 BACKEND_BEHAVIOR_PREFIXES = BACKEND_PREFIXES
 FRONTEND_BEHAVIOR_EXTENSIONS = (".js", ".jsx", ".ts", ".tsx")
 
@@ -106,10 +104,14 @@ def validate_environment_contract(contract: dict) -> None:
     if mismatches:
         fail("environment contract mismatch:\n- " + "\n- ".join(mismatches))
 
-    if staging.get("status") not in {"PLANNED", "ACTIVE"}:
-        fail("staging status must be PLANNED or ACTIVE")
-    if staging.get("status") == "ACTIVE" and not staging.get("environmentId"):
-        fail("active staging requires a Railway environmentId")
+    staging_status = staging.get("status")
+    if staging_status not in {"PLANNED", "ACTIVE", "ACCEPTED"}:
+        fail("staging status must be PLANNED, ACTIVE or ACCEPTED")
+    if staging_status in {"ACTIVE", "ACCEPTED"} and not staging.get("environmentId"):
+        fail(f"{staging_status.lower()} staging requires a Railway environmentId")
+    if staging_status == "ACCEPTED":
+        if not staging.get("acceptedReleaseSha") or staging.get("schemaVersion") is None:
+            fail("accepted staging requires acceptedReleaseSha and schemaVersion evidence")
 
 
 def changed_files(base_ref: str) -> list[str]:
