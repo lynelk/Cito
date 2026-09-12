@@ -49,6 +49,9 @@ jobs:
       - name: Validate Billing BaaS OpenAPI
         run: python scripts/api_docs/validate_openapi.py Docs/Api/billing-baas-v2-openapi.yaml
 
+      - name: Validate current Billing BaaS consumer OpenAPI
+        run: python scripts/api_docs/validate_openapi.py Docs/Api/cito-billing-baas-v2.1-openapi.yaml
+
       - name: Require documentation change when API-affecting code changes
         if: github.event_name == 'pull_request'
         env:
@@ -101,6 +104,9 @@ jobs:
       - name: Lint Billing BaaS API
         run: npx --yes @redocly/cli@1.34.19 lint Docs/Api/billing-baas-v2-openapi.yaml --config Docs/Api/redocly.yaml
 
+      - name: Lint current Billing BaaS consumer API
+        run: npx --yes @redocly/cli@1.34.19 lint Docs/Api/cito-billing-baas-v2.1-openapi.yaml --config Docs/Api/redocly.yaml
+
       - name: Build browsable API references
         run: |
           mkdir -p build/api-docs
@@ -113,6 +119,7 @@ jobs:
           npx --yes @redocly/cli@1.34.19 build-docs Docs/Api/cito-admin-v2-openapi.yaml -o build/api-docs/cito-admin.html
           npx --yes @redocly/cli@1.34.19 build-docs Docs/Api/cito-platform-evidence-v2-openapi.yaml -o build/api-docs/cito-platform-evidence.html
           npx --yes @redocly/cli@1.34.19 build-docs Docs/Api/billing-baas-v2-openapi.yaml -o build/api-docs/billing-baas.html
+          npx --yes @redocly/cli@1.34.19 build-docs Docs/Api/cito-billing-baas-v2.1-openapi.yaml -o build/api-docs/cito-billing-baas-current.html
           printf '%s\n' "${GITHUB_SHA}" > build/api-docs/source-commit.txt
           cp Docs/developer-guide.md build/api-docs/developer-guide.md
           cp Docs/Api/AUTO_UPDATE_POLICY.md build/api-docs/AUTO_UPDATE_POLICY.md

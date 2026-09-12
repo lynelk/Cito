@@ -1,0 +1,88 @@
+name: Consumer API Handover
+
+on:
+  pull_request:
+    branches: [main, production]
+  push:
+    branches: [main, sandbox, production]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: consumer-api-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    name: External SDK, signing, contract and handover conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Verify PHP prerequisites, without silently skipping a language
+        run: php -r 'foreach (["openssl","iconv","curl","json"] as $e) { if (!extension_loaded($e)) { fwrite(STDERR, "Missing PHP extension ".$e.PHP_EOL); exit(1); } }'
+      - name: Install pinned consumer and contract-test dependencies
+        run: python -m pip install --disable-pip-version-check -r sdk/Python/requirements.txt pytest==8.4.1 PyYAML==6.0.2 openapi-spec-validator==0.7.2 playwright==1.55.0
+      - name: Verify owning schemas and generated consumer projection
+        run: |
+          python scripts/consumer_api/sync_baas_schemas.py --check
+          python scripts/api_docs/build_portal_reference.py --check
+          python scripts/consumer_api/build_package.py --check
+          python scripts/api_docs/validate_openapi.py Docs/Api/cito-billing-baas-v2.1-openapi.yaml
+          python scripts/api_docs/validate_openapi.py Docs/Api/consumer/external-openapi.json
+          python scripts/api_docs/test_portal_reference.py
+      - name: Three-language RSA and client conformance with ephemeral keys
+        run: |
+          mkdir -p build/consumer-evidence
+          python -m pytest sdk/tests -q --junitxml=build/consumer-evidence/sdk-tests.xml
+          node sdk/tests/client-regressions.cjs | tee build/consumer-evidence/node-client.json
+          php sdk/tests/client-regressions.php | tee build/consumer-evidence/php-client.json
+          node sdk/tests/postman-regressions.cjs | tee build/consumer-evidence/postman-script.json
+      - name: Verify shared corpus against the actual Java backend helpers
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B test --no-transfer-progress -Dtest=ConsumerSigningConformanceTest
+      - name: Produce immutable delivery bundle and verify extracted checksums
+        run: |
+          set -euo pipefail
+          python scripts/consumer_api/build_package.py --check --bundle build/consumer-api --revision "$(git rev-parse HEAD)"
+          python scripts/consumer_api/test_extracted_bundle.py build/consumer-api/*.zip
+      - name: Verify actual offline reference in a browser
+        run: |
+          python -m playwright install --with-deps chromium
+          python scripts/consumer_api/test_offline_reference.py build/consumer-api/*.zip build/consumer-evidence
+      - name: Record exact software qualification boundary
+        run: |
+          python - <<'PY'
+          import json,subprocess,sys
+          from pathlib import Path
+          import cryptography,requests
+          evidence={"sourceRevision":subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),"workflowRun":'${{ github.run_id }}',"python":sys.version.split()[0],"cryptography":cryptography.__version__,"requests":requests.__version__,"node":subprocess.check_output(['node','--version'],text=True).strip(),"php":subprocess.check_output(['php','-r','echo PHP_VERSION;'],text=True),"providerRequests":0,"liveProviderCertification":"NOT_PERFORMED","offlineReferenceBrowser":"PASS","postmanDesktopAcceptance":"NOT_PERFORMED_SCRIPT_VM_TESTED","authenticatedDeploymentAcceptance":"SEPARATE_RELEASE_GATE"}
+          Path('build/consumer-evidence/qualification.json').write_text(json.dumps(evidence,indent=2)+'\n')
+          PY
+      - name: Retain handover bundle and actual conformance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cito-consumer-handover-${{ github.sha }}
+          path: |
+            build/consumer-api/
+            build/consumer-evidence/
+            InitializrSpringbootProjectFresh/target/surefire-reports/TEST-*ConsumerSigningConformanceTest.xml
+          if-no-files-found: error
+          retention-days: 30

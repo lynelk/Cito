@@ -2,7 +2,7 @@
 
 **Connect Once. Operate Everything.** Cito is the platform; CPay v2 remains the compatible payment-signing protocol.
 
-Start with `Docs/Api/consumer/START-HERE.md`. These are server-side helpers for Node 22+, Python 3.11+ and PHP 8.2+; they must not be embedded with private keys in browser or mobile applications. The external package contains v2 server-to-server operations only. Merchant-session, administrator and legacy body-signature APIs are separate surfaces.
+Start with `START-HERE.md` in the delivery archive or `Docs/Api/consumer/START-HERE.md` in the repository. These are server-side helpers for Node 22+, Python 3.11+ and PHP 8.2+; they must not be embedded with private keys in browser or mobile applications. The external package contains v2 server-to-server operations only. Merchant-session, administrator and legacy body-signature APIs are separate surfaces.
 
 ## Version 2 changes
 
@@ -13,6 +13,8 @@ A retry keeps its original reference, body and idempotency key but receives a fr
 ## Installation
 
 Copy the selected language directory. Node has no third-party runtime dependencies. For Python, install `sdk/Python/requirements.txt` in a virtual environment. PHP requires OpenSSL, iconv, JSON and cURL; `composer.json` records these prerequisites. Keep your private key in the server's secret store or a protected file, not this directory. Distribute only the public key to Cito through approved onboarding.
+
+The examples below run from the extracted kit root. For Python, either place your script alongside the copied `cpay_client.py` and `cpay_signing.py`, or run it with `PYTHONPATH=./sdk/Python python your_integration.py` on Linux/macOS. In PowerShell set `$env:PYTHONPATH='./sdk/Python'` first. Installing requirements installs dependencies, not these source modules into site-packages.
 
 ## First request: signed discovery, not money movement
 
