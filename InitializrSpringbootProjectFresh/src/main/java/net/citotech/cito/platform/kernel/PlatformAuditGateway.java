@@ -31,7 +31,8 @@ public class PlatformAuditGateway implements PlatformAuditContract {
             String resourceType,
             String resourceId,
             Map<String, Object> summary) {
-        if (context == null) throw new IllegalArgumentException("Platform tenant context is required");
+        if (context == null)
+            throw new IllegalArgumentException("Platform tenant context is required");
         String safeAction = buildAction(context, action, resourceType, resourceId, summary);
         String actor = context.actorId() == null ? context.actorType() : context.actorId();
         String result;
@@ -60,16 +61,24 @@ public class PlatformAuditGateway implements PlatformAuditContract {
             Map<String, Object> summary) {
         TreeSet<String> fields = new TreeSet<>();
         if (summary != null) {
-            if (summary.size() > 50) throw new IllegalArgumentException("Too many audit summary fields");
+            if (summary.size() > 50)
+                throw new IllegalArgumentException("Too many audit summary fields");
             summary.keySet().forEach(field -> fields.add(required(field)));
         }
-        return "CITO_PLATFORM action=" + required(action)
-                + " resourceType=" + required(resourceType)
-                + " resourceId=" + optional(resourceId)
-                + " environment=" + required(context.environment())
-                + " application=" + optional(context.applicationId())
-                + " correlation=" + optional(context.correlationId())
-                + " summaryFields=" + fields;
+        return "CITO_PLATFORM action="
+                + required(action)
+                + " resourceType="
+                + required(resourceType)
+                + " resourceId="
+                + optional(resourceId)
+                + " environment="
+                + required(context.environment())
+                + " application="
+                + optional(context.applicationId())
+                + " correlation="
+                + optional(context.correlationId())
+                + " summaryFields="
+                + fields;
     }
 
     private String required(String value) {

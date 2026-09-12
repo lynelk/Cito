@@ -142,7 +142,9 @@ public class CommunicationUsageRelay {
                         BigDecimal.class);
         if (quantities.isEmpty()) return BigDecimal.ONE;
         BigDecimal quantity = quantities.getFirst();
-        if (quantity == null || quantity.signum() <= 0 || quantity.stripTrailingZeros().scale() > 0) {
+        if (quantity == null
+                || quantity.signum() <= 0
+                || quantity.stripTrailingZeros().scale() > 0) {
             throw new IllegalStateException("SMS segment evidence is invalid");
         }
         return quantity;

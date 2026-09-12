@@ -52,8 +52,7 @@ public class PlatformProviderRegistry {
         return adapters == null ? Optional.empty() : Optional.of(definition(key, adapters));
     }
 
-    public boolean supports(
-            PlatformProviderDomain domain, String providerCode, String capability) {
+    public boolean supports(PlatformProviderDomain domain, String providerCode, String capability) {
         if (capability == null || capability.isBlank()) {
             return false;
         }
@@ -76,7 +75,10 @@ public class PlatformProviderRegistry {
                     environments.addAll(adapter.supportedEnvironments());
                 });
         return new ProviderDefinition(
-                key.providerCode(), key.domain(), Set.copyOf(capabilities), Set.copyOf(environments));
+                key.providerCode(),
+                key.domain(),
+                Set.copyOf(capabilities),
+                Set.copyOf(environments));
     }
 
     private static String normalize(String value) {

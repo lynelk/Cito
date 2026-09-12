@@ -5,7 +5,9 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** One cross-domain operational signal contract; its event and audit commit or roll back together. */
+/**
+ * One cross-domain operational signal contract; its event and audit commit or roll back together.
+ */
 @Service
 public class PlatformOperationalSignalService {
     private final PlatformEventContract events;
@@ -36,10 +38,29 @@ public class PlatformOperationalSignalService {
         payload.put("title", required(title));
         payload.put("summary", summary == null ? "" : summary.trim());
         payload.put("actionRoute", actionRoute == null ? "" : actionRoute.trim());
-        String eventId = events.publish(context, serviceCode, sourceDomain, "operational.signal",
-                sourceId, null, payload);
-        audit.record(context, "OPERATIONAL_SIGNAL_RECORDED", sourceDomain, sourceId,
-                Map.of("eventId", eventId, "category", category, "severity", severity, "state", state));
+        String eventId =
+                events.publish(
+                        context,
+                        serviceCode,
+                        sourceDomain,
+                        "operational.signal",
+                        sourceId,
+                        null,
+                        payload);
+        audit.record(
+                context,
+                "OPERATIONAL_SIGNAL_RECORDED",
+                sourceDomain,
+                sourceId,
+                Map.of(
+                        "eventId",
+                        eventId,
+                        "category",
+                        category,
+                        "severity",
+                        severity,
+                        "state",
+                        state));
         return eventId;
     }
 

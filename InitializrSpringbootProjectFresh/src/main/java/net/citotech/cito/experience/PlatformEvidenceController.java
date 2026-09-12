@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Read-only operational evidence, not targets, settlement claims or live provider certification. */
+/**
+ * Read-only operational evidence, not targets, settlement claims or live provider certification.
+ */
 @RestController
 @RequestMapping("/api/v2/admin/platform-evidence")
 public class PlatformEvidenceController {
@@ -23,7 +25,9 @@ public class PlatformEvidenceController {
     private final JdbcTemplate jdbc;
 
     public PlatformEvidenceController(
-            PlatformTenantContextResolver contexts, PlatformProviderRegistry providers, JdbcTemplate jdbc) {
+            PlatformTenantContextResolver contexts,
+            PlatformProviderRegistry providers,
+            JdbcTemplate jdbc) {
         this.contexts = contexts;
         this.providers = providers;
         this.jdbc = jdbc;
@@ -31,7 +35,8 @@ public class PlatformEvidenceController {
 
     @GetMapping("/scorecard")
     @Transactional(readOnly = true)
-    public Map<String, Object> scorecard(HttpServletRequest request, Authentication authentication) {
+    public Map<String, Object> scorecard(
+            HttpServletRequest request, Authentication authentication) {
         PlatformTenantContext context = contexts.require(request, authentication);
         contexts.requireAdmin(context);
         Map<String, Object> out = new LinkedHashMap<>();
@@ -47,61 +52,106 @@ public class PlatformEvidenceController {
 
     private Map<String, Long> commercialEvidence() {
         Map<String, Long> values = new LinkedHashMap<>();
-        values.put("founding20Candidates", count("SELECT COUNT(*) FROM founding20_merchants WHERE programme_status='CANDIDATE'"));
-        values.put("founding20Active", count("SELECT COUNT(*) FROM founding20_merchants WHERE programme_status IN ('ACTIVE','ONBOARDING','LIVE')"));
-        values.put("founding20Live", count("SELECT COUNT(*) FROM founding20_merchants WHERE programme_status='LIVE'"));
-        values.put("activePackageAssignments", count(
-                "SELECT COUNT(*) FROM merchant_commercial_package_assignments",
-                "WHERE status='ACTIVE' AND environment='PRODUCTION'",
-                "AND (effective_from IS NULL OR effective_from<=CURRENT_TIMESTAMP)",
-                "AND (effective_to IS NULL OR effective_to>CURRENT_TIMESTAMP)"));
-        values.put("embeddedProgrammesLive", count("SELECT COUNT(*) FROM embedded_partner_programmes WHERE programme_status='LIVE'"));
+        values.put(
+                "founding20Candidates",
+                count(
+                        "SELECT COUNT(*) FROM founding20_merchants WHERE programme_status='CANDIDATE'"));
+        values.put(
+                "founding20Active",
+                count(
+                        "SELECT COUNT(*) FROM founding20_merchants WHERE programme_status IN ('ACTIVE','ONBOARDING','LIVE')"));
+        values.put(
+                "founding20Live",
+                count("SELECT COUNT(*) FROM founding20_merchants WHERE programme_status='LIVE'"));
+        values.put(
+                "activePackageAssignments",
+                count(
+                        "SELECT COUNT(*) FROM merchant_commercial_package_assignments",
+                        "WHERE status='ACTIVE' AND environment='PRODUCTION'",
+                        "AND (effective_from IS NULL OR effective_from<=CURRENT_TIMESTAMP)",
+                        "AND (effective_to IS NULL OR effective_to>CURRENT_TIMESTAMP)"));
+        values.put(
+                "embeddedProgrammesLive",
+                count(
+                        "SELECT COUNT(*) FROM embedded_partner_programmes WHERE programme_status='LIVE'"));
         return values;
     }
 
     private Map<String, Long> developerEvidence() {
         Map<String, Long> values = new LinkedHashMap<>();
-        values.put("activeProjects", count("SELECT COUNT(*) FROM developer_projects WHERE status='ACTIVE'"));
-        values.put("productionEligibleProjects", count(
-                "SELECT COUNT(*) FROM developer_project_environments",
-                "WHERE environment='PRODUCTION' AND status='ACTIVE' AND production_eligible='YES'"));
-        values.put("apiRequests7d", count(
-                "SELECT COUNT(*) FROM developer_api_request_log",
-                "WHERE created_at>=TIMESTAMPADD(DAY,-7,CURRENT_TIMESTAMP) AND created_at<=CURRENT_TIMESTAMP"));
-        values.put("activeApiMerchants30d", count(
-                "SELECT COUNT(DISTINCT merchant_id) FROM developer_api_request_log",
-                "WHERE created_at>=TIMESTAMPADD(DAY,-30,CURRENT_TIMESTAMP) AND created_at<=CURRENT_TIMESTAMP"));
-        values.put("successfulApiRequests7d", count(
-                "SELECT COUNT(*) FROM developer_api_request_log",
-                "WHERE created_at>=TIMESTAMPADD(DAY,-7,CURRENT_TIMESTAMP) AND created_at<=CURRENT_TIMESTAMP",
-                "AND response_status BETWEEN 200 AND 399"));
+        values.put(
+                "activeProjects",
+                count("SELECT COUNT(*) FROM developer_projects WHERE status='ACTIVE'"));
+        values.put(
+                "productionEligibleProjects",
+                count(
+                        "SELECT COUNT(*) FROM developer_project_environments",
+                        "WHERE environment='PRODUCTION' AND status='ACTIVE' AND production_eligible='YES'"));
+        values.put(
+                "apiRequests7d",
+                count(
+                        "SELECT COUNT(*) FROM developer_api_request_log",
+                        "WHERE created_at>=TIMESTAMPADD(DAY,-7,CURRENT_TIMESTAMP) AND created_at<=CURRENT_TIMESTAMP"));
+        values.put(
+                "activeApiMerchants30d",
+                count(
+                        "SELECT COUNT(DISTINCT merchant_id) FROM developer_api_request_log",
+                        "WHERE created_at>=TIMESTAMPADD(DAY,-30,CURRENT_TIMESTAMP) AND created_at<=CURRENT_TIMESTAMP"));
+        values.put(
+                "successfulApiRequests7d",
+                count(
+                        "SELECT COUNT(*) FROM developer_api_request_log",
+                        "WHERE created_at>=TIMESTAMPADD(DAY,-7,CURRENT_TIMESTAMP) AND created_at<=CURRENT_TIMESTAMP",
+                        "AND response_status BETWEEN 200 AND 399"));
         return values;
     }
 
     private Map<String, Long> adoptionEvidence() {
         Map<String, Long> values = new LinkedHashMap<>();
-        values.put("productionMerchants30d", count(
-                "SELECT COUNT(DISTINCT merchant_id) FROM merchant_production_usage",
-                "WHERE created_at>=TIMESTAMPADD(DAY,-30,CURRENT_TIMESTAMP) AND created_at<=CURRENT_TIMESTAMP"));
-        values.put("productionCommands30d", count(
-                "SELECT COUNT(*) FROM merchant_production_usage",
-                "WHERE created_at>=TIMESTAMPADD(DAY,-30,CURRENT_TIMESTAMP) AND created_at<=CURRENT_TIMESTAMP"));
-        values.put("liveOnboardingWorkflows", count("SELECT COUNT(*) FROM merchant_onboarding_workflows WHERE status='LIVE'"));
-        values.put("approvedGoLiveChecklists", count("SELECT COUNT(*) FROM go_live_checklists WHERE status IN ('APPROVED','LIVE')"));
+        values.put(
+                "productionMerchants30d",
+                count(
+                        "SELECT COUNT(DISTINCT merchant_id) FROM merchant_production_usage",
+                        "WHERE created_at>=TIMESTAMPADD(DAY,-30,CURRENT_TIMESTAMP) AND created_at<=CURRENT_TIMESTAMP"));
+        values.put(
+                "productionCommands30d",
+                count(
+                        "SELECT COUNT(*) FROM merchant_production_usage",
+                        "WHERE created_at>=TIMESTAMPADD(DAY,-30,CURRENT_TIMESTAMP) AND created_at<=CURRENT_TIMESTAMP"));
+        values.put(
+                "liveOnboardingWorkflows",
+                count("SELECT COUNT(*) FROM merchant_onboarding_workflows WHERE status='LIVE'"));
+        values.put(
+                "approvedGoLiveChecklists",
+                count(
+                        "SELECT COUNT(*) FROM go_live_checklists WHERE status IN ('APPROVED','LIVE')"));
         return values;
     }
 
     private List<Map<String, Object>> providerDefinitions() {
-        return providers.definitions().stream().map(definition -> Map.<String, Object>of(
-                "providerCode", definition.providerCode(), "domain", definition.domain().name(),
-                "capabilities", definition.capabilities(), "environments", definition.environments())).toList();
+        return providers.definitions().stream()
+                .map(
+                        definition ->
+                                Map.<String, Object>of(
+                                        "providerCode",
+                                        definition.providerCode(),
+                                        "domain",
+                                        definition.domain().name(),
+                                        "capabilities",
+                                        definition.capabilities(),
+                                        "environments",
+                                        definition.environments()))
+                .toList();
     }
 
     private List<Map<String, Object>> providerCertification() {
         // Expand wildcard requirements separately for each concrete provider/channel. Evidence for
-        // different providers must never combine into apparent coverage for a synthetic '*' provider.
-        // These historical reviewed records do not establish current credential/environment readiness.
-        return jdbc.queryForList("""
+        // different providers must never combine into apparent coverage for a synthetic '*'
+        // provider.
+        // These historical reviewed records do not establish current credential/environment
+        // readiness.
+        return jdbc.queryForList(
+                """
                 WITH provider_pairs AS (
                     SELECT DISTINCT provider_code, channel_code
                     FROM provider_certification_evidence
@@ -135,7 +185,8 @@ public class PlatformEvidenceController {
 
     private long count(String... sqlParts) {
         Long value = jdbc.queryForObject(String.join(" ", sqlParts), Long.class);
-        if (value == null || value < 0) throw new IllegalStateException("Durable evidence count is unavailable");
+        if (value == null || value < 0)
+            throw new IllegalStateException("Durable evidence count is unavailable");
         return value;
     }
 }

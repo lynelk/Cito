@@ -44,9 +44,15 @@ public class PlatformServiceRuntime {
     }
 
     public String event(
-            PlatformTenantContext context, String serviceCode, String sourceDomain,
-            String eventType, String sourceId, String causationId, Map<String, Object> payload) {
-        return events.publish(context, serviceCode, sourceDomain, eventType, sourceId, causationId, payload);
+            PlatformTenantContext context,
+            String serviceCode,
+            String sourceDomain,
+            String eventType,
+            String sourceId,
+            String causationId,
+            Map<String, Object> payload) {
+        return events.publish(
+                context, serviceCode, sourceDomain, eventType, sourceId, causationId, payload);
     }
 
     public UsageEvent usage(
@@ -63,28 +69,55 @@ public class PlatformServiceRuntime {
         if (!"PRODUCTION".equals(context.environment())) {
             throw new IllegalArgumentException("Sandbox usage cannot enter production billing");
         }
-        return usage.recordUsage(context.merchantId(), serviceCode, metricCode,
+        return usage.recordUsage(
+                context.merchantId(),
+                serviceCode,
+                metricCode,
                 Objects.requireNonNull(occurredAt, "Original usage occurrence time is required"),
-                quantity, currency, dimensions, sourceReference, idempotencyKey);
+                quantity,
+                currency,
+                dimensions,
+                sourceReference,
+                idempotencyKey);
     }
 
     public void audit(
-            PlatformTenantContext context, String action, String resourceType,
-            String resourceId, Map<String, Object> summary) {
+            PlatformTenantContext context,
+            String action,
+            String resourceType,
+            String resourceId,
+            Map<String, Object> summary) {
         audit.record(context, action, resourceType, resourceId, summary);
     }
 
     public String signal(
-            PlatformTenantContext context, String serviceCode, String sourceDomain,
-            String sourceId, String category, String severity, String state,
-            String title, String summary, String actionRoute) {
-        return signals.record(context, serviceCode, sourceDomain, sourceId, category,
-                severity, state, title, summary, actionRoute);
+            PlatformTenantContext context,
+            String serviceCode,
+            String sourceDomain,
+            String sourceId,
+            String category,
+            String severity,
+            String state,
+            String title,
+            String summary,
+            String actionRoute) {
+        return signals.record(
+                context,
+                serviceCode,
+                sourceDomain,
+                sourceId,
+                category,
+                severity,
+                state,
+                title,
+                summary,
+                actionRoute);
     }
 
     private void requireMerchant(PlatformTenantContext context) {
         if (context == null || context.merchantId() == null || context.merchantId() <= 0) {
-            throw new IllegalArgumentException("Merchant-scoped execution requires a tenant context");
+            throw new IllegalArgumentException(
+                    "Merchant-scoped execution requires a tenant context");
         }
     }
 }

@@ -13,7 +13,9 @@ import net.citotech.cito.platform.provider.PlatformProviderDomain;
  */
 public interface CommunicationProviderAdapter extends PlatformProviderAdapter {
 
-    /** Stable provider identifier used by communication provider configuration and routing rules. */
+    /**
+     * Stable provider identifier used by communication provider configuration and routing rules.
+     */
     String providerCode();
 
     /** Channel this adapter serves. */

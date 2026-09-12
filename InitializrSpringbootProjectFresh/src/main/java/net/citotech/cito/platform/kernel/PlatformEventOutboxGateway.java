@@ -35,17 +35,30 @@ public class PlatformEventOutboxGateway implements PlatformEventContract {
             String sourceId,
             String causationId,
             Map<String, Object> payload) {
-        if (context == null) throw new IllegalArgumentException("Platform tenant context is required");
+        if (context == null)
+            throw new IllegalArgumentException("Platform tenant context is required");
         String environment = normalize(context.environment());
         if (!Set.of("SANDBOX", "PRODUCTION").contains(environment)) {
             throw new IllegalArgumentException("Platform event environment is invalid");
         }
         String id = UUID.randomUUID().toString();
-        PlatformEventEnvelope envelope = new PlatformEventEnvelope(
-                id, required(eventType), 1, context.organizationId(), context.merchantId(),
-                normalize(serviceCode), normalize(sourceDomain), required(sourceId), environment,
-                context.correlationId(), causationId, Instant.now(), context.actorType(),
-                context.actorId(), payload);
+        PlatformEventEnvelope envelope =
+                new PlatformEventEnvelope(
+                        id,
+                        required(eventType),
+                        1,
+                        context.organizationId(),
+                        context.merchantId(),
+                        normalize(serviceCode),
+                        normalize(sourceDomain),
+                        required(sourceId),
+                        environment,
+                        context.correlationId(),
+                        causationId,
+                        Instant.now(),
+                        context.actorType(),
+                        context.actorId(),
+                        payload);
         outbox.write("CITO_PLATFORM", envelope.sourceId(), OUTBOX_EVENT_TYPE, toPayload(envelope));
         return id;
     }

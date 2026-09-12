@@ -3,7 +3,9 @@ package net.citotech.cito.platform.kernel;
 import net.citotech.cito.platform.CitoEntitlementService;
 import org.springframework.stereotype.Service;
 
-/** Delegates the platform entitlement contract to the existing authoritative Cito entitlement store. */
+/**
+ * Delegates the platform entitlement contract to the existing authoritative Cito entitlement store.
+ */
 @Service
 public class PlatformEntitlementGateway implements PlatformEntitlementContract {
     private final CitoEntitlementService entitlements;

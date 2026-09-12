@@ -35,8 +35,16 @@ class PlatformTransactionBoundaryTest {
     private JdbcTemplate jdbc;
     private PlatformEventContract events;
     private PlatformOperationalSignalService signals;
-    private final PlatformTenantContext tenant = new PlatformTenantContext(9L, 42L, "worker", "SYSTEM",
-            Set.of(), "PRODUCTION", "CITO_WORKER", "request-1");
+    private final PlatformTenantContext tenant =
+            new PlatformTenantContext(
+                    9L,
+                    42L,
+                    "worker",
+                    "SYSTEM",
+                    Set.of(),
+                    "PRODUCTION",
+                    "CITO_WORKER",
+                    "request-1");
 
     @BeforeEach
     void openContext() {
@@ -60,11 +68,17 @@ class PlatformTransactionBoundaryTest {
 
     @Test
     void ownerRollbackAlsoRollsBackItsPlatformEvent() {
-        TransactionTemplate transaction = new TransactionTemplate(application.getBean(PlatformTransactionManager.class));
-        assertThatThrownBy(() -> transaction.execute(status -> {
-            publish();
-            throw new IllegalStateException("Business command failed");
-        })).isInstanceOf(IllegalStateException.class);
+        TransactionTemplate transaction =
+                new TransactionTemplate(application.getBean(PlatformTransactionManager.class));
+        assertThatThrownBy(
+                        () ->
+                                transaction.execute(
+                                        status -> {
+                                            publish();
+                                            throw new IllegalStateException(
+                                                    "Business command failed");
+                                        }))
+                .isInstanceOf(IllegalStateException.class);
         assertThat(effectCount()).isZero();
     }
 
@@ -82,12 +96,28 @@ class PlatformTransactionBoundaryTest {
     }
 
     private String publish() {
-        return events.publish(tenant, "COMMUNICATION_SMS", "COMMUNICATION", "message.sent", "message-1", null, Map.of());
+        return events.publish(
+                tenant,
+                "COMMUNICATION_SMS",
+                "COMMUNICATION",
+                "message.sent",
+                "message-1",
+                null,
+                Map.of());
     }
 
     private String signal() {
-        return signals.record(tenant, "COMMUNICATION_SMS", "COMMUNICATION", "message-1",
-                "DELIVERY", "WARNING", "DEGRADED", "Delivery needs review", "", "/operations");
+        return signals.record(
+                tenant,
+                "COMMUNICATION_SMS",
+                "COMMUNICATION",
+                "message-1",
+                "DELIVERY",
+                "WARNING",
+                "DEGRADED",
+                "Delivery needs review",
+                "",
+                "/operations");
     }
 
     private int effectCount() {
@@ -99,7 +129,8 @@ class PlatformTransactionBoundaryTest {
     static class TestConfiguration {
         @Bean
         DataSource dataSource() {
-            return new DriverManagerDataSource("jdbc:h2:mem:platform-" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
+            return new DriverManagerDataSource(
+                    "jdbc:h2:mem:platform-" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
         }
 
         @Bean
@@ -122,10 +153,12 @@ class PlatformTransactionBoundaryTest {
         @Bean
         OutboxWriter outbox(JdbcTemplate jdbc) {
             OutboxWriter writer = mock(OutboxWriter.class);
-            when(writer.write(anyString(), anyString(), anyString(), any())).thenAnswer(invocation -> {
-                jdbc.update("INSERT INTO effects(kind) VALUES ('event')");
-                return 1L;
-            });
+            when(writer.write(anyString(), anyString(), anyString(), any()))
+                    .thenAnswer(
+                            invocation -> {
+                                jdbc.update("INSERT INTO effects(kind) VALUES ('event')");
+                                return 1L;
+                            });
             return writer;
         }
 
@@ -137,16 +170,21 @@ class PlatformTransactionBoundaryTest {
         @Bean
         PlatformAuditContract audit(JdbcTemplate jdbc, AtomicBoolean failAudit) {
             PlatformAuditContract audit = mock(PlatformAuditContract.class);
-            doAnswer(invocation -> {
-                jdbc.update("INSERT INTO effects(kind) VALUES ('audit')");
-                if (failAudit.get()) throw new IllegalStateException("Audit unavailable");
-                return null;
-            }).when(audit).record(any(), anyString(), anyString(), anyString(), any());
+            doAnswer(
+                            invocation -> {
+                                jdbc.update("INSERT INTO effects(kind) VALUES ('audit')");
+                                if (failAudit.get())
+                                    throw new IllegalStateException("Audit unavailable");
+                                return null;
+                            })
+                    .when(audit)
+                    .record(any(), anyString(), anyString(), anyString(), any());
             return audit;
         }
 
         @Bean
-        PlatformOperationalSignalService signals(PlatformEventContract events, PlatformAuditContract audit) {
+        PlatformOperationalSignalService signals(
+                PlatformEventContract events, PlatformAuditContract audit) {
             return new PlatformOperationalSignalService(events, audit);
         }
     }

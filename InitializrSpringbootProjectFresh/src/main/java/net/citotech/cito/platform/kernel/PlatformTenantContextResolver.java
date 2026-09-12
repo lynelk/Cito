@@ -19,7 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 /**
  * Resolves portal identity from the existing authenticated access boundary and organization store.
  * Reading a context never provisions an organization or grants an entitlement. Provisioning remains
- * owned by CitoEntitlementService. A caller-supplied application header is not an authenticated app.
+ * owned by CitoEntitlementService. A caller-supplied application header is not an authenticated
+ * app.
  */
 @Component
 public class PlatformTenantContextResolver {
@@ -50,7 +51,8 @@ public class PlatformTenantContextResolver {
 
     public void requireAdmin(PlatformTenantContext context) {
         if (!isAdmin(context)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrator access required");
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Administrator access required");
         }
     }
 
@@ -73,9 +75,11 @@ public class PlatformTenantContextResolver {
 
     private Long organizationId(Long merchantId) {
         if (merchantId == null) return null;
-        List<Long> rows = jdbc.queryForList(
-                "SELECT id FROM cito_organizations WHERE merchant_id=:merchant_id",
-                new MapSqlParameterSource("merchant_id", merchantId), Long.class);
+        List<Long> rows =
+                jdbc.queryForList(
+                        "SELECT id FROM cito_organizations WHERE merchant_id=:merchant_id",
+                        new MapSqlParameterSource("merchant_id", merchantId),
+                        Long.class);
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
@@ -95,6 +99,7 @@ public class PlatformTenantContextResolver {
             value = request.getHeader(RequestCorrelationFilter.REQUEST_ID_HEADER);
         }
         return value != null && value.trim().matches("[A-Za-z0-9._:-]{1,128}")
-                ? value.trim() : UUID.randomUUID().toString();
+                ? value.trim()
+                : UUID.randomUUID().toString();
     }
 }

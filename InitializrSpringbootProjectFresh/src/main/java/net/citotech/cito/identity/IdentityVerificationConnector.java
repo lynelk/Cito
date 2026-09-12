@@ -38,7 +38,8 @@ public interface IdentityVerificationConnector extends PlatformProviderAdapter {
         Set<String> capabilities = new LinkedHashSet<>();
         if (supportsSync()) capabilities.add("VERIFY_SYNC");
         if (supportsAsync()) capabilities.add("VERIFY_ASYNC");
-        supportedIdentityTypes().forEach(type -> capabilities.add("IDENTITY_" + type.toUpperCase()));
+        supportedIdentityTypes()
+                .forEach(type -> capabilities.add("IDENTITY_" + type.toUpperCase()));
         return Set.copyOf(capabilities);
     }
 
