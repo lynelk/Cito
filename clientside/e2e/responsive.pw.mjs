@@ -195,10 +195,10 @@ async function primeMerchant(page) {
 test('public service portfolio is responsive across browser engines', async ({ page }, testInfo) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByRole('heading', { level: 1, name: /one platform for the services your business runs on/i })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Communications', exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Identity, Credit & Scoring', exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Billing & Monetisation', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /your business.*better connected/i })).toBeVisible();
+  await expect(page.locator('#service-communications').getByRole('heading', { name: 'Keep the conversation going.', exact: true })).toBeVisible();
+  await expect(page.locator('#service-identity').getByRole('heading', { name: 'Make better-informed decisions.', exact: true })).toBeVisible();
+  await expect(page.locator('#service-billing').getByRole('heading', { name: 'Turn usage into revenue.', exact: true })).toBeVisible();
   await assertNoDocumentOverflow(page);
 
   const mobileMenu = page.locator('.cito-mobile-menu');
