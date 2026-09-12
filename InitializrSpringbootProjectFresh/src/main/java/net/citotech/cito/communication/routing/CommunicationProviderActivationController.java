@@ -78,7 +78,8 @@ public class CommunicationProviderActivationController {
     @PostMapping("/{providerCode}/test-sms")
     public Map<String, Object> testSms(
             @PathVariable String providerCode, @RequestBody TestSmsRequest request) {
-        String recipient = request == null || request.recipient() == null ? "" : request.recipient().trim();
+        String recipient =
+                request == null || request.recipient() == null ? "" : request.recipient().trim();
         if (!recipient.matches("\\+?[0-9]{7,15}")) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "A valid E.164-style recipient number is required");
@@ -119,7 +120,9 @@ public class CommunicationProviderActivationController {
                                 "Cito SMS gateway test",
                                 null,
                                 Map.of(),
-                                senderId.isBlank() ? Map.of("test", "true") : Map.of("test", "true", "senderId", senderId)));
+                                senderId.isBlank()
+                                        ? Map.of("test", "true")
+                                        : Map.of("test", "true", "senderId", senderId)));
 
         audit.record(
                 "COMMUNICATION_MANAGE",
@@ -128,13 +131,20 @@ public class CommunicationProviderActivationController {
                 "SMS provider test result=" + result.status().name());
 
         return Map.of(
-                "code", "000",
-                "providerCode", providerCode,
-                "status", result.status().name(),
-                "normalizedCode", result.normalizedCode() == null ? "" : result.normalizedCode(),
-                "providerMessageId", result.providerMessageId() == null ? "" : result.providerMessageId(),
-                "providerAccepted", result.isBillable(),
-                "deliveryConfirmed", result.status() == ProviderSendResult.Status.DELIVERED);
+                "code",
+                "000",
+                "providerCode",
+                providerCode,
+                "status",
+                result.status().name(),
+                "normalizedCode",
+                result.normalizedCode() == null ? "" : result.normalizedCode(),
+                "providerMessageId",
+                result.providerMessageId() == null ? "" : result.providerMessageId(),
+                "providerAccepted",
+                result.isBillable(),
+                "deliveryConfirmed",
+                result.status() == ProviderSendResult.Status.DELIVERED);
     }
 
     public record ActivationRequest(Boolean enabled) {}
