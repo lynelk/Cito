@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: Cito Platform Evidence API
-  version: 2.0.0
+  version: 2.1.0
   description: |
     Administrator read-only contract for evidence-based Cito platform maturity reporting.
-    Values come from durable authoritative records. Targets, configuration and missing evidence
-    are never converted into achieved operational or commercial claims.
+    Values come from durable authoritative records. Targets, configured adapters and missing evidence
+    are never converted into achieved operational, commercial or provider-certification claims.
 servers:
   - url: https://cito.coresynergi.es
     description: Production
@@ -23,8 +23,10 @@ paths:
       summary: Read the platform maturity evidence scorecard
       description: |
         Returns observed commercial, developer, production-adoption and provider-certification
-        evidence from authoritative Cito records. The endpoint performs no provider request or
-        state mutation and never reports targets as actuals.
+        evidence from authoritative Cito records together with code-level provider definitions from
+        the common provider registry. Provider definitions describe available adapters/capabilities;
+        they are deliberately separate from certification evidence. The endpoint performs no provider
+        request or state mutation and never reports targets as actuals.
       responses:
         '200':
           description: Durable-record platform evidence.
@@ -38,6 +40,7 @@ paths:
                   - commercial
                   - developer
                   - adoption
+                  - providerDefinitions
                   - providerCertification
                 properties:
                   evidenceBasis:
@@ -61,8 +64,35 @@ paths:
                     additionalProperties:
                       type: integer
                       format: int64
+                  providerDefinitions:
+                    type: array
+                    description: Code-level provider capability definitions; not certification.
+                    items:
+                      type: object
+                      required:
+                        - providerCode
+                        - domain
+                        - capabilities
+                        - environments
+                      properties:
+                        providerCode:
+                          type: string
+                        domain:
+                          type: string
+                          enum: [PAYMENT, COMMUNICATION, IDENTITY, RISK, VENDING, REGULATORY]
+                        capabilities:
+                          type: array
+                          items:
+                            type: string
+                        environments:
+                          type: array
+                          items:
+                            type: string
+                            enum: [SANDBOX, PRODUCTION]
+                      additionalProperties: false
                   providerCertification:
                     type: array
+                    description: Durable certification evidence grouped by provider/channel.
                     items:
                       type: object
                       additionalProperties: true
