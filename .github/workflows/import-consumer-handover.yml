@@ -75,7 +75,7 @@ jobs:
       - name: Normalize and verify against the actual backend signing implementation
         working-directory: InitializrSpringbootProjectFresh
         run: mvn -B spotless:apply test --no-transfer-progress -Dtest=ConsumerSigningConformanceTest
-      - name: Publish only the unchanged feature branch after bounded source verification
+      - name: Publish source only within Actions contents permission
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -92,11 +92,19 @@ jobs:
           PY
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = ac9d200c8f6b3e2a91c241461593479d397ae31a
           test "$(git ls-remote origin refs/heads/feature/consumer-handover-20260912 | cut -f1)" = "$GITHUB_SHA"
-          git rm -r ops/release/consumer-import-20260912 .github/workflows/import-consumer-handover.yml
+          # Actions token has contents permission, not workflows permission. Preserve every
+          # original workflow. The authorized connector will separately review/publish the
+          # two intended workflow updates and remove this temporary assembly workflow.
+          mkdir -p /tmp/consumer-source-evidence/workflows
+          cp .github/workflows/api-docs.yml .github/workflows/consumer-api-handover.yml /tmp/consumer-source-evidence/workflows/
+          git restore --source=HEAD --staged --worktree .github/workflows/api-docs.yml
+          git rm .github/workflows/consumer-api-handover.yml
+          git rm -r ops/release/consumer-import-20260912
           git add -A
+          test -z "$(git diff --cached --name-only -- .github/workflows)"
           git config user.name 'Cito reviewed developer handover'
           git config user.email 'cito-release@users.noreply.github.com'
-          git commit -m 'Deliver v2 external developer kit with backend-conformant SDKs and consumer contracts'
+          git commit -m 'Deliver external developer SDKs, typed consumer contracts and reproducible handover source'
           gh auth setup-git
           git push origin HEAD:refs/heads/feature/consumer-handover-20260912
           echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
