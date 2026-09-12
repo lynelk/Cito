@@ -66,11 +66,18 @@ jobs:
           assert text.count('paths:\n') == 1
           assert '/api/v2/admin/provider-treasury/live-tests/mfa-policy:' not in text
           p.write_text(text.replace('paths:\n', 'paths:\n' + endpoint, 1))
+          p = Path('clientside/src/features/ProviderTestMfaField.test.tsx')
+          text = p.read_text()
+          assert "import { MemoryRouter }" not in text
+          text = "import { MemoryRouter } from 'react-router-dom';\n" + text
+          old = '<QueryClientProvider client={client}><ProviderTestMfaField operation={operation} label="Your MFA code" value={value} onChange={onChange} /></QueryClientProvider>'
+          assert old in text
+          p.write_text(text.replace(old, '<MemoryRouter>' + old + '</MemoryRouter>', 1))
           PY
-      - name: Apply the existing formatter to only the three affected Java files
+      - name: Apply the repository Java formatter to the affected files
         run: >-
           mvn -B -f InitializrSpringbootProjectFresh/pom.xml spotless:apply
-          '-DspotlessFiles=**/ProviderLiveTestService.java,**/ProviderLiveTestMfaController.java,**/ProviderLiveTestMfaPolicyTest.java'
+          '-DspotlessFiles=.*ProviderLiveTest(Service|MfaController|MfaPolicyTest)\.java'
       - name: Prepare a reviewable feature commit without changing protected branches
         shell: bash
         run: |
@@ -80,14 +87,15 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add Docs/Api/cito-admin-v2-openapi.yaml \
+            clientside/src/features/ProviderTestMfaField.test.tsx \
             InitializrSpringbootProjectFresh/src/main/java/net/citotech/cito/treasury/ProviderLiveTestService.java \
             InitializrSpringbootProjectFresh/src/main/java/net/citotech/cito/treasury/ProviderLiveTestMfaController.java \
             InitializrSpringbootProjectFresh/src/test/java/net/citotech/cito/treasury/ProviderLiveTestMfaPolicyTest.java
           git rm .github/workflows/prepare-mtn-mfa-208.yml
           tree=$(git write-tree)
-          commit=$(printf '%s\n' 'Document the admin MFA policy and apply repository Java formatting' | git commit-tree "$tree" -p "$base")
+          commit=$(printf '%s\n' 'Document the admin MFA policy, format Java and provide test Router context' | git commit-tree "$tree" -p "$base")
           git diff --stat "$base" "$commit"
-          git diff --name-only "$base" "$commit" | grep -v -E '^(Docs/Api/cito-admin-v2-openapi.yaml|InitializrSpringbootProjectFresh/src/(main|test)/java/net/citotech/cito/treasury/ProviderLiveTest(MfaController|MfaPolicyTest|Service).java)$' > /tmp/unexpected-files || true
+          git diff --name-only "$base" "$commit" | grep -v -E '^(Docs/Api/cito-admin-v2-openapi.yaml|clientside/src/features/ProviderTestMfaField.test.tsx|InitializrSpringbootProjectFresh/src/(main|test)/java/net/citotech/cito/treasury/ProviderLiveTest(MfaController|MfaPolicyTest|Service).java)$' > /tmp/unexpected-files || true
           test ! -s /tmp/unexpected-files
           git push origin "$commit":refs/heads/work/mtn-mfa-formatted-208
           echo "PREPARED_COMMIT=$commit"
