@@ -75,3 +75,6 @@ getbalance*.txt
 customers_emails.txt
 jars/
 Clientside/tests/php/keys/
+
+# Local Sites export and verification intermediates
+clientside/.sites-runtime/

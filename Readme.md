@@ -181,3 +181,7 @@ SMS provider activation is an explicit admin action in Communications → Provid
 
 
 MTN connection configuration and release acceptance: see `Docs/Operations/mtn-promotion-20260911.md`. General Settings now links to the governed provider credential workspace; populated settings are not authentication evidence. No provider activation or automatic credential migration occurs.
+
+### Public website presentation
+
+The Cito public website follows brand baseline 1.2, with shared navigation, service discovery, developer resources and the existing account/contact paths. See [website redesign scope and release evidence](Docs/Website/2026-09-12-public-website-redesign.md) for the current presentation changes and remaining rendered review checks.
