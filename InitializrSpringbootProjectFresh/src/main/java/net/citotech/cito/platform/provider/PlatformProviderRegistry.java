@@ -1,39 +1,37 @@
 package net.citotech.cito.platform.provider;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
  * One runtime provider catalogue across Payments, Communications, Identity/Risk and Vending.
  *
- * <p>The registry does not contain secrets and does not grant production readiness. It exposes the
- * code-level provider capability surface so admin/service-readiness views can combine it with
- * entitlement, credential, sandbox-test and certification evidence from their owning stores.
+ * <p>The registry does not contain secrets and does not grant production readiness. Multiple
+ * channel adapters belonging to the same provider/domain are merged into one capability definition
+ * instead of being treated as duplicate providers.
  */
 @Service
 public class PlatformProviderRegistry {
-    private final Map<Key, PlatformProviderAdapter> providers;
+    private final Map<Key, List<PlatformProviderAdapter>> providers;
 
     public PlatformProviderRegistry(List<PlatformProviderAdapter> adapters) {
-        Map<Key, PlatformProviderAdapter> indexed = new LinkedHashMap<>();
+        Map<Key, List<PlatformProviderAdapter>> indexed = new LinkedHashMap<>();
         for (PlatformProviderAdapter adapter : adapters) {
             Key key = new Key(adapter.providerDomain(), normalize(adapter.providerCode()));
-            PlatformProviderAdapter previous = indexed.putIfAbsent(key, adapter);
-            if (previous != null && previous != adapter) {
-                throw new IllegalStateException(
-                        "Duplicate Cito provider registration for "
-                                + key.domain()
-                                + ":"
-                                + key.providerCode());
-            }
+            indexed.computeIfAbsent(key, ignored -> new ArrayList<>()).add(adapter);
         }
-        this.providers = Map.copyOf(indexed);
+        Map<Key, List<PlatformProviderAdapter>> immutable = new LinkedHashMap<>();
+        indexed.forEach((key, values) -> immutable.put(key, List.copyOf(values)));
+        this.providers = Map.copyOf(immutable);
     }
 
     public List<ProviderDefinition> definitions() {
@@ -50,8 +48,8 @@ public class PlatformProviderRegistry {
             return Optional.empty();
         }
         Key key = new Key(domain, normalize(providerCode));
-        PlatformProviderAdapter adapter = providers.get(key);
-        return adapter == null ? Optional.empty() : Optional.of(definition(key, adapter));
+        List<PlatformProviderAdapter> adapters = providers.get(key);
+        return adapters == null ? Optional.empty() : Optional.of(definition(key, adapters));
     }
 
     public boolean supports(
@@ -69,12 +67,16 @@ public class PlatformProviderRegistry {
                 .orElse(false);
     }
 
-    private ProviderDefinition definition(Key key, PlatformProviderAdapter adapter) {
+    private ProviderDefinition definition(Key key, List<PlatformProviderAdapter> adapters) {
+        Set<String> capabilities = new LinkedHashSet<>();
+        Set<String> environments = new LinkedHashSet<>();
+        adapters.forEach(
+                adapter -> {
+                    capabilities.addAll(adapter.platformCapabilities());
+                    environments.addAll(adapter.supportedEnvironments());
+                });
         return new ProviderDefinition(
-                key.providerCode(),
-                key.domain(),
-                adapter.platformCapabilities(),
-                adapter.supportedEnvironments());
+                key.providerCode(), key.domain(), Set.copyOf(capabilities), Set.copyOf(environments));
     }
 
     private static String normalize(String value) {
@@ -86,6 +88,6 @@ public class PlatformProviderRegistry {
     public record ProviderDefinition(
             String providerCode,
             PlatformProviderDomain domain,
-            java.util.Set<String> capabilities,
-            java.util.Set<String> environments) {}
+            Set<String> capabilities,
+            Set<String> environments) {}
 }
