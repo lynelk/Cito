@@ -7,7 +7,7 @@ const navGroups = [
   ] },
   { title: 'Services', items: [
     { value: 'payments', text: 'Payments', Icon: Icons.PaymentsIcon, service: 'CPAY' },
-    { value: 'sms', text: 'Communications', Icon: Icons.SmsIcon, service: 'SMS' },
+    { value: 'sms', text: 'Communications', Icon: Icons.SmsIcon },
     { value: 'services', text: 'Services & Products', Icon: Icons.LightningIcon },
   ] },
   { title: 'Business', items: [
