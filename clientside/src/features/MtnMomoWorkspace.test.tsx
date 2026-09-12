@@ -47,6 +47,10 @@ describe('MTN configuration and payment journey', () => {
     expect(await screen.findByText('https://sandbox.momodeveloper.mtn.com')).toBeInTheDocument();
     expect(screen.getByLabelText('Collection API key')).toHaveValue('');
     expect(screen.getByText('UG / EUR · sandbox')).toBeInTheDocument();
+    expect(localStorage.getItem('cito.environment.admin')).toBe('SANDBOX');
+    localStorage.setItem('cito.environment.admin', 'PRODUCTION');
+    fireEvent(window, new Event('cito-environment-change'));
+    await waitFor(() => expect(screen.getByLabelText('MTN environment')).toHaveValue('PRODUCTION'));
   });
 
   it('keeps the edit revision and omits blank secrets instead of sending masks after a concurrent refresh', async () => {

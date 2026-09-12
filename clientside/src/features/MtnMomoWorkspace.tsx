@@ -1,8 +1,9 @@
-import { cloneElement, FormEvent, ReactElement, ReactNode, useId, useState } from 'react';
+import { cloneElement, FormEvent, ReactElement, ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Badge, Button, Card, Section, Tabs } from '../ui';
 import { useAuth } from '../shared/useAuth';
 import { ApiError } from '../shared/api/httpClient';
+import { useEnvironment } from '../shared/environment';
 import {
   PlatformCredential, ProviderLiveTest, ProviderTestMerchant,
   usePlatformCredentials, useSavePlatformCredential, useVerifyPlatformCredential, useApprovePlatformCredential,
@@ -47,7 +48,20 @@ function useIndependentActor() {
 
 export default function MtnMomoWorkspace() {
   const [params, setParams] = useSearchParams();
-  const environment = mtnEnvironment(params.get('environment'));
+  const { environment: portalEnvironment, setEnvironment } = useEnvironment('admin');
+  const queryEnvironment = params.get('environment');
+  const environment = queryEnvironment ? mtnEnvironment(queryEnvironment) : portalEnvironment;
+  const previousScope = useRef<{ query: string | null; portal: string } | null>(null);
+  // Deep links choose the initial scope; subsequent changes from either selector stay in sync.
+  useEffect(() => {
+    const previous = previousScope.current;
+    previousScope.current = { query: queryEnvironment, portal: portalEnvironment };
+    if (!previous || previous.query !== queryEnvironment) {
+      if (queryEnvironment && environment !== portalEnvironment) setEnvironment(environment);
+    } else if (previous.portal !== portalEnvironment && environment !== portalEnvironment) {
+      const next = new URLSearchParams(params); next.set('environment', portalEnvironment); setParams(next, { replace: true });
+    }
+  }, [environment, params, portalEnvironment, queryEnvironment, setEnvironment, setParams]);
   const scope = { ...mtnProfile(environment), environment, channelCode: 'mtn_momo' };
   return <div className="mtn-workspace">
     <Card className="mtn-heading">

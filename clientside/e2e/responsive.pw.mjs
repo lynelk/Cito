@@ -15,11 +15,14 @@ test('admin MTN workspace keeps setup and payment tests usable in the admin shel
   await page.getByLabel('MTN environment').selectOption('SANDBOX');
   await expect(page.getByLabel('Collection API key', { exact: true })).toHaveValue('');
   await expect(page.getByText('UG / EUR · sandbox', { exact: true })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveValue('SANDBOX');
+  await page.evaluate(() => window.scrollTo(0, 0));
   await assertNoDocumentOverflow(page);
   await page.screenshot({ path: testInfo.outputPath('mtn-connection.png'), fullPage: true });
   if (testInfo.project.name === 'chrome-edge-1440') {
     await page.evaluate(() => { document.documentElement.style.zoom = '200%'; });
     await assertNoDocumentOverflow(page);
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath('mtn-connection-200-percent.png'), fullPage: true });
     await page.evaluate(() => { document.documentElement.style.zoom = '100%'; });
   }
