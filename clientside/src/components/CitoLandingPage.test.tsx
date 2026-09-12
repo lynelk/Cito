@@ -1,7 +1,9 @@
-import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import CitoLandingPage from './CitoLandingPage';
+import React from "react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import CitoLandingPage from "./CitoLandingPage";
+import { PublicProductPage } from "./PublicExperiencePages";
+import { PublicHeader } from "./PublicSiteChrome";
 
 function renderLandingPage() {
   return render(
@@ -11,59 +13,98 @@ function renderLandingPage() {
   );
 }
 
-describe('CitoLandingPage', () => {
-  it('positions Cito as a multi-service business platform', () => {
+describe("Cito public website", () => {
+  it("connects all six service-directory links to real sections", () => {
     renderLandingPage();
-
-    expect(screen.getByRole('heading', { level: 1, name: /one platform for the services your business runs on/i })).toBeInTheDocument();
-    expect(screen.getByText(/accept payments, make payouts, communicate with customers/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /business infrastructure without the usual integration sprawl/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { name: /identity, credit & scoring/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('heading', { name: /communications/i }).length).toBeGreaterThan(0);
-  });
-
-  it('routes every primary access action to the live Cito access screens', () => {
-    renderLandingPage();
-
-    const signInLinks = screen.getAllByRole('link', { name: /sign in/i });
-    const signUpLinks = screen.getAllByRole('link', { name: /create cito account|get started|create account/i });
-
-    signInLinks.forEach((link) => expect(link).toHaveAttribute('href', '/login'));
-    signUpLinks.forEach((link) => expect(link).toHaveAttribute('href', '/signup'));
-  });
-
-  it('surfaces the full service portfolio without implying provider certification', () => {
-    renderLandingPage();
-
-    expect(screen.getByText(/sms, whatsapp business and ussd/i)).toBeInTheDocument();
-    expect(screen.getByText(/nin, kyc\/kyb, crb reports/i)).toBeInTheDocument();
-    expect(screen.getByText(/metering, rating, invoicing and billing-as-a-service/i)).toBeInTheDocument();
-    expect(screen.getByText(/airtime, data, utilities, devices/i)).toBeInTheDocument();
-    expect(screen.getByText(/production availability is explicit per provider, country and account/i)).toBeInTheDocument();
-  });
-
-  it('exposes Cito Payments developer documentation and provider-family context', () => {
-    renderLandingPage();
-
-    expect(screen.getAllByRole('link', { name: /cito payments api documentation/i })[0]).toHaveAttribute(
-      'href',
-      '/fo/developers',
-    );
-    expect(screen.getByText(/MTN MoMo · Airtel Money · Yo! Payments · Safaricom M-Pesa · FlexiPay/i)).toBeInTheDocument();
-  });
-
-  it('includes direct Cito sales and support contact paths', () => {
-    renderLandingPage();
-
-    expect(screen.getByRole('link', { name: /discuss Cito services for your business/i })).toHaveAttribute('href', '/contact');
-    expect(screen.getByRole('link', { name: /get help with an existing Cito account/i })).toHaveAttribute(
-      'href',
-      'mailto:support@citotech.net',
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: /your business.*better connected/i,
+      }),
+    ).toBeInTheDocument();
+    const directory = screen.getByRole("complementary", {
+      name: /explore cito services/i,
+    });
+    const links = within(directory).getAllByRole("link");
+    expect(links).toHaveLength(6);
+    links.forEach((link) =>
+      expect(
+        document.querySelector(link.getAttribute("href")!),
+      ).toBeInTheDocument(),
     );
   });
-
-  it('shows Core-Synergies as the copyright owner', () => {
+  it("keeps registration, sign-in, support and API documentation on their existing routes", () => {
     renderLandingPage();
-    expect(screen.getByText(/© .* Core-Synergies/i)).toBeInTheDocument();
+    screen
+      .getAllByRole("link", { name: /sign in/i })
+      .forEach((link) => expect(link).toHaveAttribute("href", "/login"));
+    screen
+      .getAllByRole("link", { name: /create cito account|get started/i })
+      .forEach((link) => expect(link).toHaveAttribute("href", "/signup"));
+    expect(
+      screen.getByRole("link", { name: /cito payments api documentation/i }),
+    ).toHaveAttribute("href", "/fo/developers");
+    expect(
+      screen.getByRole("link", {
+        name: /get help with an existing cito account/i,
+      }),
+    ).toHaveAttribute("href", "mailto:support@citotech.net");
+  });
+  it("preserves provider-readiness guidance and searchable public API topics", () => {
+    renderLandingPage();
+    expect(
+      screen.getByText(
+        /production availability is explicit per provider, country and account/i,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Explore API topics"));
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "asynchronous" },
+    });
+    expect(
+      screen.getByText(/asynchronous callbacks are not supported/i),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "no-such-topic-xyz" },
+    });
+    expect(screen.getByText(/no matching topics/i)).toBeInTheDocument();
+  });
+  it("uses the shared accessible navigation and footer on product pages", () => {
+    render(
+      <MemoryRouter>
+        <PublicProductPage page="billing" />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole("link", { name: /skip to content/i }),
+    ).toHaveAttribute("href", "#main-content");
+    expect(document.getElementById("main-content")).toBeInTheDocument();
+    expect(screen.getByText(/© .*Core-Synergies/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: /sign in/i })[0],
+    ).toHaveAttribute("href", "/login");
+  });
+  it("closes the mobile menu after navigation and on Escape", () => {
+    render(
+      <MemoryRouter>
+        <PublicHeader />
+        <Routes>
+          <Route path="*" element={<div />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const summary = screen.getByText("Menu");
+    const details = summary.closest("details")!;
+    details.open = true;
+    fireEvent.keyDown(summary, { key: "Escape" });
+    expect(details.open).toBe(false);
+    expect(summary).toHaveFocus();
+    details.open = true;
+    fireEvent.click(
+      within(
+        screen.getByRole("navigation", { name: "Mobile navigation" }),
+      ).getByRole("link", { name: "Billing" }),
+    );
+    expect(details.open).toBe(false);
   });
 });
