@@ -18,11 +18,14 @@ jobs:
   mysql:
     name: Canonical recovery MySQL ${{ matrix.version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        version: ['8.4', '9.4']
+        # 8.4 is the long-lived compatibility floor, 9.4 is Flyway's currently
+        # verified line, and 9.7.2 is the exact Railway production image. A
+        # green 9.7.2 lane means Cito-qualified, not vendor-certified by Flyway.
+        version: ['8.4', '9.4', '9.7.2']
     services:
       mysql:
         image: mysql:${{ matrix.version }}
@@ -45,8 +48,8 @@ jobs:
       ADMIN_API_USERNAME: ci-admin
       ADMIN_API_PASSWORD: ci-admin-password
       CALLBACK_SIGNING_SECRET: ci-callback-secret
-      MERCHANT_CHANNEL_ENCRYPTION_KEY: Y2ktb25seS1ub3QtYS1wcm9kdWN0aW9uLWtleQ==
-      CPAY_KEY_ENCRYPTION_KEY: Y2ktb25seS1ub3QtYS1wcm9kdWN0aW9uLWtleQ==
+      MERCHANT_CHANNEL_ENCRYPTION_KEY: Y2ktb25seS1ub3QtYS1hLXByb2R1Y3Rpb24ta2V5
+      CPAY_KEY_ENCRYPTION_KEY: Y2ktb25seS1ub3QtYS1hLXByb2R1Y3Rpb24ta2V5
     steps:
       - uses: actions/checkout@v7
         with:
@@ -69,7 +72,7 @@ jobs:
         working-directory: InitializrSpringbootProjectFresh
         run: mvn -B test --no-transfer-progress -Dtest=FlywayMigrationSmokeTest
       - name: Competing workers, restart, expired claims and independent billing invariants
-        if: matrix.version == '8.4'
+        if: matrix.version != '9.4'
         working-directory: InitializrSpringbootProjectFresh
         run: mvn -B test --no-transfer-progress -Ddocker.tests.excludedGroups= '-Dtest=MobileMoneyRecoveryLeaseStoreTestcontainersTest,DoubleEntryLedgerServiceTestcontainersTest,*Billing*TestcontainersTest,*Outbox*TestcontainersTest,ChargeShadowComparisonServiceTestcontainersTest,RatedChargeRepositoryTestcontainersTest,UsagePaymentReconciliationServiceTestcontainersTest,PaymentPipelineReconciliationTestcontainersTest'
       - name: Retain actual test evidence
