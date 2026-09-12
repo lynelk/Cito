@@ -12,6 +12,7 @@ import {
   useCreateProviderLiveTest, useApproveProviderLiveTest, useTreasuryAccounts, useRefreshProviderBalance,
 } from '../shared/api/providerTreasury';
 import { mtnEnvironment, mtnProfile } from './providerConnectionProfile';
+import ProviderTestMfaField from './ProviderTestMfaField';
 import './MtnMomoWorkspace.css';
 
 type Scope = ReturnType<typeof mtnProfile> & { environment: string; channelCode: string };
@@ -238,7 +239,7 @@ function PaymentTests({ scope, credential }: { scope: Scope; credential?: Platfo
         <Field label={`Amount (${scope.currencyCode})`}><input type="number" min="0.0001" step="0.0001" required value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /></Field>
         <Field label={form.operation === 'COLLECT' ? 'Payer phone number' : 'Recipient phone number'} help="Include country code, digits only."><input type="tel" inputMode="numeric" pattern="[0-9]{9,15}" required value={form.party} onChange={e => setForm({ ...form, party: e.target.value })} /></Field>
       </div>
-      {production && <><Field label="Your MFA code"><input autoComplete="one-time-code" inputMode="numeric" required type="password" value={form.mfaCode} onChange={e => setForm({ ...form, mfaCode: e.target.value })} /></Field>
+      {production && <><ProviderTestMfaField operation={form.operation} label="Your MFA code" value={form.mfaCode} onChange={mfaCode => setForm(current => ({ ...current, mfaCode }))} />
         <label className="mtn-confirm"><input type="checkbox" required checked={form.confirmProduction} onChange={e => setForm({ ...form, confirmProduction: e.target.checked })} />I confirm this is a real {form.operation === 'COLLECT' ? 'collection' : 'payout'} of {form.amount || '—'} {scope.currencyCode} for {form.party || 'the entered phone number'}.</label></>}
     </fieldset>
       {!ready && <Notice>First verify and approve the connection, then approve this merchant’s {form.operation === 'COLLECT' ? 'collection' : 'payout'} access in {label(scope.environment)}.</Notice>}
@@ -252,7 +253,7 @@ function PaymentTests({ scope, credential }: { scope: Scope; credential?: Platfo
     }}>Correct rejected request</Button>}
     {latest && <Notice><strong>{label(latest.status)}</strong> · {latest.testReference}<br />{latest.resultMessage || (latest.status === 'PENDING_APPROVAL' ? 'Waiting for a different operator to approve this payout.' : 'Follow the result in test history below.')}</Notice>}
     {latest && ['SUCCEEDED', 'FAILED', 'REJECTED'].includes(latest.status) && <Button variant="ghost" onClick={() => { setResult(undefined); setSubmitted(false); create.reset(); setForm({ ...form, amount: '', party: '', mfaCode: '', confirmProduction: false, idempotencyKey: crypto.randomUUID() }); }}>Start a new test</Button>}
-    {submitted && !result && production && <Field label="Fresh MFA code for the same request"><input type="password" autoComplete="one-time-code" value={form.mfaCode} onChange={e => setForm({ ...form, mfaCode: e.target.value })} /></Field>}
+    {submitted && !result && production && <ProviderTestMfaField operation={form.operation} label="Fresh MFA code for the same request" value={form.mfaCode} onChange={mfaCode => setForm(current => ({ ...current, mfaCode }))} />}
   </Section><Section title="Test history">
     {tests.isPending ? <p>Loading test history…</p> : !history.length ? <p>No payment tests in this environment yet.</p> : history.map(row => <TestResult key={row.id} row={row} />)}
   </Section></div>;
