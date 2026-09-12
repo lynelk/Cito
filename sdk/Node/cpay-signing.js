@@ -1,7 +1,13 @@
 "use strict";
 // Cito consumer SDK 2.0. Java-compatible UTF-8 form encoding and UTF-16 ordering.
 const crypto = require("node:crypto");
-function javaTrim(value) { return value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, ""); }
+function javaTrim(value) {
+  // Java String.trim() with bounded linear scans, not a backtracking suffix regex.
+  let start = 0, end = value.length;
+  while (start < end && value.charCodeAt(start) <= 0x20) start++;
+  while (end > start && value.charCodeAt(end - 1) <= 0x20) end--;
+  return value.slice(start, end);
+}
 function sha256Hex(value) { return crypto.createHash("sha256").update(value, "utf8").digest("hex"); }
 function scalar(value) {
   if (typeof value === "string") { encodeURIComponent(value); return value; }

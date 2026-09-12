@@ -8,7 +8,13 @@ function needed(name) {
   return value;
 }
 function formEncode(s) { return encodeURIComponent(s).replace(/[!'()~]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g,'+'); }
-function javaTrim(s) { return s.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g,''); }
+function javaTrim(value) {
+  // Java String.trim() with bounded linear scans, not a backtracking suffix regex.
+  let start = 0, end = value.length;
+  while (start < end && value.charCodeAt(start) <= 0x20) start++;
+  while (end > start && value.charCodeAt(end - 1) <= 0x20) end--;
+  return value.slice(start, end);
+}
 function canonicalQuery(params) {
   return [...params].sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:a[1]<b[1]?-1:a[1]>b[1]?1:0).map(([k,v])=>formEncode(k)+'='+formEncode(v)).join('&');
 }
