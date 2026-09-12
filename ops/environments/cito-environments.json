@@ -46,7 +46,7 @@
       "acceptanceNote": "2026-09-12: production frontend/backend deployed accepted exact SHA ea41bb69009b4cfd3accea99f1a0ff154ce3de3d; Flyway migrated V125 through V129; fresh owner-provided production backup evidence recorded before promotion. Frontend sleeping was disabled and the always-on two-replica deployment succeeded. Provider credentials/certification and database HA remain separate operational evidence items."
     },
     "staging": {
-      "status": "ACCEPTED",
+      "status": "ACTIVE",
       "projectName": "Cito Staging",
       "projectId": "c69c90a9-ab6f-48ff-8e04-1e10a10f92db",
       "environmentId": "efde4ddb-0312-48bc-94b2-a096fd3678b0",
