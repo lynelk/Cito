@@ -1,0 +1,85 @@
+openapi: 3.1.0
+info:
+  title: Cito Platform Evidence API
+  version: 2.0.0
+  description: |
+    Administrator read-only contract for evidence-based Cito platform maturity reporting.
+    Values come from durable authoritative records. Targets, configuration and missing evidence
+    are never converted into achieved operational or commercial claims.
+servers:
+  - url: https://cito.coresynergi.es
+    description: Production
+security:
+  - AdminPortalSession: []
+tags:
+  - name: Admin Platform Evidence
+    description: Durable-record maturity evidence for authorized Cito administrators.
+paths:
+  /api/v2/admin/platform-evidence/scorecard:
+    get:
+      tags:
+        - Admin Platform Evidence
+      operationId: getPlatformEvidenceScorecard
+      summary: Read the platform maturity evidence scorecard
+      description: |
+        Returns observed commercial, developer, production-adoption and provider-certification
+        evidence from authoritative Cito records. The endpoint performs no provider request or
+        state mutation and never reports targets as actuals.
+      responses:
+        '200':
+          description: Durable-record platform evidence.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - evidenceBasis
+                  - targetsReportedAsActuals
+                  - commercial
+                  - developer
+                  - adoption
+                  - providerCertification
+                properties:
+                  evidenceBasis:
+                    type: string
+                    const: DURABLE_RECORDS_ONLY
+                  targetsReportedAsActuals:
+                    type: boolean
+                    const: false
+                  commercial:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                      format: int64
+                  developer:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                      format: int64
+                  adoption:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                      format: int64
+                  providerCertification:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    AdminPortalSession:
+      type: apiKey
+      in: cookie
+      name: CITO_SESSION
+      description: Authenticated Cito portal session. The caller must also hold platform ADMIN authority.
+  responses:
+    Unauthorized:
+      description: Authentication is required or the session is invalid.
+    Forbidden:
+      description: The authenticated principal is not authorized as a platform administrator.
