@@ -1,4 +1,17 @@
 /** Environment profiles for the canonical provider credential editor. */
+export function mtnEnvironment(value?: string | null): 'SANDBOX' | 'PRODUCTION' {
+  return value?.toUpperCase() === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
+}
+
+export function mtnWorkspacePath(environment?: string | null): string {
+  return `/bo/admin/mtn-momo?environment=${mtnEnvironment(environment)}`;
+}
+
+export function providerTreasuryPath(search: string, hash = ''): string {
+  const query = new URLSearchParams(search);
+  return `${query.get('channel') === 'mtn_momo' ? '/bo/admin/mtn-momo' : '/bo/admin/provider-treasury'}${search}${hash}`;
+}
+
 export function mtnProfile(environment: string) {
   if (!['SANDBOX', 'PRODUCTION'].includes(environment)) throw new Error('Unsupported provider environment');
   const sandbox = environment === 'SANDBOX';

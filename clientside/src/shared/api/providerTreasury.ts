@@ -104,6 +104,8 @@ export interface ProviderLiveTest {
 export interface PlatformCredential {
   revision: number;
   lastTestStatus?: string;
+  lastTestedAt?: string;
+  verificationChecks?: { operation: string; status: string; message: string }[];
   id: number;
   channelCode: string;
   environment: string;
@@ -250,6 +252,14 @@ export function useApprovePlatformCredential() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => post<PlatformCredential>(`/api/v2/admin/shared-provider/credentials/${id}/approve`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['shared-provider', 'credentials'] }),
+  });
+}
+
+export function useVerifyPlatformCredential() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => post<PlatformCredential>(`/api/v2/admin/shared-provider/credentials/${id}/verify`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['shared-provider', 'credentials'] }),
   });
 }

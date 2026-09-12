@@ -47,7 +47,7 @@ const fieldStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
   gap: 12,
   alignItems: 'end',
 };
@@ -114,10 +114,10 @@ export default function ProviderTreasuryConsole({ channelScope }: { channelScope
     collectionPath: '/merchant/v2/payments/', payoutPath: '/standard/v2/disbursements/',
     balancePath: '/standard/v2/users/balance',
   }, channelScope || (new URLSearchParams(window.location.search).get('channel') === 'airtel_open_api' ? 'airtel_open_api' : 'mtn_momo'), 'SANDBOX'));
-  const [filters, setFilters] = useState({ environment: '', channel: channelScope || '', currency: '', role: '', state: '' });
+  const [filters, setFilters] = useState({ environment: new URLSearchParams(window.location.search).get('environment') || '', channel: channelScope || new URLSearchParams(window.location.search).get('channel') || '', currency: '', role: '', state: '' });
   const [liveTest, setLiveTest] = useState({
     merchantId: '', channelCode: channelScope || 'mtn_momo', environment: 'SANDBOX', countryCode: 'UG',
-    currencyCode: 'UGX', operation: 'COLLECT', amount: '', party: '', mfaCode: '',
+    currencyCode: !channelScope || channelScope === 'mtn_momo' ? 'EUR' : 'UGX', operation: 'COLLECT', amount: '', party: '', mfaCode: '',
     confirmProduction: false, idempotencyKey: crypto.randomUUID() as string,
   });
   const [approvalMfaCode, setApprovalMfaCode] = useState('');
@@ -231,9 +231,7 @@ export default function ProviderTreasuryConsole({ channelScope }: { channelScope
       merchantId: Number(liveTest.merchantId),
     }, {
       onSuccess: (result) => {
-        setNotice(result.operation === 'PAYOUT'
-          ? 'Payout test recorded. A different administrator must approve it before execution.'
-          : `Collection test submitted with reference ${result.testReference}.`);
+        setNotice(`${result.testReference}: ${result.status}. ${result.resultMessage || ''}`);
         setLiveTest({ ...liveTest, amount: '', party: '', mfaCode: '', confirmProduction: false, idempotencyKey: crypto.randomUUID() });
       },
       onError: (e) => setNotice((e as Error).message),
@@ -311,7 +309,7 @@ export default function ProviderTreasuryConsole({ channelScope }: { channelScope
     { key: 'masked', header: 'Credential material', render: (row: PlatformCredential) => Object.entries(row.credentials ?? {}).map(([k, v]) => `${k}=${v}`).join(' · ') || '—' },
     { key: 'maker', header: 'Editor', accessor: (row: PlatformCredential) => row.updatedBy ?? '—' },
     { key: 'checker', header: 'Approver', accessor: (row: PlatformCredential) => row.approvedBy ?? '—' },
-    { key: 'action', header: 'Action', render: (row: PlatformCredential) => row.status === 'CONFIGURED' ? <><Button variant="ghost" onClick={async () => { try { await request(`/api/v2/admin/shared-provider/credentials/${row.id}/verify`, { method: 'POST' }); await credentials.refetch(); setNotice('Provider authentication verified. Payment acceptance still requires UAT.'); } catch (error) { setNotice((error as Error).message); } }}>Verify connection</Button><Button disabled={['mtn_momo', 'airtel_open_api'].includes(row.channelCode) && row.lastTestStatus !== 'CONNECTIVITY_VERIFIED'} variant="primary" className="ios-btn--sm" onClick={() => approveCredential.mutate(row.id, { onError: (e) => setNotice((e as Error).message) })}>Approve</Button></> : '—' },
+    { key: 'action', header: 'Action', render: (row: PlatformCredential) => row.status === 'CONFIGURED' ? <><Button variant="ghost" onClick={async () => { try { const result = await request<PlatformCredential>(`/api/v2/admin/shared-provider/credentials/${row.id}/verify`, { method: 'POST' }); await credentials.refetch(); setNotice(result.lastTestStatus === 'CONNECTIVITY_VERIFIED' ? 'Provider authentication verified. Payment acceptance still requires UAT.' : (result.verificationChecks || []).filter(check => check.status !== 'VERIFIED').map(check => `${check.operation}: ${check.message}`).join(' · ') || 'Provider authentication failed.'); } catch (error) { setNotice((error as Error).message); } }}>Verify connection</Button><Button disabled={['mtn_momo', 'airtel_open_api'].includes(row.channelCode) && row.lastTestStatus !== 'CONNECTIVITY_VERIFIED'} variant="primary" className="ios-btn--sm" onClick={() => approveCredential.mutate(row.id, { onError: (e) => setNotice((e as Error).message) })}>Approve</Button></> : '—' },
   ];
 
   const liveTestColumns = [
@@ -326,12 +324,12 @@ export default function ProviderTreasuryConsole({ channelScope }: { channelScope
     } },
     { key: 'maker', header: 'Maker / checker', render: (row: ProviderLiveTest) => `${row.requestedBy}${row.approvedBy ? ` / ${row.approvedBy}` : ''}` },
     { key: 'action', header: 'Action', render: (row: ProviderLiveTest) => row.status === 'PENDING_APPROVAL'
-      ? <Button variant="primary" className="ios-btn--sm" disabled={!approvalMfaCode || approveLiveTest.isPending} onClick={() => approveLiveTest.mutate({ id: row.id, body: { mfaCode: approvalMfaCode, confirmProduction: row.environment === 'PRODUCTION' } }, { onSuccess: () => { setApprovalMfaCode(''); setNotice('Payout test approved and submitted to the provider.'); }, onError: (e) => setNotice((e as Error).message) })}>Approve & execute</Button>
+      ? <Button variant="primary" className="ios-btn--sm" disabled={(row.environment === 'PRODUCTION' && !approvalMfaCode) || approveLiveTest.isPending} onClick={() => approveLiveTest.mutate({ id: row.id, body: { mfaCode: approvalMfaCode, confirmProduction: row.environment === 'PRODUCTION' } }, { onSuccess: (result) => { setApprovalMfaCode(''); setNotice(`${result.testReference}: ${result.status}. ${result.resultMessage || ''}`); }, onError: (e) => setNotice((e as Error).message) })}>Approve & execute</Button>
       : '—' },
   ];
 
   return (
-    <div className="cito-provider-console" style={{ padding: 'var(--ios-space-6)' }}>
+    <div className="cito-provider-console" style={{ padding: 'var(--ios-space-6)', maxWidth: 1200, width: '100%', marginInline: 'auto', minWidth: 0 }}>
       <Toolbar>
         <div>
           <h2 style={{ margin: 0 }}>Provider Treasury & Shared Channels</h2>
@@ -370,7 +368,7 @@ export default function ProviderTreasuryConsole({ channelScope }: { channelScope
           <form onSubmit={submitLiveTest} style={gridStyle}>
             <label>Merchant<select required style={fieldStyle} value={liveTest.merchantId} onChange={(e) => setLiveTest({ ...liveTest, merchantId: e.target.value })}><option value="">Select an active merchant</option>{(testMerchants.data ?? []).map((merchant) => <option key={merchant.id} value={merchant.id}>{merchant.name} · {merchant.merchantNumber}</option>)}</select></label>
             <label>Operation<select style={fieldStyle} value={liveTest.operation} onChange={(e) => setLiveTest({ ...liveTest, operation: e.target.value })}><option>COLLECT</option><option>PAYOUT</option></select></label>
-            <label>Provider<select disabled={Boolean(channelScope)} style={fieldStyle} value={liveTest.channelCode} onChange={(e) => setLiveTest({ ...liveTest, channelCode: e.target.value })}><option value="mtn_momo">MTN MoMo</option><option value="airtel_open_api">Airtel Open API</option></select></label>
+            <label>Provider<select disabled={Boolean(channelScope)} style={fieldStyle} value={liveTest.channelCode} onChange={(e) => setLiveTest({ ...liveTest, channelCode: e.target.value, currencyCode: e.target.value === 'mtn_momo' && liveTest.environment === 'SANDBOX' ? 'EUR' : 'UGX' })}><option value="mtn_momo">MTN MoMo</option><option value="airtel_open_api">Airtel Open API</option></select></label>
             <label>Environment<select style={fieldStyle} value={liveTest.environment} onChange={(e) => setLiveTest({ ...liveTest, environment: e.target.value, currencyCode: e.target.value === 'SANDBOX' && liveTest.channelCode === 'mtn_momo' ? 'EUR' : 'UGX', mfaCode: '', confirmProduction: false })}><option>SANDBOX</option><option>PRODUCTION</option></select></label>
             <label>Country<input required style={fieldStyle} value={liveTest.countryCode} onChange={(e) => setLiveTest({ ...liveTest, countryCode: e.target.value.toUpperCase() })} /></label>
             <label>Currency<input required style={fieldStyle} value={liveTest.currencyCode} onChange={(e) => setLiveTest({ ...liveTest, currencyCode: e.target.value.toUpperCase() })} /></label>

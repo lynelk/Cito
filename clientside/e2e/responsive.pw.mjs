@@ -1,5 +1,41 @@
 import { test, expect } from '@playwright/test';
 
+test('admin MTN workspace keeps setup and payment tests usable in the admin shell', async ({ page }, testInfo) => {
+  await primeAdmin(page);
+  // Isolated browser fixtures: no authenticated production session or provider call.
+  await page.route('**/api/v2/admin/shared-provider/credentials', route => route.fulfill(json([])));
+  await page.route('**/api/v2/admin/shared-provider/entitlements', route => route.fulfill(json([])));
+  await page.route('**/api/v2/admin/provider-treasury/**', route => route.fulfill(json([])));
+  await page.goto('/bo/provider-treasury?channel=mtn_momo&environment=PRODUCTION#platform-provider-credentials');
+  await expect(page).toHaveURL(/\/bo\/admin\/mtn-momo\?channel=mtn_momo&environment=PRODUCTION/);
+  await expect(page.locator('.ios-shell')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Set up your connection' })).toBeVisible();
+  await expect(page.getByLabel('MTN environment')).toHaveValue('PRODUCTION');
+  await page.getByLabel('Collection API key', { exact: true }).fill('test-only-unsaved-key');
+  await page.getByLabel('MTN environment').selectOption('SANDBOX');
+  await expect(page.getByLabel('Collection API key', { exact: true })).toHaveValue('');
+  await expect(page.getByText('UG / EUR · sandbox', { exact: true })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toHaveValue('SANDBOX');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await assertNoDocumentOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath('mtn-connection.png'), fullPage: true });
+  if (testInfo.project.name === 'chrome-edge-1440') {
+    await page.evaluate(() => { document.documentElement.style.zoom = '200%'; });
+    await assertNoDocumentOverflow(page);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: testInfo.outputPath('mtn-connection-200-percent.png'), fullPage: true });
+    await page.evaluate(() => { document.documentElement.style.zoom = '100%'; });
+  }
+  await page.getByRole('tab', { name: '3. Payment tests' }).click();
+  await expect(page.getByLabel('Amount (EUR)', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Submit collection test' })).toBeDisabled();
+  await page.getByLabel('Payment operation').selectOption('PAYOUT');
+  await expect(page.getByLabel('Recipient phone number', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Request payout test' })).toBeDisabled();
+  await assertNoDocumentOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath('mtn-payment-tests.png'), fullPage: true });
+});
+
 const json = (body) => ({
   status: 200,
   contentType: 'application/json',

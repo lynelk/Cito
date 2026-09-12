@@ -210,9 +210,9 @@ For initial developer onboarding, prefer an approved non-money sandbox read or c
 
 ## MTN configuration ownership and verification
 
-Platform administrators configure CPay-owned MTN connections in `/bo/provider-treasury?channel=mtn_momo#platform-provider-credentials`. Settings -> MTN MoMo links there and retains separate pricing controls. Merchant-owned connections remain in merchant Payment channels and do not expose platform secrets. Stored settings are not connectivity evidence.
+Platform administrators configure CPay-owned MTN connections in `/bo/admin/mtn-momo?environment=PRODUCTION`. Settings -> MTN MoMo links there and retains separate pricing controls. Merchant-owned connections remain in merchant Payment channels and do not expose platform secrets. Stored settings are not connectivity evidence.
 
-The governed platform form derives MTN's API origin, target and currency: Sandbox uses sandbox/EUR; Uganda production uses mtnuganda/UGX. Changing provider or environment clears unsaved credential and callback values. API users/API keys differ from product subscription keys and portal passwords. Use the server-side Verify connection action followed by independent approval; verification requires both MTN products in this release. Authentication alone is not payment or callback certification. No automatic migration or activation of legacy connection settings is performed.
+The governed platform form derives MTN's API origin, target and currency: Sandbox uses sandbox/EUR; Uganda production uses mtnuganda/UGX. Changing provider or environment clears unsaved credential and callback values. API users/API keys differ from product subscription keys and portal passwords. Use the server-side Verify both products action followed by independent approval; verification requires both MTN products in this release. Authentication alone is not payment or callback certification. No automatic migration or activation of legacy connection settings is performed.
 
 
 ## 14. Canonical recovery and evidence-derived onboarding
@@ -233,3 +233,20 @@ Use `Docs/Api/consumer/START-HERE.md` and the revision-stamped Cito External Dev
 Node, Python and PHP SDK 2.0 use server-compatible query sorting/encoding, explicit environments, stable caller-provided operation keys, bounded transport timeouts and no automatic redirects/retries. The supplied Postman collection uses local Vault keys and built-in Web Crypto; it never loads a remote signing library and starts with requests disabled. Read the migration guide before replacing an older helper.
 
 A developer kit is not a merchant's credentials, provider activation, current tariff or end-to-end production acceptance. Obtain the approved deployment, merchant/key or scoped BaaS credential, permitted services and applicable limits through the existing onboarding workflow. A real zero rate, when configured, remains distinct from an unknown rate.
+
+
+### MTN operations workspace
+
+The admin MTN workspace now groups Connection, Merchant access, Payment tests and Balances in the
+normal portal layout. Settings preserves the selected MTN environment. Edit forms keep stored
+secrets when left blank and submit the revision captured when editing began. Verification reports
+COLLECT and PAYOUT separately and never activates credentials. Inspect `lastTestStatus` and
+`verificationChecks`; a completed HTTP 200 probe can contain authentication failures.
+
+Merchant access requires separate collection/payout approvals in the matching scope. Payment tests
+use the canonical shared-provider path, EUR for MTN sandbox and UGX for Uganda production. Payouts
+need independent approval; production also requires MFA and explicit real-money confirmation.
+Failed, pending and final results are shown with references and a timeline, and ambiguous retries
+retain the same request key. See [MTN setup and acceptance](mtn-momo-configuration.md) for the full
+operator journey. Merchant-owned configuration, public API routes and public capability claims are
+unchanged; platform credential details remain admin-only.

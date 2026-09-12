@@ -46,8 +46,8 @@ export default defineConfig({
     timeout: 120_000,
   },
   projects: [
-    { name: 'compact-320', grep: /merchant payment credentials|admin can review/, use: desktop('chromium', 320, 800) },
-    { name: 'tablet-768', grep: /merchant payment credentials|admin can review/, use: desktop('chromium', 768, 1024) },
+    { name: 'compact-320', grep: /merchant payment credentials|admin can review|admin MTN workspace/, use: desktop('chromium', 320, 800) },
+    { name: 'tablet-768', grep: /merchant payment credentials|admin can review|admin MTN workspace/, use: desktop('chromium', 768, 1024) },
     { name: 'chrome-edge-1366', use: desktop('chromium', 1366, 768) },
     { name: 'chrome-edge-1440', use: desktop('chromium', 1440, 900) },
     { name: 'chrome-edge-1920', use: desktop('chromium', 1920, 1080) },

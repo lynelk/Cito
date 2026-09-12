@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import AdminSessionGate from './components/AdminSessionGate';
+import { providerTreasuryPath } from './features/providerConnectionProfile';
 
 // Public and authenticated surfaces are code-split so each entry point stays focused and light.
 const CitoLandingPage = lazy(() => import('./components/CitoLandingPage'));
@@ -11,7 +12,6 @@ const PartnerLogin = lazy(() => import('./components/LoginMerchant'));
 const Layout = lazy(() => import('./components/Layout'));
 const LayoutMerchant = lazy(() => import('./components/LayoutMerchant'));
 const OperationsConsole = lazy(() => import('./features/OperationsConsole'));
-const ProviderTreasuryConsole = lazy(() => import('./features/ProviderTreasuryConsole'));
 const AirtelMoneyOperations = lazy(() => import('./features/AirtelMoneyOperations'));
 const AdminMerchantReadiness = lazy(() => import('./features/AdminMerchantReadiness'));
 const ProductionMaturityDashboard = lazy(() => import('./features/productionMaturity/ProductionMaturityDashboard'));
@@ -30,6 +30,11 @@ function protectAdmin(element: React.ReactElement): React.ReactElement {
 function RedirectPreservingSearch({ to }: { to: string }): React.ReactElement {
   const location = useLocation();
   return <Navigate to={`${to}${location.search || ''}`} replace />;
+}
+
+function ProviderTreasuryRedirect(): React.ReactElement {
+  const location = useLocation();
+  return <Navigate to={providerTreasuryPath(location.search, location.hash)} replace />;
 }
 
 function Routers(): React.ReactElement {
@@ -53,7 +58,7 @@ function Routers(): React.ReactElement {
           {/* Canonical portal roots: BO = platform administration, FO = merchant/partner operations. */}
           <Route path="/bo" element={<PlatformLogin />} />
           <Route path="/bo/operations" element={protectAdmin(<OperationsConsole />)} />
-          <Route path="/bo/provider-treasury" element={protectAdmin(<ProviderTreasuryConsole />)} />
+          <Route path="/bo/provider-treasury" element={<ProviderTreasuryRedirect />} />
           <Route path="/bo/airtel-money" element={protectAdmin(<AirtelMoneyOperations />)} />
           <Route path="/bo/merchant-readiness" element={protectAdmin(<AdminMerchantReadiness />)} />
           <Route path="/bo/production-maturity" element={protectAdmin(<ProductionMaturityDashboard />)} />
@@ -66,7 +71,6 @@ function Routers(): React.ReactElement {
               internal menu routes are migrated incrementally to the canonical /bo/* paths. */}
           <Route path="/bo/admin" element={<Navigate to="/bo" replace />} />
           <Route path="/bo/admin/operations" element={<Navigate to="/bo/operations" replace />} />
-          <Route path="/bo/admin/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
           <Route path="/bo/admin/airtel-money" element={<RedirectPreservingSearch to="/bo/airtel-money" />} />
           <Route path="/bo/admin/merchant-readiness" element={<RedirectPreservingSearch to="/bo/merchant-readiness" />} />
           <Route path="/bo/admin/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
@@ -78,7 +82,7 @@ function Routers(): React.ReactElement {
           <Route path="/portal" element={<Navigate to="/bo" replace />} />
           <Route path="/admin" element={<Navigate to="/bo" replace />} />
           <Route path="/admin/operations" element={<Navigate to="/bo/operations" replace />} />
-          <Route path="/admin/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
+          <Route path="/admin/provider-treasury" element={<ProviderTreasuryRedirect />} />
           <Route path="/admin/airtel-money" element={<RedirectPreservingSearch to="/bo/airtel-money" />} />
           <Route path="/admin/merchant-readiness" element={<RedirectPreservingSearch to="/bo/merchant-readiness" />} />
           <Route path="/admin/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
@@ -88,7 +92,7 @@ function Routers(): React.ReactElement {
           <Route path="/dashboard/*" element={<Navigate to="/bo/insights" replace />} />
           <Route path="/dashboardMerchant/*" element={<Navigate to="/fo/dashboard" replace />} />
           <Route path="/operations" element={<Navigate to="/bo/operations" replace />} />
-          <Route path="/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
+          <Route path="/provider-treasury" element={<ProviderTreasuryRedirect />} />
           <Route path="/airtel-money" element={<RedirectPreservingSearch to="/bo/airtel-money" />} />
           <Route path="/merchant-readiness" element={<RedirectPreservingSearch to="/bo/merchant-readiness" />} />
           <Route path="/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />

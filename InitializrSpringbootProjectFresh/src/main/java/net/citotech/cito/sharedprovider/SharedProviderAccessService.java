@@ -132,7 +132,14 @@ public class SharedProviderAccessService {
         BigDecimal requested = amount == null ? BigDecimal.ZERO : amount;
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT e.daily_limit,COALESCE(u.approved_amount,0) AS used FROM shared_provider_entitlements e LEFT JOIN shared_provider_daily_usage u ON u.entitlement_id=e.id AND u.usage_date=CURRENT_DATE AND u.operation='AUTHORIZED' WHERE e.merchant_id=:merchant_id AND e.channel_code=:channel AND e.environment=:environment AND e.country_code=:country AND e.currency_code=:currency AND e.operation=:operation AND e.status='ACTIVE'",
+                        "SELECT e.daily_limit,COALESCE(u.approved_amount,0) AS used FROM"
+                                + " shared_provider_entitlements e LEFT JOIN"
+                                + " shared_provider_daily_usage u ON u.entitlement_id=e.id AND"
+                                + " u.usage_date=CURRENT_DATE AND u.operation='AUTHORIZED' WHERE"
+                                + " e.merchant_id=:merchant_id AND e.channel_code=:channel AND"
+                                + " e.environment=:environment AND e.country_code=:country AND"
+                                + " e.currency_code=:currency AND e.operation=:operation AND"
+                                + " e.status='ACTIVE'",
                         p);
         if (rows.size() != 1) return false;
         BigDecimal limit = decimalOrNull(rows.get(0).get("daily_limit"));
@@ -142,7 +149,10 @@ public class SharedProviderAccessService {
         if (!"PAYOUT".equalsIgnoreCase(operation)) return true;
         List<BigDecimal> available =
                 jdbc.query(
-                        "SELECT book_balance-reserved_balance-pending_outgoing_balance FROM provider_treasury_accounts WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency AND account_role='DISBURSEMENT'",
+                        "SELECT book_balance-reserved_balance-pending_outgoing_balance FROM"
+                                + " provider_treasury_accounts WHERE channel_code=:channel AND"
+                                + " environment=:environment AND country_code=:country AND"
+                                + " currency_code=:currency AND account_role='DISBURSEMENT'",
                         p,
                         (rs, n) -> rs.getBigDecimal(1));
         return available.size() == 1 && available.get(0).compareTo(requested) >= 0;
@@ -199,7 +209,8 @@ public class SharedProviderAccessService {
                         merchant, channelCode, env, country, currency, operation, amount);
         if (entitlement == null) {
             throw new PaymentGatewayException(
-                    "Merchant has neither approved channel credentials nor an active CPay shared-provider entitlement for "
+                    "Merchant has neither approved channel credentials nor an active CPay"
+                            + " shared-provider entitlement for "
                             + channelCode);
         }
         Long entitlementId = number(entitlement.get("id"));
@@ -217,18 +228,17 @@ public class SharedProviderAccessService {
 
     public List<Map<String, Object>> listEntitlements() {
         return jdbc.queryForList(
-                "SELECT e.id, e.merchant_id AS merchantId, m.name AS merchantName,"
-                        + " m.account_number AS merchantNumber, e.channel_code AS channelCode,"
-                        + " e.environment, e.country_code AS countryCode,"
-                        + " e.currency_code AS currencyCode, e.operation, e.status,"
-                        + " e.per_transaction_limit AS perTransactionLimit, e.daily_limit AS dailyLimit,"
-                        + " COALESCE(u.approved_amount,0) AS usedToday,"
-                        + " e.requested_by AS requestedBy, e.requested_at AS requestedAt,"
-                        + " e.approved_by AS approvedBy, e.approved_at AS approvedAt, e.notes"
-                        + " FROM shared_provider_entitlements e JOIN merchants m ON m.id=e.merchant_id"
-                        + " LEFT JOIN shared_provider_daily_usage u ON u.entitlement_id=e.id"
-                        + " AND u.usage_date=CURRENT_DATE AND u.operation='AUTHORIZED'"
-                        + " ORDER BY e.updated_at DESC",
+                "SELECT e.id, e.merchant_id AS merchantId, m.name AS merchantName, m.account_number"
+                        + " AS merchantNumber, e.channel_code AS channelCode, e.environment,"
+                        + " e.country_code AS countryCode, e.currency_code AS currencyCode,"
+                        + " e.operation, e.status, e.per_transaction_limit AS perTransactionLimit,"
+                        + " e.daily_limit AS dailyLimit, COALESCE(u.approved_amount,0) AS usedToday,"
+                        + " e.requested_by AS requestedBy, e.requested_at AS requestedAt, e.approved_by"
+                        + " AS approvedBy, e.approved_at AS approvedAt, e.notes FROM"
+                        + " shared_provider_entitlements e JOIN merchants m ON m.id=e.merchant_id LEFT"
+                        + " JOIN shared_provider_daily_usage u ON u.entitlement_id=e.id AND"
+                        + " u.usage_date=CURRENT_DATE AND u.operation='AUTHORIZED' ORDER BY"
+                        + " e.updated_at DESC",
                 Map.of());
     }
 
@@ -268,9 +278,14 @@ public class SharedProviderAccessService {
                         .addValue("actor", requiredActor(actor))
                         .addValue("notes", text(body.get("notes")));
         jdbc.update(
-                "INSERT INTO shared_provider_entitlements (merchant_id, channel_code, environment, country_code, currency_code, operation, status, per_transaction_limit, daily_limit, requested_by, notes) "
-                        + "VALUES (:merchant_id,:channel_code,:environment,:country,:currency,:operation,'PENDING',:per_tx,:daily,:actor,:notes) "
-                        + "ON DUPLICATE KEY UPDATE status='PENDING', per_transaction_limit=:per_tx, daily_limit=:daily, requested_by=:actor, requested_at=CURRENT_TIMESTAMP(6), approved_by=NULL, approved_at=NULL, rejected_by=NULL, rejected_at=NULL, disabled_by=NULL, disabled_at=NULL, notes=:notes",
+                "INSERT INTO shared_provider_entitlements (merchant_id, channel_code, environment,"
+                        + " country_code, currency_code, operation, status, per_transaction_limit,"
+                        + " daily_limit, requested_by, notes) VALUES"
+                        + " (:merchant_id,:channel_code,:environment,:country,:currency,:operation,'PENDING',:per_tx,:daily,:actor,:notes)"
+                        + " ON DUPLICATE KEY UPDATE status='PENDING', per_transaction_limit=:per_tx,"
+                        + " daily_limit=:daily, requested_by=:actor, requested_at=CURRENT_TIMESTAMP(6),"
+                        + " approved_by=NULL, approved_at=NULL, rejected_by=NULL, rejected_at=NULL,"
+                        + " disabled_by=NULL, disabled_at=NULL, notes=:notes",
                 p);
         return oneEntitlement(p);
     }
@@ -286,7 +301,8 @@ public class SharedProviderAccessService {
                     "Maker-checker violation: requester cannot approve the same entitlement");
         }
         jdbc.update(
-                "UPDATE shared_provider_entitlements SET status='ACTIVE', approved_by=:actor, approved_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
+                "UPDATE shared_provider_entitlements SET status='ACTIVE', approved_by=:actor,"
+                        + " approved_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
                 new MapSqlParameterSource().addValue("id", id).addValue("actor", approver));
         if ("PAYOUT".equals(text(row.get("operation")))) {
             grantMerchantApi(number(row.get("merchant_id")), "MOBILE_MONEY_PAYOUT");
@@ -305,7 +321,8 @@ public class SharedProviderAccessService {
                     "Maker-checker violation: requester cannot reject the same entitlement");
         }
         jdbc.update(
-                "UPDATE shared_provider_entitlements SET status='REJECTED', rejected_by=:actor, rejected_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
+                "UPDATE shared_provider_entitlements SET status='REJECTED', rejected_by=:actor,"
+                        + " rejected_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
                 new MapSqlParameterSource().addValue("id", id).addValue("actor", checker));
         return entitlementById(id);
     }
@@ -313,7 +330,8 @@ public class SharedProviderAccessService {
     @Transactional
     public Map<String, Object> disableEntitlement(long id, String actor) {
         jdbc.update(
-                "UPDATE shared_provider_entitlements SET status='DISABLED', disabled_by=:actor, disabled_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
+                "UPDATE shared_provider_entitlements SET status='DISABLED', disabled_by=:actor,"
+                        + " disabled_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
                 new MapSqlParameterSource()
                         .addValue("id", id)
                         .addValue("actor", requiredActor(actor)));
@@ -329,35 +347,66 @@ public class SharedProviderAccessService {
                 jdbc.queryForMap(
                         "SELECT * FROM platform_channel_credentials WHERE id=:id",
                         new MapSqlParameterSource("id", id));
+        List<net.citotech.cito.gateway.ProviderCredentialProbeService.ProbeCheck> checks;
         try {
-            connectivity.verify(
-                    text(row.get("channel_code")),
-                    text(row.get("environment")),
-                    text(row.get("country_code")),
-                    text(row.get("currency_code")),
-                    parseJson(crypto.decrypt(text(row.get("credential_payload")))));
+            checks =
+                    connectivity.probe(
+                            text(row.get("channel_code")),
+                            text(row.get("environment")),
+                            text(row.get("country_code")),
+                            text(row.get("currency_code")),
+                            parseJson(crypto.decrypt(text(row.get("credential_payload")))));
         } catch (RuntimeException failure) {
             jdbc.update(
-                    "UPDATE platform_channel_credentials SET last_test_status='CONNECTIVITY_FAILED',tested_revision=revision,last_tested_at=CURRENT_TIMESTAMP WHERE id=:id AND revision=:revision",
+                    "UPDATE platform_channel_credentials SET"
+                            + " last_test_status='CONNECTIVITY_FAILED',tested_revision=revision,last_tested_at=CURRENT_TIMESTAMP"
+                            + " WHERE id=:id AND revision=:revision",
                     new MapSqlParameterSource("id", id).addValue("revision", row.get("revision")));
             throw new PaymentGatewayException(
-                    "Provider authentication could not be verified; check credentials and provider availability");
+                    "Provider authentication could not be verified; check credentials and provider"
+                            + " availability");
         }
         int updated =
                 jdbc.update(
-                        "UPDATE platform_channel_credentials SET last_test_status='CONNECTIVITY_VERIFIED',tested_revision=revision,last_tested_at=CURRENT_TIMESTAMP WHERE id=:id AND revision=:revision",
+                        "UPDATE platform_channel_credentials SET"
+                                + " last_test_status=:testStatus,tested_revision=revision,last_tested_at=CURRENT_TIMESTAMP"
+                                + " WHERE id=:id AND revision=:revision",
                         new MapSqlParameterSource("id", id)
+                                .addValue(
+                                        "testStatus",
+                                        !checks.isEmpty()
+                                                        && checks.stream()
+                                                                .allMatch(
+                                                                        check ->
+                                                                                "VERIFIED"
+                                                                                        .equals(
+                                                                                                check
+                                                                                                        .status()))
+                                                ? "CONNECTIVITY_VERIFIED"
+                                                : "CONNECTIVITY_FAILED")
                                 .addValue("revision", row.get("revision")));
         if (updated != 1)
             throw new PaymentGatewayException(
                     "Credentials changed during verification; verify the new revision");
-        return platformCredentialById(id);
+        Map<String, Object> result = platformCredentialById(id);
+        if (!String.valueOf(result.get("revision")).equals(String.valueOf(row.get("revision"))))
+            throw new PaymentGatewayException(
+                    "Credentials changed during verification; verify the new revision");
+        result.put("verificationChecks", checks);
+        return result;
     }
 
     public List<Map<String, Object>> listPlatformCredentials() {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, revision, last_test_status AS lastTestStatus, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, credential_mask AS credentialMask, status, created_by AS createdBy, updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS approvedAt, updated_at AS updatedAt FROM platform_channel_credentials ORDER BY channel_code, environment, country_code, currency_code",
+                        "SELECT id, revision, last_test_status AS lastTestStatus, last_tested_at AS"
+                                + " lastTestedAt, channel_code AS channelCode, environment,"
+                                + " country_code AS countryCode, currency_code AS currencyCode,"
+                                + " credential_mask AS credentialMask, status, created_by AS createdBy,"
+                                + " updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS"
+                                + " approvedAt, updated_at AS updatedAt FROM"
+                                + " platform_channel_credentials ORDER BY channel_code, environment,"
+                                + " country_code, currency_code",
                         Map.of());
         for (Map<String, Object> row : rows) {
             row.put("credentials", parseJson(text(row.remove("credentialMask"))));
@@ -377,7 +426,9 @@ public class SharedProviderAccessService {
         ensureTreasuryAccounts(channel, environment, country, currency);
         List<Map<String, Object>> existing =
                 jdbc.queryForList(
-                        "SELECT * FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:env AND country_code=:country AND currency_code=:currency FOR UPDATE",
+                        "SELECT * FROM platform_channel_credentials WHERE channel_code=:channel AND"
+                                + " environment=:env AND country_code=:country AND"
+                                + " currency_code=:currency FOR UPDATE",
                         new MapSqlParameterSource("channel", channel)
                                 .addValue("env", environment)
                                 .addValue("country", country)
@@ -415,9 +466,14 @@ public class SharedProviderAccessService {
                         .addValue("mask", json(mask(credentials)))
                         .addValue("actor", who);
         jdbc.update(
-                "INSERT INTO platform_channel_credentials (channel_code, environment, country_code, currency_code, credential_payload, credential_mask, status, created_by, updated_by) "
-                        + "VALUES (:channel,:environment,:country,:currency,:payload,:mask,'CONFIGURED',:actor,:actor) "
-                        + "ON DUPLICATE KEY UPDATE credential_payload=:payload, credential_mask=:mask, revision=revision+1, last_test_status=NULL, tested_revision=NULL, last_tested_at=NULL, status='CONFIGURED', updated_by=:actor, approved_by=NULL, approved_at=NULL, disabled_by=NULL, disabled_at=NULL",
+                "INSERT INTO platform_channel_credentials (channel_code, environment, country_code,"
+                        + " currency_code, credential_payload, credential_mask, status, created_by,"
+                        + " updated_by) VALUES"
+                        + " (:channel,:environment,:country,:currency,:payload,:mask,'CONFIGURED',:actor,:actor)"
+                        + " ON DUPLICATE KEY UPDATE credential_payload=:payload, credential_mask=:mask,"
+                        + " revision=revision+1, last_test_status=NULL, tested_revision=NULL,"
+                        + " last_tested_at=NULL, status='CONFIGURED', updated_by=:actor,"
+                        + " approved_by=NULL, approved_at=NULL, disabled_by=NULL, disabled_at=NULL",
                 p);
         return platformCredential(channel, environment, country, currency);
     }
@@ -438,7 +494,8 @@ public class SharedProviderAccessService {
                         Integer.class);
         if (count == null || count != 2) {
             throw new PaymentGatewayException(
-                    "Collection and Disbursement treasury sub-accounts must exist before saving platform credentials");
+                    "Collection and Disbursement treasury sub-accounts must exist before saving"
+                            + " platform credentials");
         }
     }
 
@@ -447,7 +504,9 @@ public class SharedProviderAccessService {
         String approver = requiredActor(actor);
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, channel_code, status, updated_by, revision, tested_revision, last_test_status FROM platform_channel_credentials WHERE id=:id FOR UPDATE",
+                        "SELECT id, channel_code, status, updated_by, revision, tested_revision,"
+                                + " last_test_status FROM platform_channel_credentials WHERE id=:id FOR"
+                                + " UPDATE",
                         new MapSqlParameterSource().addValue("id", id));
         if (rows.isEmpty()) throw new PaymentGatewayException("Platform credential not found");
         Map<String, Object> row = rows.get(0);
@@ -457,16 +516,19 @@ public class SharedProviderAccessService {
                         || !java.util.Objects.equals(
                                 row.get("revision"), row.get("tested_revision"))))
             throw new PaymentGatewayException(
-                    "Verify provider connectivity for the current credential revision before approval");
+                    "Verify provider connectivity for the current credential revision before"
+                            + " approval");
         if (!"CONFIGURED".equals(text(row.get("status"))))
             throw new PaymentGatewayException(
                     "Only CONFIGURED platform credentials can be approved");
         if (approver.equalsIgnoreCase(text(row.get("updated_by")))) {
             throw new PaymentGatewayException(
-                    "Maker-checker violation: credential editor cannot approve the same credential");
+                    "Maker-checker violation: credential editor cannot approve the same"
+                            + " credential");
         }
         jdbc.update(
-                "UPDATE platform_channel_credentials SET status='ACTIVE', approved_by=:actor, approved_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
+                "UPDATE platform_channel_credentials SET status='ACTIVE', approved_by=:actor,"
+                        + " approved_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
                 new MapSqlParameterSource().addValue("id", id).addValue("actor", approver));
         return platformCredentialById(id);
     }
@@ -474,7 +536,8 @@ public class SharedProviderAccessService {
     @Transactional
     public Map<String, Object> disablePlatformCredential(long id, String actor) {
         jdbc.update(
-                "UPDATE platform_channel_credentials SET status='DISABLED', disabled_by=:actor, disabled_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
+                "UPDATE platform_channel_credentials SET status='DISABLED', disabled_by=:actor,"
+                        + " disabled_at=CURRENT_TIMESTAMP(6) WHERE id=:id",
                 new MapSqlParameterSource()
                         .addValue("id", id)
                         .addValue("actor", requiredActor(actor)));
@@ -494,8 +557,11 @@ public class SharedProviderAccessService {
                 scope(merchant.getId(), channel, environment, country, currency, operation);
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, status, per_transaction_limit, daily_limit, requested_by FROM shared_provider_entitlements "
-                                + "WHERE merchant_id=:merchant_id AND channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency AND operation=:operation AND status='ACTIVE' LIMIT 1",
+                        "SELECT id, status, per_transaction_limit, daily_limit, requested_by FROM"
+                                + " shared_provider_entitlements WHERE merchant_id=:merchant_id AND"
+                                + " channel_code=:channel AND environment=:environment AND"
+                                + " country_code=:country AND currency_code=:currency AND"
+                                + " operation=:operation AND status='ACTIVE' LIMIT 1",
                         p);
         if (rows.isEmpty()) return null;
         Map<String, Object> row = rows.get(0);
@@ -508,7 +574,13 @@ public class SharedProviderAccessService {
             String channel, String environment, String country, String currency) {
         Integer count =
                 jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency AND status='ACTIVE' AND (channel_code NOT IN ('mtn_momo','airtel_open_api') OR (last_test_status='CONNECTIVITY_VERIFIED' AND tested_revision=revision))",
+                        "SELECT COUNT(*) FROM platform_channel_credentials WHERE"
+                                + " channel_code=:channel AND environment=:environment AND"
+                                + " country_code=:country AND currency_code=:currency AND"
+                                + " status='ACTIVE' AND (channel_code NOT IN"
+                                + " ('mtn_momo','airtel_open_api') OR"
+                                + " (last_test_status='CONNECTIVITY_VERIFIED' AND"
+                                + " tested_revision=revision))",
                         new MapSqlParameterSource()
                                 .addValue("channel", channel)
                                 .addValue(
@@ -524,7 +596,13 @@ public class SharedProviderAccessService {
             String channel, String environment, String country, String currency) {
         List<String> rows =
                 jdbc.query(
-                        "SELECT credential_payload FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency AND status='ACTIVE' AND (channel_code NOT IN ('mtn_momo','airtel_open_api') OR (last_test_status='CONNECTIVITY_VERIFIED' AND tested_revision=revision)) LIMIT 1",
+                        "SELECT credential_payload FROM platform_channel_credentials WHERE"
+                                + " channel_code=:channel AND environment=:environment AND"
+                                + " country_code=:country AND currency_code=:currency AND"
+                                + " status='ACTIVE' AND (channel_code NOT IN"
+                                + " ('mtn_momo','airtel_open_api') OR"
+                                + " (last_test_status='CONNECTIVITY_VERIFIED' AND"
+                                + " tested_revision=revision)) LIMIT 1",
                         new MapSqlParameterSource()
                                 .addValue("channel", channel)
                                 .addValue(
@@ -556,11 +634,15 @@ public class SharedProviderAccessService {
                         .addValue("operation", "AUTHORIZED")
                         .addValue("amount", amount);
         jdbc.update(
-                "INSERT IGNORE INTO shared_provider_daily_usage (entitlement_id, usage_date, operation, approved_amount, transaction_count) VALUES (:id,:day,:operation,0,0)",
+                "INSERT IGNORE INTO shared_provider_daily_usage (entitlement_id, usage_date,"
+                        + " operation, approved_amount, transaction_count) VALUES"
+                        + " (:id,:day,:operation,0,0)",
                 p);
         List<Map<String, Object>> usage =
                 jdbc.queryForList(
-                        "SELECT id, approved_amount FROM shared_provider_daily_usage WHERE entitlement_id=:id AND usage_date=:day AND operation=:operation FOR UPDATE",
+                        "SELECT id, approved_amount FROM shared_provider_daily_usage WHERE"
+                                + " entitlement_id=:id AND usage_date=:day AND operation=:operation FOR"
+                                + " UPDATE",
                         p);
         BigDecimal used =
                 usage.isEmpty() ? BigDecimal.ZERO : decimal(usage.get(0).get("approved_amount"));
@@ -570,7 +652,9 @@ public class SharedProviderAccessService {
         }
         p.addValue("proposed", proposed);
         jdbc.update(
-                "UPDATE shared_provider_daily_usage SET approved_amount=:proposed, transaction_count=transaction_count+1 WHERE entitlement_id=:id AND usage_date=:day AND operation=:operation",
+                "UPDATE shared_provider_daily_usage SET approved_amount=:proposed,"
+                        + " transaction_count=transaction_count+1 WHERE entitlement_id=:id AND"
+                        + " usage_date=:day AND operation=:operation",
                 p);
     }
 
@@ -593,7 +677,16 @@ public class SharedProviderAccessService {
     private Map<String, Object> oneEntitlement(MapSqlParameterSource p) {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, merchant_id AS merchantId, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, operation, status, per_transaction_limit AS perTransactionLimit, daily_limit AS dailyLimit, requested_by AS requestedBy, requested_at AS requestedAt, approved_by AS approvedBy, approved_at AS approvedAt, notes FROM shared_provider_entitlements WHERE merchant_id=:merchant_id AND channel_code=:channel_code AND environment=:environment AND country_code=:country AND currency_code=:currency AND operation=:operation LIMIT 1",
+                        "SELECT id, merchant_id AS merchantId, channel_code AS channelCode,"
+                                + " environment, country_code AS countryCode, currency_code AS"
+                                + " currencyCode, operation, status, per_transaction_limit AS"
+                                + " perTransactionLimit, daily_limit AS dailyLimit, requested_by AS"
+                                + " requestedBy, requested_at AS requestedAt, approved_by AS"
+                                + " approvedBy, approved_at AS approvedAt, notes FROM"
+                                + " shared_provider_entitlements WHERE merchant_id=:merchant_id AND"
+                                + " channel_code=:channel_code AND environment=:environment AND"
+                                + " country_code=:country AND currency_code=:currency AND"
+                                + " operation=:operation LIMIT 1",
                         p);
         if (rows.isEmpty()) throw new PaymentGatewayException("Entitlement was not saved");
         return rows.get(0);
@@ -612,7 +705,13 @@ public class SharedProviderAccessService {
     private Map<String, Object> entitlementById(long id) {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, merchant_id AS merchantId, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, operation, status, per_transaction_limit AS perTransactionLimit, daily_limit AS dailyLimit, requested_by AS requestedBy, requested_at AS requestedAt, approved_by AS approvedBy, approved_at AS approvedAt, notes FROM shared_provider_entitlements WHERE id=:id",
+                        "SELECT id, merchant_id AS merchantId, channel_code AS channelCode,"
+                                + " environment, country_code AS countryCode, currency_code AS"
+                                + " currencyCode, operation, status, per_transaction_limit AS"
+                                + " perTransactionLimit, daily_limit AS dailyLimit, requested_by AS"
+                                + " requestedBy, requested_at AS requestedAt, approved_by AS"
+                                + " approvedBy, approved_at AS approvedAt, notes FROM"
+                                + " shared_provider_entitlements WHERE id=:id",
                         new MapSqlParameterSource().addValue("id", id));
         if (rows.isEmpty())
             throw new PaymentGatewayException("Shared-provider entitlement not found");
@@ -623,7 +722,14 @@ public class SharedProviderAccessService {
             String channel, String environment, String country, String currency) {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, revision, last_test_status AS lastTestStatus, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, credential_mask AS credentialMask, status, created_by AS createdBy, updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS approvedAt FROM platform_channel_credentials WHERE channel_code=:channel AND environment=:environment AND country_code=:country AND currency_code=:currency LIMIT 1",
+                        "SELECT id, revision, last_test_status AS lastTestStatus, last_tested_at AS"
+                                + " lastTestedAt, channel_code AS channelCode, environment,"
+                                + " country_code AS countryCode, currency_code AS currencyCode,"
+                                + " credential_mask AS credentialMask, status, created_by AS createdBy,"
+                                + " updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS"
+                                + " approvedAt FROM platform_channel_credentials WHERE"
+                                + " channel_code=:channel AND environment=:environment AND"
+                                + " country_code=:country AND currency_code=:currency LIMIT 1",
                         new MapSqlParameterSource()
                                 .addValue("channel", channel)
                                 .addValue("environment", environment)
@@ -636,7 +742,12 @@ public class SharedProviderAccessService {
     private Map<String, Object> platformCredentialById(long id) {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT id, revision, last_test_status AS lastTestStatus, channel_code AS channelCode, environment, country_code AS countryCode, currency_code AS currencyCode, credential_mask AS credentialMask, status, created_by AS createdBy, updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS approvedAt FROM platform_channel_credentials WHERE id=:id",
+                        "SELECT id, revision, last_test_status AS lastTestStatus, last_tested_at AS"
+                                + " lastTestedAt, channel_code AS channelCode, environment,"
+                                + " country_code AS countryCode, currency_code AS currencyCode,"
+                                + " credential_mask AS credentialMask, status, created_by AS createdBy,"
+                                + " updated_by AS updatedBy, approved_by AS approvedBy, approved_at AS"
+                                + " approvedAt FROM platform_channel_credentials WHERE id=:id",
                         new MapSqlParameterSource().addValue("id", id));
         if (rows.isEmpty()) throw new PaymentGatewayException("Platform credential not found");
         return safeCredential(rows.get(0));
@@ -706,10 +817,10 @@ public class SharedProviderAccessService {
 
     private void grantMerchantApi(long merchantId, String api) {
         jdbc.update(
-                "UPDATE merchants SET allowed_apis=CASE"
-                        + " WHEN allowed_apis IS NULL OR TRIM(allowed_apis)='' THEN :api"
-                        + " ELSE CONCAT(TRIM(TRAILING ',' FROM allowed_apis),',',:api) END"
-                        + " WHERE id=:merchant AND FIND_IN_SET(:api,REPLACE(COALESCE(allowed_apis,''),' ',''))=0",
+                "UPDATE merchants SET allowed_apis=CASE WHEN allowed_apis IS NULL OR"
+                        + " TRIM(allowed_apis)='' THEN :api ELSE CONCAT(TRIM(TRAILING ',' FROM"
+                        + " allowed_apis),',',:api) END WHERE id=:merchant AND"
+                        + " FIND_IN_SET(:api,REPLACE(COALESCE(allowed_apis,''),' ',''))=0",
                 new MapSqlParameterSource().addValue("merchant", merchantId).addValue("api", api));
     }
 
