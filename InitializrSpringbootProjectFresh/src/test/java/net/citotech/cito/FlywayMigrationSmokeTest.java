@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies the complete migration history on pristine MySQL, then a populated V126-to-V128 upgrade,
+ * Verifies the complete migration history on pristine MySQL, then a populated V126-to-latest upgrade,
  * while retaining database-level audit and financial protections.
  */
 class FlywayMigrationSmokeTest {
@@ -52,7 +52,7 @@ class FlywayMigrationSmokeTest {
                         .migrate();
 
         assertTrue(result.success, "Flyway migration must succeed");
-        assertTrue(result.migrationsExecuted > 0, "The V126 upgrade must execute V127 and V128");
+        assertTrue(result.migrationsExecuted > 0, "The V126 upgrade must execute later migrations");
         net.citotech.cito.scheduler.MtnReferenceCollationMysqlScenario.afterUpgrade(
                 url, username, password, fixture);
         Flyway.configure()
@@ -62,7 +62,7 @@ class FlywayMigrationSmokeTest {
                 .validate();
 
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            assertEquals("129", latestSuccessfulVersion(connection));
+            assertEquals("130", latestSuccessfulVersion(connection));
             assertEquals(
                     1,
                     scalarCount(
@@ -116,7 +116,7 @@ class FlywayMigrationSmokeTest {
                 connection.prepareStatement(
                         "SELECT COUNT(*) FROM information_schema.triggers "
                                 + "WHERE trigger_schema = DATABASE() "
-                                + "AND trigger_name IN (?, ?, ?, ?)"); ) {
+                                + "AND trigger_name IN (?, ?, ?, ?)")) {
             statement.setString(1, "audit_trail_no_update");
             statement.setString(2, "audit_trail_no_delete");
             statement.setString(3, "merchants_audit_trail_no_update");
