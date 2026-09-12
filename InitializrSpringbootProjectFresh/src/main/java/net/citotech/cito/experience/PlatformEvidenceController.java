@@ -58,12 +58,15 @@ public class PlatformEvidenceController {
         return jdbc.queryForList("""
                 SELECT r.provider_code providerCode,r.channel_code channelCode,
                        COUNT(*) requiredScenarios,
-                       SUM(CASE WHEN e.approved_at IS NOT NULL AND e.evidence_status IN ('APPROVED','PASSED','VERIFIED') THEN 1 ELSE 0 END) approvedScenarios
+                       SUM(CASE WHEN EXISTS (
+                           SELECT 1 FROM provider_certification_evidence e
+                            WHERE (e.provider_code=r.provider_code OR r.provider_code='*')
+                              AND (e.channel_code=r.channel_code OR r.channel_code='*')
+                              AND e.scenario_name=r.scenario_name
+                              AND e.approved_at IS NOT NULL
+                              AND e.evidence_status IN ('APPROVED','PASSED','VERIFIED')
+                       ) THEN 1 ELSE 0 END) approvedScenarios
                 FROM provider_certification_requirements r
-                LEFT JOIN provider_certification_evidence e
-                  ON (e.provider_code=r.provider_code OR r.provider_code='*')
-                 AND (e.channel_code=r.channel_code OR r.channel_code='*')
-                 AND e.scenario_name=r.scenario_name
                 WHERE r.required_flag='YES'
                 GROUP BY r.provider_code,r.channel_code
                 ORDER BY r.provider_code,r.channel_code
