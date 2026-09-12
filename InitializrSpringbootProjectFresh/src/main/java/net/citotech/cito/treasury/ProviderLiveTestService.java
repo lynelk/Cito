@@ -103,8 +103,10 @@ public class ProviderLiveTestService {
                                 "currencyCode", "UGX"),
                         actor);
         return Map.of(
-                "mtnCollectionMfaRequired", !suspended,
-                "suspendedUntil", suspended ? collectionMfaSuspendedUntil.trim() : "");
+                "mtnCollectionMfaRequired",
+                !suspended,
+                "suspendedUntil",
+                suspended ? collectionMfaSuspendedUntil.trim() : "");
     }
 
     private boolean collectionMfaSuspended(Map<String, Object> body, String actor) {

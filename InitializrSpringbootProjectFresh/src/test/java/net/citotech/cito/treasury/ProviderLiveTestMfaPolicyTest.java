@@ -35,12 +35,13 @@ class ProviderLiveTestMfaPolicyTest {
         jdbc = mock(NamedParameterJdbcTemplate.class);
         payments = mock(AdapterNativePaymentService.class);
         mfa = mock(AdminMfaService.class);
-        service = new ProviderLiveTestService(
-                jdbc,
-                payments,
-                mock(AdminPermissionService.class),
-                mfa,
-                mock(MerchantChannelCryptoService.class));
+        service =
+                new ProviderLiveTestService(
+                        jdbc,
+                        payments,
+                        mock(AdminPermissionService.class),
+                        mfa,
+                        mock(MerchantChannelCryptoService.class));
     }
 
     private Map<String, Object> collection() {
@@ -120,11 +121,12 @@ class ProviderLiveTestMfaPolicyTest {
     @Test
     void payoutOtherProviderAndOtherCountryOrCurrencyKeepMfa() {
         enable();
-        Map<String, String> changes = Map.of(
-                "operation", "PAYOUT",
-                "channelCode", "airtel_open_api",
-                "countryCode", "KE",
-                "currencyCode", "USD");
+        Map<String, String> changes =
+                Map.of(
+                        "operation", "PAYOUT",
+                        "channelCode", "airtel_open_api",
+                        "countryCode", "KE",
+                        "currencyCode", "USD");
         for (Map.Entry<String, String> change : changes.entrySet()) {
             Map<String, Object> body = collection();
             body.put(change.getKey(), change.getValue());
@@ -137,13 +139,17 @@ class ProviderLiveTestMfaPolicyTest {
     void payoutApprovalCannotSpoofCollectionFieldsToSkipMfa() {
         enable();
         when(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class)))
-                .thenReturn(List.of(Map.of(
-                        "operation", "PAYOUT",
-                        "status", "PENDING_APPROVAL",
-                        "environment", "PRODUCTION",
-                        "requested_by", "maker@example.com")));
-        PaymentGatewayException failure = assertThrows(
-                PaymentGatewayException.class, () -> service.approve(1L, collection(), ACTOR));
+                .thenReturn(
+                        List.of(
+                                Map.of(
+                                        "operation", "PAYOUT",
+                                        "status", "PENDING_APPROVAL",
+                                        "environment", "PRODUCTION",
+                                        "requested_by", "maker@example.com")));
+        PaymentGatewayException failure =
+                assertThrows(
+                        PaymentGatewayException.class,
+                        () -> service.approve(1L, collection(), ACTOR));
         assertEquals("mfaCode is required", failure.getMessage());
         verifyNoInteractions(mfa, payments);
     }
@@ -152,13 +158,17 @@ class ProviderLiveTestMfaPolicyTest {
     void sameOperatorStillCannotApproveTheirOwnPayout() {
         enable();
         when(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class)))
-                .thenReturn(List.of(Map.of(
-                        "operation", "PAYOUT",
-                        "status", "PENDING_APPROVAL",
-                        "environment", "PRODUCTION",
-                        "requested_by", ACTOR)));
-        PaymentGatewayException failure = assertThrows(
-                PaymentGatewayException.class, () -> service.approve(1L, collection(), ACTOR));
+                .thenReturn(
+                        List.of(
+                                Map.of(
+                                        "operation", "PAYOUT",
+                                        "status", "PENDING_APPROVAL",
+                                        "environment", "PRODUCTION",
+                                        "requested_by", ACTOR)));
+        PaymentGatewayException failure =
+                assertThrows(
+                        PaymentGatewayException.class,
+                        () -> service.approve(1L, collection(), ACTOR));
         assertEquals(
                 "Maker-checker violation: requester cannot approve the same payout test",
                 failure.getMessage());

@@ -28,6 +28,8 @@ public class ProviderLiveTestMfaController {
     public ResponseEntity<Map<String, Object>> policy(Authentication authentication) {
         permissions.require("LIVE_COLLECTION_TEST", "provider-live-test-mfa-policy", "mtn_momo");
         String actor = authentication == null ? "" : authentication.getName();
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.mfaPolicy(actor));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(service.mfaPolicy(actor));
     }
 }

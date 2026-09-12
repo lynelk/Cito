@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -13,7 +14,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); client.clear(); localStorage.clear(); });
 const open = (operation = 'COLLECT', value = '', onChange = vi.fn()) => render(
-  <QueryClientProvider client={client}><ProviderTestMfaField operation={operation} label="Your MFA code" value={value} onChange={onChange} /></QueryClientProvider>,
+  <MemoryRouter><QueryClientProvider client={client}><ProviderTestMfaField operation={operation} label="Your MFA code" value={value} onChange={onChange} /></QueryClientProvider></MemoryRouter>,
 );
 const suspend = () => vi.mocked(request).mockResolvedValue({ mtnCollectionMfaRequired: false, suspendedUntil: new Date(Date.now() + 600_000).toISOString() } as never);
 
