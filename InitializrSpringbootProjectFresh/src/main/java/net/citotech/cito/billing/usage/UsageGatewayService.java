@@ -4,18 +4,18 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 import net.citotech.cito.billing.tenancy.BillingTenantResolver;
+import net.citotech.cito.platform.kernel.PlatformUsageContract;
 import org.springframework.stereotype.Service;
 
 /**
- * Entry point every future usage producer (payments, SMS, webhooks, invoicing) calls to record one
- * meterable event. Resolves the caller's {@code merchantId} to a {@code billing_tenant_id} (ADR
- * 0003) and dedupes by {@code idempotencyKey} via {@link UsageEventRepository#insertIfAbsent} so a
- * retried caller (e.g. a redelivered provider callback) never double-counts. No producer calls this
- * yet - wiring a real caller (starting with {@code PaymentOrchestrationService.collect()}) is a
- * later, separately-flagged slice.
+ * Canonical metering entry point for every billable Cito domain.
+ *
+ * <p>Resolves the caller's merchant to the existing Billing/BaaS tenant, then deduplicates by the
+ * immutable idempotency key. Payments, communications, identity/risk, vending and API access use
+ * this same contract instead of maintaining parallel usage stores.
  */
 @Service
-public class UsageGatewayService {
+public class UsageGatewayService implements PlatformUsageContract {
     private final BillingTenantResolver tenantResolver;
     private final UsageEventRepository repository;
 
@@ -25,6 +25,7 @@ public class UsageGatewayService {
         this.repository = repository;
     }
 
+    @Override
     public UsageEvent recordUsage(
             long merchantId,
             String serviceCode,
