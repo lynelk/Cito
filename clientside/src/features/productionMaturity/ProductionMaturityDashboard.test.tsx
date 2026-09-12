@@ -15,6 +15,28 @@ function renderDashboard() {
   );
 }
 
+function response(body: unknown, ok = true, statusText = 'OK') {
+  return Promise.resolve({ ok, statusText, text: () => Promise.resolve(JSON.stringify(body)) });
+}
+
+function successfulFetch() {
+  return vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes('/api/v2/admin/platform-evidence/scorecard')) {
+      return response({
+        evidenceBasis: 'DURABLE_RECORDS_ONLY',
+        targetsReportedAsActuals: false,
+        commercial: {},
+        developer: {},
+        adoption: {},
+        providerDefinitions: [],
+        providerCertification: [],
+      });
+    }
+    return response({ rows: [] });
+  });
+}
+
 describe('ProductionMaturityDashboard', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -22,10 +44,7 @@ describe('ProductionMaturityDashboard', () => {
   });
 
   it('renders loading state and calls the real production maturity endpoints', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.resolve({ ok: true, text: () => Promise.resolve('{"widgets":[]}') })),
-    );
+    vi.stubGlobal('fetch', successfulFetch());
 
     renderDashboard();
 
@@ -42,15 +61,13 @@ describe('ProductionMaturityDashboard', () => {
     });
   });
 
-  it('renders all production-maturity workflow sections after data loads', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.resolve({ ok: true, text: () => Promise.resolve('{"rows":[]}') })),
-    );
+  it('renders workflow sections and the durable platform evidence panel', async () => {
+    vi.stubGlobal('fetch', successfulFetch());
 
     renderDashboard();
 
     expect(await screen.findByRole('heading', { name: /production maturity/i })).toBeInTheDocument();
+    expect(await screen.findByText(/commercial & adoption evidence/i)).toBeInTheDocument();
     expect(await screen.findByText(/merchant onboarding/i)).toBeInTheDocument();
     expect(screen.getByText(/developer portal/i)).toBeInTheDocument();
     expect(screen.getByText(/finance operations/i)).toBeInTheDocument();
@@ -59,15 +76,18 @@ describe('ProductionMaturityDashboard', () => {
     expect(screen.getByText(/automation validation/i)).toBeInTheDocument();
   });
 
-  it('renders a failure state when a production maturity endpoint fails', async () => {
+  it('renders explicit failure states instead of manufacturing zeros', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => Promise.resolve({ ok: false, statusText: 'Forbidden', text: () => Promise.resolve('{"message":"Forbidden"}') })),
+      vi.fn(() => response({ message: 'Forbidden' }, false, 'Forbidden')),
     );
 
     renderDashboard();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/could not be loaded/i);
-    expect(screen.getByRole('alert')).toHaveTextContent(/forbidden/i);
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts.length).toBeGreaterThan(0);
+    const combined = alerts.map((alert) => alert.textContent || '').join(' ');
+    expect(combined).toMatch(/could not be loaded/i);
+    expect(combined).toMatch(/forbidden/i);
   });
 });
