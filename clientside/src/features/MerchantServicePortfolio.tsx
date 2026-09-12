@@ -45,6 +45,8 @@ const families: ServiceFamily[] = [
     description: 'Use approved verification and credit-data providers for identity, KYC/KYB, CRB reports and decisioning without hard-wiring your business to one provider.',
     capabilities: ['NIN verification', 'KYC / KYB', 'CRB reports', '0–1000 scoring', 'Bank verification', 'TIN / registry'],
     entitlementHints: ['IDENTITY', 'KYC', 'KYB', 'CRB', 'SCORING', 'SCORE', 'CREDIT', 'NIN'],
+    route: '/fo/services',
+    action: 'Open identity controls',
   },
   {
     code: 'vending',
@@ -63,6 +65,8 @@ const families: ServiceFamily[] = [
     description: 'Meter usage, apply pricing, issue invoices and use Cito as a Billing-as-a-Service layer for your own products and customers.',
     capabilities: ['Metering', 'Rating', 'BaaS', 'Invoices', 'Recurring', 'Tax & FX evidence'],
     entitlementHints: ['BILLING', 'BAAS', 'INVOICE', 'METERING', 'RATING', 'RECURRING'],
+    route: '/fo/services',
+    action: 'Open billing controls',
   },
   {
     code: 'integrations',
