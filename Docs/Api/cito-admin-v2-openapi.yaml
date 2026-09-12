@@ -267,7 +267,7 @@ paths:
                   revision: {type: integer, format: int64}
                   status: {type: string, description: Credential lifecycle status; verification never activates it.}
                   lastTestStatus: {type: string, enum: [CONNECTIVITY_VERIFIED, CONNECTIVITY_FAILED]}
-                  lastTestedAt: {type: string, format: date-time, nullable: true}
+                  lastTestedAt: {type: [string, 'null'], format: date-time}
                   verificationChecks:
                     type: array
                     description: Safe diagnostics for this request; raw tokens and provider response bodies are never returned. MTN checks both products even if one fails.
