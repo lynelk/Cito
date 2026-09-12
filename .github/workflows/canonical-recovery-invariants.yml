@@ -22,9 +22,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 8.4 is the long-lived compatibility floor, 9.4 is Flyway's currently
-        # verified line, and 9.7.2 is the exact Railway production image. A
-        # green 9.7.2 lane means Cito-qualified, not vendor-certified by Flyway.
+        # Cito qualification includes the compatibility floor and exact production image.
+        # A green lane is not a claim of Flyway vendor certification.
         version: ['8.4', '9.4', '9.7.2']
     services:
       mysql:
@@ -71,6 +70,11 @@ jobs:
       - name: Populated migration, original attribution, fencing and financial rollback
         working-directory: InitializrSpringbootProjectFresh
         run: mvn -B test --no-transfer-progress -Dtest=FlywayMigrationSmokeTest
+      - name: Platform evidence queries on the canonical migrated schema
+        working-directory: InitializrSpringbootProjectFresh
+        env:
+          CITO_EVIDENCE_MYSQL_TESTS: 'true'
+        run: mvn -B test --no-transfer-progress -Dtest=PlatformEvidenceMysqlTest
       - name: Competing workers, restart, expired claims and independent billing invariants
         if: matrix.version != '9.4'
         working-directory: InitializrSpringbootProjectFresh

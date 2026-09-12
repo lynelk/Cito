@@ -3,9 +3,9 @@ info:
   title: Cito Platform Evidence API
   version: 2.1.0
   description: |
-    Administrator read-only contract for evidence-based Cito platform maturity reporting.
-    Values come from durable authoritative records. Targets, configured adapters and missing evidence
-    are never converted into achieved operational, commercial or provider-certification claims.
+    Administrator read-only maturity evidence. Measured counters come from durable authoritative
+    records. Targets, adapter metadata and missing evidence are never achieved commercial or
+    operational results. Provider coverage is historical reviewed evidence, not live certification.
 servers:
   - url: https://cito.coresynergi.es
     description: Production
@@ -13,35 +13,28 @@ security:
   - AdminPortalSession: []
 tags:
   - name: Admin Platform Evidence
-    description: Durable-record maturity evidence for authorized Cito administrators.
+    description: Durable-record maturity evidence for authorized administrators.
 paths:
   /api/v2/admin/platform-evidence/scorecard:
     get:
-      tags:
-        - Admin Platform Evidence
+      tags: [Admin Platform Evidence]
       operationId: getPlatformEvidenceScorecard
       summary: Read the platform maturity evidence scorecard
       description: |
-        Returns observed commercial, developer, production-adoption and provider-certification
-        evidence from authoritative Cito records together with code-level provider definitions from
-        the common provider registry. Provider definitions describe available adapters/capabilities;
-        they are deliberately separate from certification evidence. The endpoint performs no provider
-        request or state mutation and never reports targets as actuals.
+        Returns commercial records, developer activity across sandbox and production, production
+        command attempts and provider-specific reviewed scenario coverage. Time windows exclude
+        future-dated records; active assignments must be currently effective. Wildcard requirements
+        are expanded separately for each concrete provider/channel and duplicate scenarios count once.
+        Provider definitions are code-level metadata, not activation or certification. No provider
+        request, state mutation, credential change or entitlement grant occurs.
       responses:
         '200':
-          description: Durable-record platform evidence.
+          description: Durable-record platform evidence and separate adapter metadata.
           content:
             application/json:
               schema:
                 type: object
-                required:
-                  - evidenceBasis
-                  - targetsReportedAsActuals
-                  - commercial
-                  - developer
-                  - adoption
-                  - providerDefinitions
-                  - providerCertification
+                required: [evidenceBasis, targetsReportedAsActuals, commercial, developer, adoption, providerDefinitions, providerCertification]
                 properties:
                   evidenceBasis:
                     type: string
@@ -51,39 +44,49 @@ paths:
                     const: false
                   commercial:
                     type: object
-                    additionalProperties:
-                      type: integer
-                      format: int64
+                    required: [founding20Candidates, founding20Active, founding20Live, activePackageAssignments, embeddedProgrammesLive]
+                    properties:
+                      founding20Candidates: {$ref: '#/components/schemas/EvidenceCount'}
+                      founding20Active: {$ref: '#/components/schemas/EvidenceCount'}
+                      founding20Live: {$ref: '#/components/schemas/EvidenceCount'}
+                      activePackageAssignments: {$ref: '#/components/schemas/EvidenceCount'}
+                      embeddedProgrammesLive: {$ref: '#/components/schemas/EvidenceCount'}
+                    additionalProperties: {$ref: '#/components/schemas/EvidenceCount'}
                   developer:
                     type: object
-                    additionalProperties:
-                      type: integer
-                      format: int64
+                    description: Request counters span sandbox and production; 2xx/3xx responses are not completed business transactions.
+                    required: [activeProjects, productionEligibleProjects, apiRequests7d, activeApiMerchants30d, successfulApiRequests7d]
+                    properties:
+                      activeProjects: {$ref: '#/components/schemas/EvidenceCount'}
+                      productionEligibleProjects: {$ref: '#/components/schemas/EvidenceCount'}
+                      apiRequests7d: {$ref: '#/components/schemas/EvidenceCount'}
+                      activeApiMerchants30d: {$ref: '#/components/schemas/EvidenceCount'}
+                      successfulApiRequests7d: {$ref: '#/components/schemas/EvidenceCount'}
+                    additionalProperties: {$ref: '#/components/schemas/EvidenceCount'}
                   adoption:
                     type: object
-                    additionalProperties:
-                      type: integer
-                      format: int64
+                    description: Production usage records are idempotent command reservations/attempts, not settlements.
+                    required: [productionMerchants30d, productionCommands30d, liveOnboardingWorkflows, approvedGoLiveChecklists]
+                    properties:
+                      productionMerchants30d: {$ref: '#/components/schemas/EvidenceCount'}
+                      productionCommands30d: {$ref: '#/components/schemas/EvidenceCount'}
+                      liveOnboardingWorkflows: {$ref: '#/components/schemas/EvidenceCount'}
+                      approvedGoLiveChecklists: {$ref: '#/components/schemas/EvidenceCount'}
+                    additionalProperties: {$ref: '#/components/schemas/EvidenceCount'}
                   providerDefinitions:
                     type: array
-                    description: Code-level provider capability definitions; not certification.
+                    description: Immutable code-level capability/environment metadata, not readiness or certification.
                     items:
                       type: object
-                      required:
-                        - providerCode
-                        - domain
-                        - capabilities
-                        - environments
+                      required: [providerCode, domain, capabilities, environments]
                       properties:
-                        providerCode:
-                          type: string
+                        providerCode: {type: string}
                         domain:
                           type: string
                           enum: [PAYMENT, COMMUNICATION, IDENTITY, RISK, VENDING, REGULATORY]
                         capabilities:
                           type: array
-                          items:
-                            type: string
+                          items: {type: string}
                         environments:
                           type: array
                           items:
@@ -92,24 +95,36 @@ paths:
                       additionalProperties: false
                   providerCertification:
                     type: array
-                    description: Durable certification evidence grouped by provider/channel.
+                    description: |
+                      Concrete provider/channel historical reviewed-scenario coverage. APPROVED requires
+                      a nonblank reviewer and a nonfuture approval timestamp. Does not establish current
+                      credentials, environment-specific acceptance, live delivery or settlement.
                     items:
                       type: object
-                      additionalProperties: true
+                      required: [providerCode, channelCode, requiredScenarios, approvedScenarios]
+                      properties:
+                        providerCode: {type: string, minLength: 1}
+                        channelCode: {type: string, minLength: 1}
+                        requiredScenarios: {$ref: '#/components/schemas/EvidenceCount'}
+                        approvedScenarios: {$ref: '#/components/schemas/EvidenceCount'}
+                      additionalProperties: false
                 additionalProperties: false
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
 components:
+  schemas:
+    EvidenceCount:
+      type: integer
+      format: int64
+      minimum: 0
   securitySchemes:
     AdminPortalSession:
       type: apiKey
       in: cookie
-      name: CITO_SESSION
-      description: Authenticated Cito portal session. The caller must also hold platform ADMIN authority.
+      name: SESSION
+      description: Existing authenticated portal session with platform ADMIN authority.
   responses:
     Unauthorized:
       description: Authentication is required or the session is invalid.
     Forbidden:
-      description: The authenticated principal is not authorized as a platform administrator.
+      description: The authenticated principal is not a platform administrator.

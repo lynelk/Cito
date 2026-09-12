@@ -4,20 +4,21 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.citotech.cito.billing.outbox.OutboxWriter;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Publishes every cross-domain Cito event through the existing transactional outbox.
- *
- * <p>The surrounding business transaction owns commit/rollback. This service does not start a new
- * transaction and therefore cannot create an event for business work that later rolls back.
+ * Publishes cross-domain Cito events through the existing transactional outbox. The caller must
+ * already own a business transaction; MANDATORY rejects accidental autocommit publication. This
+ * boundary never opens a separate transaction for an event whose business work can still roll back.
  */
 @Service
 public class PlatformEventOutboxGateway implements PlatformEventContract {
     public static final String OUTBOX_EVENT_TYPE = "CITO_PLATFORM_EVENT";
-
     private final OutboxWriter outbox;
 
     public PlatformEventOutboxGateway(OutboxWriter outbox) {
@@ -25,6 +26,7 @@ public class PlatformEventOutboxGateway implements PlatformEventContract {
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public String publish(
             PlatformTenantContext context,
             String serviceCode,
@@ -34,29 +36,17 @@ public class PlatformEventOutboxGateway implements PlatformEventContract {
             String causationId,
             Map<String, Object> payload) {
         if (context == null) throw new IllegalArgumentException("Platform tenant context is required");
+        String environment = normalize(context.environment());
+        if (!Set.of("SANDBOX", "PRODUCTION").contains(environment)) {
+            throw new IllegalArgumentException("Platform event environment is invalid");
+        }
         String id = UUID.randomUUID().toString();
-        PlatformEventEnvelope envelope =
-                new PlatformEventEnvelope(
-                        id,
-                        required(eventType),
-                        1,
-                        context.organizationId(),
-                        context.merchantId(),
-                        normalize(serviceCode),
-                        normalize(sourceDomain),
-                        required(sourceId),
-                        normalize(context.environment()),
-                        context.correlationId(),
-                        causationId,
-                        Instant.now(),
-                        context.actorType(),
-                        context.actorId(),
-                        payload);
-        outbox.write(
-                "CITO_PLATFORM",
-                envelope.sourceId(),
-                OUTBOX_EVENT_TYPE,
-                toPayload(envelope));
+        PlatformEventEnvelope envelope = new PlatformEventEnvelope(
+                id, required(eventType), 1, context.organizationId(), context.merchantId(),
+                normalize(serviceCode), normalize(sourceDomain), required(sourceId), environment,
+                context.correlationId(), causationId, Instant.now(), context.actorType(),
+                context.actorId(), payload);
+        outbox.write("CITO_PLATFORM", envelope.sourceId(), OUTBOX_EVENT_TYPE, toPayload(envelope));
         return id;
     }
 
@@ -81,7 +71,9 @@ public class PlatformEventOutboxGateway implements PlatformEventContract {
     }
 
     private String required(String value) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException("Platform event value is required");
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Platform event value is required");
+        }
         return value.trim();
     }
 
