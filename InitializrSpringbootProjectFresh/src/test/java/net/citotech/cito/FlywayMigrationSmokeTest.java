@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies the complete migration history on pristine MySQL, then a populated V126-to-latest upgrade,
- * while retaining database-level audit and financial protections.
+ * Verifies the complete migration history on pristine MySQL, then a populated V126-to-latest
+ * upgrade, while retaining database-level audit and financial protections.
  */
 class FlywayMigrationSmokeTest {
 
