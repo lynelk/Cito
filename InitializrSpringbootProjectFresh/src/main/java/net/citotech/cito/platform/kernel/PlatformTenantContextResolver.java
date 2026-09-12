@@ -9,8 +9,10 @@ import net.citotech.cito.experience.ExperienceAccessContext;
 import net.citotech.cito.gateway.PaymentGatewayException;
 import net.citotech.cito.platform.CitoEntitlementService;
 import org.slf4j.MDC;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 /** Resolves one server-side tenant/actor/environment/correlation context for portal operations. */
 @Component
@@ -39,6 +41,22 @@ public class PlatformTenantContextResolver {
                 environment(request),
                 application(request),
                 correlationId(request));
+    }
+
+    public void requireAdmin(PlatformTenantContext context) {
+        if (context == null || !context.platformScoped() || !"ADMIN".equals(context.actorType())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Administrator access required");
+        }
+    }
+
+    public void requireMerchantScope(PlatformTenantContext context, long merchantId) {
+        if (context == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Portal login is required");
+        }
+        if (context.merchantId() != null && context.merchantId() != merchantId) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Merchant access denied");
+        }
     }
 
     private String environment(HttpServletRequest request) {
