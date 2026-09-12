@@ -189,3 +189,8 @@ SMS provider activation is an explicit admin action in Communications → Provid
 
 
 MTN connection configuration and release acceptance: see `Docs/Operations/mtn-promotion-20260911.md`. General Settings now links to the governed provider credential workspace; populated settings are not authentication evidence. No provider activation or automatic credential migration occurs.
+
+
+## External developer delivery
+
+The Cito consumer SDK 2.0 and versioned external API handover are documented in `Docs/Api/consumer/START-HERE.md`. Generate with `python3 scripts/consumer_api/build_package.py`; verify with `--check`. `Consumer API Handover` CI checks all three language signers, client safety, the source-derived BaaS request schemas, the consumer-only Postman/OpenAPI projection and package checksums. This is a library/documentation release: no database migration, provider activation, credential change or financial transaction is performed. Preserve exact-revision staging/production acceptance before claiming live endpoint readiness.

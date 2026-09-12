@@ -1,0 +1,73 @@
+# External endpoint catalogue
+
+Package 2.0.0. Generated from the owning contracts; counts are API descriptions, not live-service certifications.
+
+| Method | Path | Operation | Authentication | Environment policy |
+|---|---|---|---|---|
+| POST | `/api/v2/native/payments/collect` | `nativeCollect` | RSA_V2 | PAYMENT_SELECTOR |
+| POST | `/api/v2/native/payments/payout` | `nativePayout` | RSA_V2 | PAYMENT_SELECTOR |
+| GET | `/api/v2/channels` | `listChannels` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| GET | `/api/v2/webhooks/events` | `listWebhookEvents` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| GET | `/api/v2/payments/{reference}` | `transactionStatus` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| POST | `/api/v2/accounts/validate` | `validateAccount` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| POST | `/api/v2/payment-links` | `createPaymentLink` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| POST | `/api/v2/invoices` | `createInvoice` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| GET | `/api/v2/invoices` | `listInvoices` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| POST | `/api/v2/invoices/{reference}/actions/send` | `sendInvoice` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| POST | `/api/v2/invoices/{reference}/actions/cancel` | `cancelInvoice` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| GET | `/api/v2/statements` | `exportMerchantStatements` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| POST | `/api/v2/payments/collect` | `collectPayment` | RSA_V2 | PAYMENT_SELECTOR |
+| POST | `/api/v2/payments/payout` | `payoutPayment` | RSA_V2 | PAYMENT_SELECTOR |
+| GET | `/api/v2/balances` | `merchantBalances` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| POST | `/api/v2/refunds` | `createRefund` | RSA_V2 | PAYMENT_SELECTOR |
+| GET | `/api/v2/refunds` | `listRefunds` | RSA_V2 | PAYMENT_SELECTOR |
+| GET | `/api/v2/refunds/{reference}` | `refundStatus` | RSA_V2 | PAYMENT_SELECTOR |
+| GET | `/api/v2/batch-payouts/{batchId}/status` | `batchPayoutStatus` | RSA_V2 | PAYMENT_SELECTOR |
+| POST | `/api/v2/batch-payouts/{batchId}/retry-failed` | `retryFailedBatchPayout` | RSA_V2 | PAYMENT_SELECTOR |
+| POST | `/api/v2/identity/verify` | `verifyMerchantIdentity` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| GET | `/api/v2/identity/requests/{reference}` | `getMerchantIdentityRequest` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| GET | `/api/v2/merchant/balances` | `getSignedMerchantBalanceViews` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| GET | `/api/v2/identity/capabilities` | `getMerchantIdentityCapabilities` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| POST | `/api/v2/communication/messages` | `sendCommunicationSms` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| POST | `/api/v2/communication/messages/bulk` | `sendBulkCommunicationSms` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| POST | `/api/v2/communication/messages/preview` | `previewCommunicationSmsRoute` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| GET | `/api/v2/communication/messages/{reference}` | `getCommunicationSmsStatus` | RSA_V2 | NO_SANDBOX_SELECTOR |
+| GET | `/api/v2/native/billing/baas/customers` | `listBillingCustomers` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/customers` | `createBillingCustomer` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/accounts` | `createBillingAccount` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/contracts` | `createBillingContract` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/contracts/{reference}/submit` | `submitBillingContract` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/contracts/{reference}/approve` | `approveBillingContract` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/contracts/{reference}/activate` | `activateBillingContract` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/contracts/{reference}/price-overrides` | `submitContractPriceOverride` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/price-overrides/{overrideId}/approve` | `approveContractPriceOverride` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/subscriptions` | `createBillingSubscription` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/subscriptions/{reference}/activate` | `activateBillingSubscription` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/subscriptions/{reference}/pause` | `pauseBillingSubscription` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/subscriptions/{reference}/cancel` | `cancelBillingSubscription` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/subscriptions/{reference}/entitlements` | `grantBillingEntitlement` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/pricing/quotes` | `quoteBillingPrice` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/charges` | `authorizeBillingChargeCompatibility` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/charges/rate-and-authorize` | `rateAndAuthorizeBillingCharge` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/charges/{reference}` | `getBillingCharge` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/charges/{reference}/commit` | `commitBillingCharge` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/charges/{reference}/release` | `releaseBillingCharge` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/charges/{reference}/reverse` | `reverseBillingCharge` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/usage/events` | `ingestBillingUsageEvent` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/usage/events` | `listBillingUsageEvents` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/usage/summary` | `summarizeBillingUsage` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/invoices` | `listBillingInvoices` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/invoices/{invoiceNumber}` | `getBillingInvoice` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/quotas` | `getBillingQuotaUsage` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/entitlements` | `listBillingEntitlements` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/catalog` | `getBillingCatalog` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/protected-actions` | `requestBillingProtectedAction` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/protected-actions/{id}/approve` | `approveBillingProtectedAction` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/webhooks/events` | `listBillingWebhookEventTypes` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/webhooks` | `listBillingWebhooks` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/webhooks` | `createBillingWebhook` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/webhooks/{endpointId}/rotate-secret` | `rotateBillingWebhookSecret` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/webhooks/deliveries` | `listBillingWebhookDeliveries` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/webhooks/deliveries/{deliveryId}/replay` | `replayBillingWebhookDelivery` | BAAS_API_KEY | BAAS_SELECTOR |
+| POST | `/api/v2/native/billing/baas/webhooks/test` | `testBillingWebhook` | BAAS_API_KEY | BAAS_SELECTOR |
+| GET | `/api/v2/native/billing/baas/exports/focus` | `exportBillingFocus14CostAndUsage` | BAAS_API_KEY | BAAS_SELECTOR |

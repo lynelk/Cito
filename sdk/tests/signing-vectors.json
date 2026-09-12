@@ -1,0 +1,230 @@
+[
+  {
+    "name": "empty",
+    "method": "GET",
+    "path": "/api/v2/test",
+    "query": [],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": "",
+    "canonical": "GET\n/api/v2/test\n\n2026-09-12T00:00:00Z\ntest-nonce\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonicalQuery": ""
+  },
+  {
+    "name": "space",
+    "method": "GET",
+    "path": "/api/v2/test",
+    "query": [
+      [
+        "note",
+        "A B"
+      ]
+    ],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": "",
+    "canonical": "GET\n/api/v2/test\nnote=A+B\n2026-09-12T00:00:00Z\ntest-nonce\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonicalQuery": "note=A+B"
+  },
+  {
+    "name": "reserved",
+    "method": "GET",
+    "path": "/api/v2/test",
+    "query": [
+      [
+        "!*~'() _-.",
+        "+ /?&=#%\t\n"
+      ]
+    ],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": "",
+    "canonical": "GET\n/api/v2/test\n%21*%7E%27%28%29+_-.=%2B+%2F%3F%26%3D%23%25%09%0A\n2026-09-12T00:00:00Z\ntest-nonce\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonicalQuery": "%21*%7E%27%28%29+_-.=%2B+%2F%3F%26%3D%23%25%09%0A"
+  },
+  {
+    "name": "repeated-sort",
+    "method": "GET",
+    "path": "/api/v2/test",
+    "query": [
+      [
+        "z",
+        "last"
+      ],
+      [
+        "a",
+        "z"
+      ],
+      [
+        "a",
+        "a"
+      ],
+      [
+        "a",
+        "A"
+      ],
+      [
+        "a",
+        ""
+      ],
+      [
+        "a",
+        "a"
+      ]
+    ],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": "",
+    "canonical": "GET\n/api/v2/test\na=&a=A&a=a&a=a&a=z&z=last\n2026-09-12T00:00:00Z\ntest-nonce\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonicalQuery": "a=&a=A&a=a&a=a&a=z&z=last"
+  },
+  {
+    "name": "unicode",
+    "method": "POST",
+    "path": "/api/v2/test",
+    "query": [
+      [
+        "名",
+        "café Kampala"
+      ],
+      [
+        "é",
+        "🦁"
+      ],
+      [
+        "a",
+        "é"
+      ]
+    ],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": "{\"name\":\"Mirembe 🦁\",\"amount\":\"12.3400\"}",
+    "canonical": "POST\n/api/v2/test\na=%C3%A9&%C3%A9=%F0%9F%A6%81&%E5%90%8D=caf%C3%A9+Kampala\n2026-09-12T00:00:00Z\ntest-nonce\n04e53af0ceba4560dc7b0c085534b01d69ff5007ff3a51b7dad293aa91dae181",
+    "canonicalQuery": "a=%C3%A9&%C3%A9=%F0%9F%A6%81&%E5%90%8D=caf%C3%A9+Kampala"
+  },
+  {
+    "name": "utf16-order",
+    "method": "GET",
+    "path": "/api/v2/test",
+    "query": [
+      [
+        "",
+        "x"
+      ],
+      [
+        "😀",
+        "x"
+      ],
+      [
+        "a",
+        ""
+      ],
+      [
+        "a",
+        "😀"
+      ]
+    ],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": "",
+    "canonical": "GET\n/api/v2/test\na=%F0%9F%98%80&a=%EE%80%80&%F0%9F%98%80=x&%EE%80%80=x\n2026-09-12T00:00:00Z\ntest-nonce\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonicalQuery": "a=%F0%9F%98%80&a=%EE%80%80&%F0%9F%98%80=x&%EE%80%80=x"
+  },
+  {
+    "name": "explicit-empty",
+    "method": "GET",
+    "path": "/api/v2/test",
+    "query": [
+      [
+        "empty",
+        ""
+      ],
+      [
+        "",
+        "empty-key"
+      ]
+    ],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": "",
+    "canonical": "GET\n/api/v2/test\n=empty-key&empty=\n2026-09-12T00:00:00Z\ntest-nonce\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonicalQuery": "=empty-key&empty="
+  },
+  {
+    "name": "body-trim",
+    "method": "POST",
+    "path": "/api/v2/test",
+    "query": [],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": " \n\t{\"a\":1}\r\n",
+    "canonical": "POST\n/api/v2/test\n\n2026-09-12T00:00:00Z\ntest-nonce\n015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862",
+    "canonicalQuery": ""
+  },
+  {
+    "name": "body-internal-space",
+    "method": "POST",
+    "path": "/api/v2/test",
+    "query": [],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": "{\"a\": 1}",
+    "canonical": "POST\n/api/v2/test\n\n2026-09-12T00:00:00Z\ntest-nonce\nf9d86028c6e0d64e225186f96acb69338b2c59764df79162107f5c4bb34d1310",
+    "canonicalQuery": ""
+  },
+  {
+    "name": "nbsp-not-trimmed",
+    "method": "POST",
+    "path": "/api/v2/test",
+    "query": [],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": " {} ",
+    "canonical": "POST\n/api/v2/test\n\n2026-09-12T00:00:00Z\ntest-nonce\ne37738f81dec4541936e5d13327e5d7f342f45a632215a9c59c67229c0f1fc19",
+    "canonicalQuery": ""
+  },
+  {
+    "name": "amount",
+    "method": "POST",
+    "path": "/api/v2/test",
+    "query": [
+      [
+        "merchantNumber",
+        "TEST"
+      ]
+    ],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": "{\"amount\":\"0.0001\",\"reference\":\"order-1\"}",
+    "canonical": "POST\n/api/v2/test\nmerchantNumber=TEST\n2026-09-12T00:00:00Z\ntest-nonce\n231077b251cb0dd5b8e7e46f51a4a11ce41566cf37adb486c74c5a66b1bbbf97",
+    "canonicalQuery": "merchantNumber=TEST"
+  },
+  {
+    "name": "slash",
+    "method": "POST",
+    "path": "/api/v2/test",
+    "query": [
+      [
+        "path",
+        "/a/b"
+      ],
+      [
+        "tilde",
+        "~"
+      ],
+      [
+        "star",
+        "*"
+      ],
+      [
+        "plus",
+        "+"
+      ]
+    ],
+    "timestamp": "2026-09-12T00:00:00Z",
+    "nonce": "test-nonce",
+    "body": "{}",
+    "canonical": "POST\n/api/v2/test\npath=%2Fa%2Fb&plus=%2B&star=*&tilde=%7E\n2026-09-12T00:00:00Z\ntest-nonce\n44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "canonicalQuery": "path=%2Fa%2Fb&plus=%2B&star=*&tilde=%7E"
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "name": "cito-consumer-sdk",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Cito / CPay v2 server-side request signing and explicit-environment payment client",
+  "main": "cpay-client.js",
+  "engines": {"node": ">=22"},
+  "dependencies": {}
+}

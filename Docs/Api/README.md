@@ -64,3 +64,8 @@ If an implementation changes a public request, response, path, authentication re
 ## Searchable portal references
 
 Start with [Cito Gateway integration guide](Cito-Gateway-Integration-Guide.md). Merchant Developers provides a private, component-pruned OpenAPI 3.1 projection of the owning contracts. It labels external integration and merchant workspace operations separately. Admin API workbench also provides the full runtime system schema and API access rate controls. The public hero page exposes searchable capability topics only. Generated references never replace the source contracts listed above. See [release notes](API-REFERENCE-RELEASE.md) for migration, authentication compatibility and verification requirements.
+
+
+## External handover
+
+Use `consumer/START-HERE.md` for the external server-to-server delivery. `consumer/external-openapi.json` is a generated, component-pruned THIRD_PARTY v2 projection; it is not another authoritative contract and cannot override the ownership table above. The matching `cpay-v2-postman-collection.json` deliberately excludes administrator, session and legacy body-signature requests. Node/Python/PHP SDK 2.0 and `sdk/tests/signing-vectors.json` match the existing verifier; `ConsumerSigningConformanceTest` protects that compatibility. BaaS request schemas are enriched from actual controller records and checked by `scripts/consumer_api/sync_baas_schemas.py --check`.

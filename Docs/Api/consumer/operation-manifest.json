@@ -1,0 +1,538 @@
+[
+  {
+    "operationId": "nativeCollect",
+    "method": "POST",
+    "path": "/api/v2/native/payments/collect",
+    "auth": "RSA_V2",
+    "environment": "PAYMENT_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "nativePayout",
+    "method": "POST",
+    "path": "/api/v2/native/payments/payout",
+    "auth": "RSA_V2",
+    "environment": "PAYMENT_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "listChannels",
+    "method": "GET",
+    "path": "/api/v2/channels",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "listWebhookEvents",
+    "method": "GET",
+    "path": "/api/v2/webhooks/events",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "transactionStatus",
+    "method": "GET",
+    "path": "/api/v2/payments/{reference}",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "validateAccount",
+    "method": "POST",
+    "path": "/api/v2/accounts/validate",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "createPaymentLink",
+    "method": "POST",
+    "path": "/api/v2/payment-links",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "createInvoice",
+    "method": "POST",
+    "path": "/api/v2/invoices",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "listInvoices",
+    "method": "GET",
+    "path": "/api/v2/invoices",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "sendInvoice",
+    "method": "POST",
+    "path": "/api/v2/invoices/{reference}/actions/send",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "cancelInvoice",
+    "method": "POST",
+    "path": "/api/v2/invoices/{reference}/actions/cancel",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "exportMerchantStatements",
+    "method": "GET",
+    "path": "/api/v2/statements",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "collectPayment",
+    "method": "POST",
+    "path": "/api/v2/payments/collect",
+    "auth": "RSA_V2",
+    "environment": "PAYMENT_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "payoutPayment",
+    "method": "POST",
+    "path": "/api/v2/payments/payout",
+    "auth": "RSA_V2",
+    "environment": "PAYMENT_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "merchantBalances",
+    "method": "GET",
+    "path": "/api/v2/balances",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "createRefund",
+    "method": "POST",
+    "path": "/api/v2/refunds",
+    "auth": "RSA_V2",
+    "environment": "PAYMENT_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "listRefunds",
+    "method": "GET",
+    "path": "/api/v2/refunds",
+    "auth": "RSA_V2",
+    "environment": "PAYMENT_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "refundStatus",
+    "method": "GET",
+    "path": "/api/v2/refunds/{reference}",
+    "auth": "RSA_V2",
+    "environment": "PAYMENT_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "batchPayoutStatus",
+    "method": "GET",
+    "path": "/api/v2/batch-payouts/{batchId}/status",
+    "auth": "RSA_V2",
+    "environment": "PAYMENT_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "retryFailedBatchPayout",
+    "method": "POST",
+    "path": "/api/v2/batch-payouts/{batchId}/retry-failed",
+    "auth": "RSA_V2",
+    "environment": "PAYMENT_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "verifyMerchantIdentity",
+    "method": "POST",
+    "path": "/api/v2/identity/verify",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "getMerchantIdentityRequest",
+    "method": "GET",
+    "path": "/api/v2/identity/requests/{reference}",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "getSignedMerchantBalanceViews",
+    "method": "GET",
+    "path": "/api/v2/merchant/balances",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cpay-v2-openapi.yaml"
+  },
+  {
+    "operationId": "getMerchantIdentityCapabilities",
+    "method": "GET",
+    "path": "/api/v2/identity/capabilities",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cito-platform-v2-openapi.yaml"
+  },
+  {
+    "operationId": "sendCommunicationSms",
+    "method": "POST",
+    "path": "/api/v2/communication/messages",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cito-communications-v2-openapi.yaml"
+  },
+  {
+    "operationId": "sendBulkCommunicationSms",
+    "method": "POST",
+    "path": "/api/v2/communication/messages/bulk",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cito-communications-v2-openapi.yaml"
+  },
+  {
+    "operationId": "previewCommunicationSmsRoute",
+    "method": "POST",
+    "path": "/api/v2/communication/messages/preview",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cito-communications-v2-openapi.yaml"
+  },
+  {
+    "operationId": "getCommunicationSmsStatus",
+    "method": "GET",
+    "path": "/api/v2/communication/messages/{reference}",
+    "auth": "RSA_V2",
+    "environment": "NO_SANDBOX_SELECTOR",
+    "sourceContract": "cito-communications-v2-openapi.yaml"
+  },
+  {
+    "operationId": "listBillingCustomers",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/customers",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "createBillingCustomer",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/customers",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "createBillingAccount",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/accounts",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "createBillingContract",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/contracts",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "submitBillingContract",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/contracts/{reference}/submit",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "approveBillingContract",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/contracts/{reference}/approve",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "activateBillingContract",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/contracts/{reference}/activate",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "submitContractPriceOverride",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/contracts/{reference}/price-overrides",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "approveContractPriceOverride",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/price-overrides/{overrideId}/approve",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "createBillingSubscription",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/subscriptions",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "activateBillingSubscription",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/subscriptions/{reference}/activate",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "pauseBillingSubscription",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/subscriptions/{reference}/pause",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "cancelBillingSubscription",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/subscriptions/{reference}/cancel",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "grantBillingEntitlement",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/subscriptions/{reference}/entitlements",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "quoteBillingPrice",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/pricing/quotes",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "authorizeBillingChargeCompatibility",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/charges",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "rateAndAuthorizeBillingCharge",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/charges/rate-and-authorize",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "getBillingCharge",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/charges/{reference}",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "commitBillingCharge",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/charges/{reference}/commit",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "releaseBillingCharge",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/charges/{reference}/release",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "reverseBillingCharge",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/charges/{reference}/reverse",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "ingestBillingUsageEvent",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/usage/events",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "listBillingUsageEvents",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/usage/events",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "summarizeBillingUsage",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/usage/summary",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "listBillingInvoices",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/invoices",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "getBillingInvoice",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/invoices/{invoiceNumber}",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "getBillingQuotaUsage",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/quotas",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "listBillingEntitlements",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/entitlements",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "getBillingCatalog",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/catalog",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "requestBillingProtectedAction",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/protected-actions",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "approveBillingProtectedAction",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/protected-actions/{id}/approve",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "listBillingWebhookEventTypes",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/webhooks/events",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "listBillingWebhooks",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/webhooks",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "createBillingWebhook",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/webhooks",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "rotateBillingWebhookSecret",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/webhooks/{endpointId}/rotate-secret",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "listBillingWebhookDeliveries",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/webhooks/deliveries",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "replayBillingWebhookDelivery",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/webhooks/deliveries/{deliveryId}/replay",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "testBillingWebhook",
+    "method": "POST",
+    "path": "/api/v2/native/billing/baas/webhooks/test",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  },
+  {
+    "operationId": "exportBillingFocus14CostAndUsage",
+    "method": "GET",
+    "path": "/api/v2/native/billing/baas/exports/focus",
+    "auth": "BAAS_API_KEY",
+    "environment": "BAAS_SELECTOR",
+    "sourceContract": "cito-billing-baas-v2.1-openapi.yaml"
+  }
+]

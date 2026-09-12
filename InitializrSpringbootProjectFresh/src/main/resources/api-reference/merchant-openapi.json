@@ -6476,6 +6476,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6506,7 +6508,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_CustomerRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -6519,6 +6528,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6551,7 +6562,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_AccountRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -6564,6 +6582,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6596,7 +6616,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_ContractRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -6609,6 +6636,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6654,6 +6683,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6699,6 +6730,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6744,6 +6777,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6780,7 +6815,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_PriceOverrideRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -6793,6 +6835,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6845,6 +6889,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6877,7 +6923,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_SubscriptionRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -6890,6 +6943,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6935,6 +6990,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -6980,6 +7037,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7025,6 +7084,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7060,7 +7121,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_EntitlementRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -7073,6 +7141,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7095,7 +7165,7 @@
         ],
         "operationId": "quoteBillingPrice",
         "summary": "Quote Billing Price",
-        "description": "Resolves effective contract override, customer price, provider cost, tax and FX without reserving funds.",
+        "description": "Resolves effective contract override, customer price, provider cost, tax and FX without reserving funds.\n\nConsumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "x-sdk-operation-group": "billing.pricing",
         "parameters": [
           {
@@ -7106,7 +7176,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_PricingQuoteRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -7119,6 +7196,7 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_READ",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7141,7 +7219,7 @@
         ],
         "operationId": "authorizeBillingChargeCompatibility",
         "summary": "Authorize Billing Charge Compatibility",
-        "description": "Compatibility route accepting caller-supplied net amount. New integrations should use rate-and-authorize.",
+        "description": "Compatibility route accepting caller-supplied net amount. New integrations should use rate-and-authorize.\n\nConsumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "x-sdk-operation-group": "billing.charging",
         "parameters": [
           {
@@ -7152,7 +7230,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_AuthorizeChargeRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -7165,6 +7250,7 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_CHARGE",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7188,7 +7274,7 @@
         ],
         "operationId": "rateAndAuthorizeBillingCharge",
         "summary": "Rate And Authorize Billing Charge",
-        "description": "Preferred server-side deterministic pricing and online authorization path.",
+        "description": "Preferred server-side deterministic pricing and online authorization path.\n\nConsumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "x-sdk-operation-group": "billing.charging",
         "parameters": [
           {
@@ -7199,7 +7285,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_RatedAuthorizationRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -7212,6 +7305,7 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_CHARGE",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7257,6 +7351,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7302,6 +7398,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_CHARGE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7347,6 +7445,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_CHARGE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7393,6 +7493,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_CHARGE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7445,6 +7547,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7522,6 +7626,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7582,6 +7688,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7849,7 +7957,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_ProtectedActionRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -7862,6 +7977,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7903,7 +8020,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_OptionalJson"
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_DecisionRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -7916,6 +8040,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7955,6 +8081,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -7994,6 +8122,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -8024,7 +8154,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_WebhookRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -8037,6 +8174,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -8088,6 +8227,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -8138,6 +8279,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -8189,6 +8332,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -8221,7 +8366,14 @@
           }
         ],
         "requestBody": {
-          "$ref": "#/components/requestBodies/cito_a12dea_GenericJson"
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_WebhookTestRequest"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -8234,6 +8386,8 @@
             "$ref": "#/components/responses/cito_a12dea_Unauthorized"
           }
         },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
         "security": [
           {
             "cito_a12dea_CitoBaasApiKey": []
@@ -9411,13 +9565,7 @@
       },
       "cito_a12dea_UsageEventRequest": {
         "type": "object",
-        "required": [
-          "serviceCode",
-          "meterCode",
-          "quantity",
-          "sourceReference",
-          "idempotencyKey"
-        ],
+        "description": "Request fields from BillingBaasUsageController.java#UsageEventRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
         "properties": {
           "serviceCode": {
             "type": "string"
@@ -9430,31 +9578,617 @@
               "string",
               "null"
             ],
-            "format": "date-time"
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
           },
           "quantity": {
-            "type": "number",
-            "exclusiveMinimum": 0
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
           },
           "currency": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
           },
           "dimensions": {
-            "type": "object",
+            "type": [
+              "object",
+              "null"
+            ],
             "additionalProperties": {
               "type": "string"
             }
           },
           "sourceReference": {
-            "type": "string"
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-sourceReference"
           },
           "idempotencyKey": {
+            "type": "string",
+            "description": "Persist one stable key for the original business operation; reuse it with commercially identical input. This is a JSON body field, not the CPay signature header.",
+            "example": "operation-unique-stable-key"
+          }
+        },
+        "x-java-record": "BillingBaasUsageController.java#UsageEventRequest",
+        "required": [
+          "serviceCode",
+          "meterCode",
+          "quantity",
+          "sourceReference",
+          "idempotencyKey"
+        ]
+      },
+      "cito_a12dea_CustomerRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#CustomerRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "externalReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-externalReference"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "legalName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadataJson": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional JSON encoded as a string, not a nested JSON object.",
+            "example": "{}"
+          }
+        },
+        "x-java-record": "BillingBaasController.java#CustomerRequest",
+        "required": [
+          "externalReference",
+          "displayName"
+        ]
+      },
+      "cito_a12dea_AccountRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#AccountRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "customerReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-customerReference"
+          },
+          "accountReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-accountReference"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          }
+        },
+        "x-java-record": "BillingBaasController.java#AccountRequest",
+        "required": [
+          "customerReference",
+          "accountReference",
+          "currency"
+        ]
+      },
+      "cito_a12dea_ContractRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#ContractRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "customerReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-customerReference"
+          },
+          "contractReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-contractReference"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          },
+          "effectiveFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "effectiveTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "termsJson": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional JSON encoded as a string, not a nested JSON object.",
+            "example": "{}"
+          }
+        },
+        "x-java-record": "BillingBaasController.java#ContractRequest",
+        "required": [
+          "customerReference",
+          "contractReference",
+          "currency"
+        ]
+      },
+      "cito_a12dea_SubscriptionRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#SubscriptionRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "customerReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-customerReference"
+          },
+          "accountReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-accountReference"
+          },
+          "contractReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-contractReference"
+          },
+          "subscriptionReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-subscriptionReference"
+          },
+          "serviceCode": {
+            "type": "string"
+          },
+          "planCode": {
+            "type": "string"
+          },
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "startsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "endsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasController.java#SubscriptionRequest",
+        "required": [
+          "customerReference",
+          "accountReference",
+          "contractReference",
+          "subscriptionReference",
+          "serviceCode",
+          "planCode"
+        ]
+      },
+      "cito_a12dea_EntitlementRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#EntitlementRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "entitlementCode": {
+            "type": "string"
+          },
+          "limitQuantity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasController.java#EntitlementRequest",
+        "required": [
+          "entitlementCode"
+        ]
+      },
+      "cito_a12dea_AuthorizeChargeRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#AuthorizeChargeRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "billingAccountReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-billingAccountReference"
+          },
+          "serviceCode": {
+            "type": "string"
+          },
+          "entitlementCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "usageQuantity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "netAmount": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Persist one stable key for the original business operation; reuse it with commercially identical input. This is a JSON body field, not the CPay signature header.",
+            "example": "operation-unique-stable-key"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasController.java#AuthorizeChargeRequest",
+        "required": [
+          "billingAccountReference",
+          "serviceCode",
+          "usageQuantity",
+          "netAmount",
+          "currency",
+          "idempotencyKey"
+        ]
+      },
+      "cito_a12dea_ProtectedActionRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#ProtectedActionRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "actionType": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceReference": {
             "type": "string"
           }
-        }
+        },
+        "x-java-record": "BillingBaasController.java#ProtectedActionRequest",
+        "required": [
+          "actionType",
+          "resourceType",
+          "resourceReference"
+        ]
+      },
+      "cito_a12dea_DecisionRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#DecisionRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "x-java-record": "BillingBaasController.java#DecisionRequest"
+      },
+      "cito_a12dea_PricingQuoteRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasPricingController.java#PricingQuoteRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "billingAccountReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-billingAccountReference"
+          },
+          "contractReference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-contractReference"
+          },
+          "serviceCode": {
+            "type": "string"
+          },
+          "meterCode": {
+            "type": "string"
+          },
+          "ratingBaseAmount": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "sourceCurrency": {
+            "type": "string",
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          },
+          "asOf": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasPricingController.java#PricingQuoteRequest",
+        "required": [
+          "billingAccountReference",
+          "serviceCode",
+          "meterCode",
+          "ratingBaseAmount",
+          "sourceCurrency"
+        ]
+      },
+      "cito_a12dea_RatedAuthorizationRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasPricingController.java#RatedAuthorizationRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "billingAccountReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-billingAccountReference"
+          },
+          "contractReference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-contractReference"
+          },
+          "serviceCode": {
+            "type": "string"
+          },
+          "meterCode": {
+            "type": "string"
+          },
+          "entitlementCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "usageQuantity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "ratingBaseAmount": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "sourceCurrency": {
+            "type": "string",
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Persist one stable key for the original business operation; reuse it with commercially identical input. This is a JSON body field, not the CPay signature header.",
+            "example": "operation-unique-stable-key"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasPricingController.java#RatedAuthorizationRequest",
+        "required": [
+          "billingAccountReference",
+          "serviceCode",
+          "meterCode",
+          "usageQuantity",
+          "ratingBaseAmount",
+          "sourceCurrency",
+          "idempotencyKey"
+        ]
+      },
+      "cito_a12dea_PriceOverrideRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasPricingController.java#PriceOverrideRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "serviceCode": {
+            "type": "string"
+          },
+          "meterCode": {
+            "type": "string"
+          },
+          "priceBookVersionId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Existing effective price-book version ID; changes remain independently approved.",
+            "example": 1
+          },
+          "effectiveFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "effectiveTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasPricingController.java#PriceOverrideRequest",
+        "required": [
+          "serviceCode",
+          "meterCode",
+          "priceBookVersionId"
+        ]
+      },
+      "cito_a12dea_WebhookRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasWebhookController.java#WebhookRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "eventType": {
+            "type": "string"
+          },
+          "endpointUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Approved HTTPS merchant receiver. Registering or testing it can enqueue real outbound delivery; do not batch-run this action.",
+            "example": "https://receiver.example/cito/events"
+          }
+        },
+        "x-java-record": "BillingBaasWebhookController.java#WebhookRequest",
+        "required": [
+          "eventType",
+          "endpointUrl"
+        ]
+      },
+      "cito_a12dea_WebhookTestRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasWebhookController.java#WebhookTestRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "eventType": {
+            "type": "string"
+          }
+        },
+        "x-java-record": "BillingBaasWebhookController.java#WebhookTestRequest",
+        "required": [
+          "eventType"
+        ]
       },
       "cito_69f952_DataTemporarilyUnavailable": {
         "type": "object",
@@ -9725,28 +10459,8 @@
             }
           }
         }
-      },
-      "cito_a12dea_GenericJson": {
-        "required": true,
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/cito_a12dea_GenericObject"
-            }
-          }
-        }
-      },
-      "cito_a12dea_OptionalJson": {
-        "required": false,
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/cito_a12dea_GenericObject"
-            }
-          }
-        }
       }
     }
   },
-  "x-source-sha256": "cc6c78d32133e60b5a14072e93520949c2781301a39c5f4deab4666462bb0864"
+  "x-source-sha256": "8c282b992231254754d19583efa33e16927a466075a91620bf850f0899866003"
 }

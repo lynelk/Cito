@@ -1,5 +1,7 @@
 # Webhook Event Registry
 
+> Current consumer guidance: Delivery contracts are not interchangeable: task-queue `callback-v1` uses its documented six-line HMAC; the current `MerchantWebhookService` uses a payload-and-endpoint-secret digest without those freshness headers. The external receiver guide and reference verifier are in `Docs/Api/consumer/CALLBACK-RECEIVER.md` and `sdk/Python/cito_callbacks.py`. Configure the actual subscription scheme; do not auto-fallback between them or infer settlement from unsigned headers.
+
 Webhook payloads should be versioned and event-driven instead of exposing raw status strings. Providers can still return their own codes internally, but merchant callbacks should use CPay event names.
 
 ## Envelope

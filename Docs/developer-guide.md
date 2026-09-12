@@ -1,5 +1,7 @@
 # Cito Developer Guide
 
+> Current consumer guidance: For the current external server-to-server handover, start with `Docs/Api/consumer/START-HERE.md`. It owns the SDK 2.0 migration, filtered external collection, explicit environment and signing conformance guidance. This broader guide also describes internal/merchant-workspace operations; they are not all externally callable with one service-account key.
+
 This is the onboarding path for developers integrating with Cito. **Cito is the platform; CPay is the payments capability within Cito.** The API documentation is split by product and security boundary so developers can determine the correct contract and authentication model before implementation.
 
 > Documentation freshness: API documentation is managed as code. API-facing pull requests are validated against the committed OpenAPI contracts and changed Spring controller paths are hard-gated to appear in at least one authoritative contract.

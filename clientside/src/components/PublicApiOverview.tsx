@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 const topics = [
+  ['External developer kit', 'Use the consumer-only v2 reference, Postman collection and server-side SDKs. Workspace sessions and administrator APIs are separate; provider activation follows approved onboarding.'],
   ['Payments', 'Collections, payouts, status enquiries and refunds through enabled channels.'],
   ['Authentication', 'Merchant signatures and scoped service credentials protect third-party connections.'],
   ['Webhooks', 'Verified event delivery connects Cito outcomes to your application.'],

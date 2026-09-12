@@ -1,0 +1,8 @@
+{
+  "name": "cito/consumer-sdk",
+  "version": "2.0.0",
+  "description": "Cito / CPay v2 server-side request signing and explicit-environment client",
+  "type": "library",
+  "require": {"php": ">=8.2", "ext-openssl": "*", "ext-iconv": "*", "ext-curl": "*", "ext-json": "*"},
+  "autoload": {"classmap": ["CPaySigning.php", "CPayClient.php"]}
+}
