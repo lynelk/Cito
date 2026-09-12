@@ -2,6 +2,8 @@ package net.citotech.cito.treasury;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -19,6 +21,7 @@ import net.citotech.cito.gateway.PaymentGatewayException;
 import net.citotech.cito.merchant.MerchantChannelCryptoService;
 import net.citotech.cito.security.AdminMfaService;
 import net.citotech.cito.sharedprovider.SharedProviderAccessService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -34,6 +37,12 @@ public class ProviderLiveTestService {
     private final AdminPermissionService permissions;
     private final AdminMfaService mfa;
     private final MerchantChannelCryptoService crypto;
+
+    @Value("${cpay.provider-live-test.mtn-collection-mfa-suspended-actor:}")
+    private String collectionMfaSuspendedActor = "";
+
+    @Value("${cpay.provider-live-test.mtn-collection-mfa-suspended-until:}")
+    private String collectionMfaSuspendedUntil = "";
 
     public ProviderLiveTestService(
             NamedParameterJdbcTemplate jdbc,
@@ -82,6 +91,43 @@ public class ProviderLiveTestService {
         return rows;
     }
 
+    /** Read-only, actor-specific policy; the server checks the expiry again on every request. */
+    public Map<String, Object> mfaPolicy(String actor) {
+        boolean suspended =
+                collectionMfaSuspended(
+                        Map.of(
+                                "operation", "COLLECT",
+                                "channelCode", "mtn_momo",
+                                "environment", PRODUCTION,
+                                "countryCode", "UG",
+                                "currencyCode", "UGX"),
+                        actor);
+        return Map.of(
+                "mtnCollectionMfaRequired",
+                !suspended,
+                "suspendedUntil",
+                suspended ? collectionMfaSuspendedUntil.trim() : "");
+    }
+
+    private boolean collectionMfaSuspended(Map<String, Object> body, String actor) {
+        if (actor == null
+                || collectionMfaSuspendedActor.isBlank()
+                || !actor.equalsIgnoreCase(collectionMfaSuspendedActor.trim())
+                || !"COLLECT".equalsIgnoreCase(String.valueOf(body.get("operation")))
+                || !"mtn_momo".equalsIgnoreCase(String.valueOf(body.get("channelCode")))
+                || !PRODUCTION.equalsIgnoreCase(String.valueOf(body.get("environment")))
+                || !"UG".equalsIgnoreCase(String.valueOf(body.get("countryCode")))
+                || !"UGX".equalsIgnoreCase(String.valueOf(body.get("currencyCode")))) {
+            return false;
+        }
+        try {
+            return Instant.now().isBefore(Instant.parse(collectionMfaSuspendedUntil.trim()));
+        } catch (DateTimeParseException e) {
+            // Missing or malformed configuration must never weaken the default MFA policy.
+            return false;
+        }
+    }
+
     public Map<String, Object> request(Map<String, Object> body, String actor) {
         String operation = operation(body.get("operation"));
         permissions.require(
@@ -92,7 +138,8 @@ public class ProviderLiveTestService {
         String environment = upper(body.get("environment"), "environment");
         if (!List.of("SANDBOX", "PRODUCTION").contains(environment))
             throw new PaymentGatewayException("environment must be SANDBOX or PRODUCTION");
-        requireProductionControls(environment, body, who);
+        boolean mfaSuspended = collectionMfaSuspended(body, who);
+        requireProductionControls(environment, body, who, mfaSuspended);
         String idempotency = required(body.get("idempotencyKey"), "idempotencyKey");
         long merchantId = number(body.get("merchantId"));
         String channel = upper(body.get("channelCode"), "channelCode").toLowerCase(Locale.ROOT);
@@ -164,6 +211,15 @@ public class ProviderLiveTestService {
                         parameters,
                         Long.class);
         event(id, "REQUESTED", initial, "Live provider test requested", who);
+        if (mfaSuspended) {
+            event(
+                    id,
+                    "MFA_TEMPORARILY_SUSPENDED",
+                    initial,
+                    "MTN collection-test MFA exception active until "
+                            + collectionMfaSuspendedUntil.trim(),
+                    who);
+        }
         if ("COLLECT".equals(operation)) execute(id, merchant, party, who);
         return byId(id);
     }
@@ -401,12 +457,18 @@ public class ProviderLiveTestService {
 
     private void requireProductionControls(
             String environment, Map<String, Object> body, String actor) {
+        // Approval always requires MFA, regardless of fields supplied in the approval body.
+        requireProductionControls(environment, body, actor, false);
+    }
+
+    private void requireProductionControls(
+            String environment, Map<String, Object> body, String actor, boolean suspendMfa) {
         if (!PRODUCTION.equalsIgnoreCase(environment)) return;
         if (!Boolean.TRUE.equals(body.get("confirmProduction"))) {
             throw new PaymentGatewayException(
                     "Production confirmation is required because this test can move real money");
         }
-        mfa.requireCode(actor, required(body.get("mfaCode"), "mfaCode"));
+        if (!suspendMfa) mfa.requireCode(actor, required(body.get("mfaCode"), "mfaCode"));
     }
 
     private String operation(Object value) {

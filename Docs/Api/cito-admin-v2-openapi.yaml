@@ -18,6 +18,44 @@ tags:
   - name: Admin Communication Routing
   - name: Admin Commercial Programmes
 paths:
+  /api/v2/admin/provider-treasury/live-tests/mfa-policy:
+    get:
+      tags: [Admin Payment Credentials]
+      operationId: readProviderLiveTestMfaPolicy
+      summary: Read the current operator's collection-test MFA policy
+      description: >-
+        Requires an ADMIN session and LIVE_COLLECTION_TEST permission. Returns a
+        presentation hint only. The live-test POST independently enforces authenticated
+        actor, operation, provider, country, currency and expiry. A configured future
+        exception applies only to this operator's MTN production UG/UGX collection
+        tests. Real-money confirmation, merchant and credential approvals, limits,
+        idempotency and audit remain required. Login, ordinary payments, other
+        providers and payout creation/approval MFA are unchanged. No payment is made.
+      responses:
+        '200':
+          description: Actor-specific policy. Missing, invalid or expired configuration requires MFA.
+          headers:
+            Cache-Control:
+              description: Prevent storage of an actor-specific temporary policy.
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mtnCollectionMfaRequired, suspendedUntil]
+                additionalProperties: false
+                properties:
+                  mtnCollectionMfaRequired:
+                    type: boolean
+                    description: False only for the configured authenticated operator before expiry.
+                  suspendedUntil:
+                    type: string
+                    description: Active UTC ISO-8601 expiry, or an empty string when MFA is required.
+              example: {mtnCollectionMfaRequired: true, suspendedUntil: ''}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v2/portal/session:
     get:
       tags:
