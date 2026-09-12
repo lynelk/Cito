@@ -1,18 +1,20 @@
 package net.citotech.cito.gateway;
 
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import net.citotech.cito.Model.GateWayResponse;
+import net.citotech.cito.platform.provider.PlatformProviderAdapter;
+import net.citotech.cito.platform.provider.PlatformProviderDomain;
 
 /**
- * Adapter contract for adding payment channels without expanding the legacy
- * DoPayGateway switch/if chain.
+ * Adapter contract for adding payment channels without expanding the legacy DoPayGateway switch/if
+ * chain.
  *
- * Existing MTN, Airtel, Safaricom, and Yo! Payments integrations can be
- * wrapped behind this interface incrementally. New channels such as
- * Flutterwave, Pesapal, Stripe, bank transfers, QR, USSD, or WhatsApp
- * payment links should start here.
+ * <p>All payment adapters are also Cito platform provider adapters, so provider discovery,
+ * readiness and certification use the same contract as communications, identity and vending.
  */
-public interface PaymentChannelAdapter {
+public interface PaymentChannelAdapter extends PlatformProviderAdapter {
     /** Stable machine code, for example mtn_momo, airtel_money, or safaricom_mpesa. */
     String channelCode();
 
@@ -38,28 +40,39 @@ public interface PaymentChannelAdapter {
 
     GatewayBalance getBalance(GatewayBalanceRequest request);
 
+    @Override
+    default String providerCode() {
+        return channelCode();
+    }
+
+    @Override
+    default PlatformProviderDomain providerDomain() {
+        return PlatformProviderDomain.PAYMENT;
+    }
+
+    @Override
+    default Set<String> platformCapabilities() {
+        GatewayCapabilities value = capabilities();
+        Set<String> capabilities = new LinkedHashSet<>();
+        if (value.supportsCollections()) capabilities.add("COLLECTION");
+        if (value.supportsPayouts()) capabilities.add("PAYOUT");
+        if (value.supportsBalanceCheck()) capabilities.add("BALANCE");
+        if (value.supportsStatusCheck()) capabilities.add("STATUS");
+        if (value.supportsRefunds()) capabilities.add("REFUND");
+        if (value.supportsCallbacks()) capabilities.add("CALLBACK");
+        return Set.copyOf(capabilities);
+    }
+
     /**
-     * Verifies that a provider response/callback is authentic before its result is trusted
-     * (audit C9). Most adapters here are driven through synchronous request/response HTTP
-     * calls (see {@code ProviderEndpointExecutionService}) and carry no verifiable signature
-     * material from the provider, so the default implementation is a permissive no-op that
-     * preserves existing behaviour for every adapter that does not override it.
-     *
-     * Adapters that do have signature material available - a shared secret already present
-     * in their merchant channel credentials, and a signature header the provider actually
-     * sends back - should override this and reject payloads that fail verification rather
-     * than silently trusting an unauthenticated body. See {@code YoPaymentsAdapter} and
-     * {@code YoPaymentsCallbackVerifier} for the first real implementation.
-     *
-     * @param responseHeaders headers returned alongside the provider response (never null, may be empty)
-     * @param responseBody raw response body returned by the provider
-     * @param channelConfig resolved channel configuration/credential fields for this call (never null, may be empty)
-     * @return true when the response is verified authentic, or when this adapter has no
-     *         verification material to check against; false only when verification was
-     *         attempted and the signature did not match
+     * Verifies that a provider response/callback is authentic before its result is trusted (audit
+     * C9). Most adapters here are driven through synchronous request/response HTTP calls and carry
+     * no verifiable signature material from the provider, so the default implementation preserves
+     * existing behaviour for adapters that do not override it.
      */
-    default boolean verifyCallback(Map<String, String> responseHeaders, String responseBody, Map<String, String> channelConfig) {
+    default boolean verifyCallback(
+            Map<String, String> responseHeaders,
+            String responseBody,
+            Map<String, String> channelConfig) {
         return true;
     }
 }
-
