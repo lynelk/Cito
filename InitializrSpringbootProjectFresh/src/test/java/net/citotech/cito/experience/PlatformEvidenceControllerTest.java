@@ -31,8 +31,7 @@ class PlatformEvidenceControllerTest {
     @Test
     void administratorGetsDurableEvidenceWithoutTargetInflation() {
         var admin =
-                new ExperienceAccessContext.Access(
-                        "admin@example.invalid", null, true, "ADMIN");
+                new ExperienceAccessContext.Access("admin@example.invalid", null, true, "ADMIN");
         when(access.require(request, authentication)).thenReturn(admin);
         when(jdbc.queryForObject(anyString(), eq(Long.class))).thenReturn(2L);
 
@@ -57,12 +56,9 @@ class PlatformEvidenceControllerTest {
     @Test
     void merchantCannotReadPlatformCommercialEvidence() {
         var merchant =
-                new ExperienceAccessContext.Access(
-                        "merchant@example.invalid", 42L, false, "OWNER");
+                new ExperienceAccessContext.Access("merchant@example.invalid", 42L, false, "OWNER");
         when(access.require(request, authentication)).thenReturn(merchant);
-        doThrow(
-                        new ResponseStatusException(
-                                HttpStatus.FORBIDDEN, "Administrator access required"))
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrator access required"))
                 .when(access)
                 .requireAdmin(merchant);
 
