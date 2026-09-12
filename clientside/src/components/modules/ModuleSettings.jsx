@@ -148,10 +148,14 @@ function cardMetaForSetting(row, sectionId) {
             return { id: 'connection', title: 'Connection details', description: 'Provider endpoints, environment and currency configuration.' };
         }
         if (/(collections|inbound|collection)/.test(name)) {
-            return { id: 'collections', title: 'Collection pricing', description: 'Costs and customer charges for incoming payments.' };
+            return sectionId === 'mtn'
+                ? { id: 'collections', title: 'Collection pricing', description: 'Costs and customer charges for incoming payments.' }
+                : { id: 'collections', title: 'Collections credentials', description: 'Credentials and product settings for incoming payments.' };
         }
         if (/(disbursement|disbursements|outbound)/.test(name)) {
-            return { id: 'disbursements', title: 'Payout pricing', description: 'Costs and customer charges for outgoing payments.' };
+            return sectionId === 'mtn'
+                ? { id: 'disbursements', title: 'Payout pricing', description: 'Costs and customer charges for outgoing payments.' }
+                : { id: 'disbursements', title: 'Disbursement credentials', description: 'Credentials and product settings for payouts.' };
         }
         return { id: 'operations', title: 'Operational configuration', description: 'Charges, thresholds and provider-specific operational controls.' };
     }

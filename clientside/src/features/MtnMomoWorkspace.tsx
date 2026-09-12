@@ -189,7 +189,7 @@ function MerchantAccess({ scope }: { scope: Scope }) {
     {entitlements.isPending ? <p>Loading merchant access…</p> : !rows.length ? <p>No merchant access is configured for this environment.</p> : rows.map(row => <div className="mtn-list-row" key={row.id}>
       <div><strong>{row.merchantName || `Merchant ${row.merchantId}`} · {row.operation === 'COLLECT' ? 'Collections' : 'Payouts'}</strong><p>Requested by {row.requestedBy || 'an operator'} · <State value={row.status} /></p></div>
       {row.status === 'PENDING' && <div className="mtn-actions"><Button disabled={own(row.requestedBy) || reject.isPending} loading={approve.isPending} onClick={() => approve.mutate(row.id)}>Approve access</Button>
-        <Button variant="ghost" disabled={approve.isPending} loading={reject.isPending} onClick={() => reject.mutate(row.id)}>Reject</Button>{own(row.requestedBy) && <small>A different operator must approve.</small>}</div>}
+        <Button variant="ghost" disabled={approve.isPending || own(row.requestedBy)} loading={reject.isPending} onClick={() => reject.mutate(row.id)}>Reject</Button>{own(row.requestedBy) && <small>A different operator must approve.</small>}</div>}
     </div>)}
   </Section></div>;
 }

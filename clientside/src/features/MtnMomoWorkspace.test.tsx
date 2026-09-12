@@ -109,6 +109,10 @@ describe('MTN configuration and payment journey', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Request payout test' }));
     await screen.findByText(/Connection lost/);
     expect(screen.getByLabelText('Amount (EUR)')).toBeDisabled();
+    fireEvent.click(screen.getByRole('tab', { name: '1. Connection' }));
+    fireEvent.click(screen.getByRole('tab', { name: '3. Payment tests' }));
+    expect(screen.getByLabelText('Amount (EUR)')).toHaveValue(1);
+    expect(screen.getByLabelText('Amount (EUR)')).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Retry the same request safely' }));
     await waitFor(() => expect(vi.mocked(request).mock.calls.filter(([url, options]) => url.endsWith('/live-tests') && options?.method === 'POST')).toHaveLength(2));
     const calls = vi.mocked(request).mock.calls.filter(([url, options]) => url.endsWith('/live-tests') && options?.method === 'POST');
