@@ -92,13 +92,15 @@ jobs:
           PY
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = ac9d200c8f6b3e2a91c241461593479d397ae31a
           test "$(git ls-remote origin refs/heads/feature/consumer-handover-20260912 | cut -f1)" = "$GITHUB_SHA"
-          # Actions token has contents permission, not workflows permission. Preserve every
-          # original workflow. The authorized connector will separately review/publish the
-          # two intended workflow updates and remove this temporary assembly workflow.
+          # Preserve both intended workflow sources as artifacts. The Actions token
+          # cannot publish workflow edits; the authorized connector handles them.
           mkdir -p /tmp/consumer-source-evidence/workflows
           cp .github/workflows/api-docs.yml .github/workflows/consumer-api-handover.yml /tmp/consumer-source-evidence/workflows/
           git restore --source=HEAD --staged --worktree .github/workflows/api-docs.yml
-          git rm .github/workflows/consumer-api-handover.yml
+          # This file is new and staged by git apply, absent in HEAD and already
+          # archived above. Remove only that generated copy, not an existing workflow.
+          test -z "$(git ls-tree HEAD -- .github/workflows/consumer-api-handover.yml)"
+          git rm -f -- .github/workflows/consumer-api-handover.yml
           git rm -r ops/release/consumer-import-20260912
           git add -A
           test -z "$(git diff --cached --name-only -- .github/workflows)"
