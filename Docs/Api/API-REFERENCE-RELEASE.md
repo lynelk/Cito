@@ -1,5 +1,7 @@
 # API reference and endpoint access billing release
 
+> Current consumer guidance: This file retains historical release/recovery evidence, including superseded migration numbering and environment snapshots. It is not the current external installation checklist. Use `Docs/Api/consumer/START-HERE.md`, the versioned handover manifest and the actual environment release marker for a consumer delivery.
+
 Brand baseline: Cito 1.2. Affected touchpoints: public hero developer section, merchant Developers, admin API workbench, downloadable OpenAPI and integration guide. Uses canonical Cito/monochrome tokens and existing sign-in destinations. Provider and deployment readiness claims remain evidence-based.
 
 ## What changes

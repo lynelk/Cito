@@ -1,0 +1,5172 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Cito External Developer API",
+    "version": "2.0.0",
+    "description": "Connect Once. Operate Everything. Server-to-server v2 APIs only. Merchant portal/session and administrator APIs are intentionally excluded. See START-HERE for authentication, environments, pricing and release acceptance."
+  },
+  "servers": [
+    {
+      "url": "https://YOUR-CITO-HOST",
+      "description": "Replace with the approved environment URL supplied by Cito."
+    }
+  ],
+  "paths": {
+    "/api/v2/native/payments/collect": {
+      "post": {
+        "summary": "Submit an adapter-native mobile money collection request",
+        "operationId": "nativeCollect",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cpay_494ca4_IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cpay_494ca4_PaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Payment accepted for processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cpay_494ca4_PaymentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "PAYMENT_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/payments/payout": {
+      "post": {
+        "summary": "Submit an adapter-native mobile money payout request",
+        "operationId": "nativePayout",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cpay_494ca4_IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cpay_494ca4_PaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Payout accepted for processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cpay_494ca4_PaymentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "PAYMENT_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/channels": {
+      "get": {
+        "summary": "List supported payment channels",
+        "operationId": "listChannels",
+        "description": "Requires a verified merchant v2 signature. API access rate applies per authenticated request.",
+        "parameters": [
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Supported channels"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/webhooks/events": {
+      "get": {
+        "summary": "List the versioned webhook event catalog with payload schemas",
+        "operationId": "listWebhookEvents",
+        "description": "Requires a verified merchant v2 signature. API access rate applies per authenticated request.",
+        "parameters": [
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook event catalog entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/cpay_494ca4_WebhookEventCatalogEntry"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/payments/{reference}": {
+      "get": {
+        "summary": "Check transaction status",
+        "operationId": "transactionStatus",
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction status"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/accounts/validate": {
+      "post": {
+        "summary": "Validate an account name before payout",
+        "operationId": "validateAccount",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cpay_494ca4_AccountValidationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account validation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cpay_494ca4_AccountValidationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/payment-links": {
+      "post": {
+        "summary": "Create a hosted checkout payment link",
+        "operationId": "createPaymentLink",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cpay_494ca4_PaymentLinkCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment link created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cpay_494ca4_PaymentLinkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/invoices": {
+      "post": {
+        "summary": "Create an invoice / request-to-pay",
+        "operationId": "createInvoice",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cpay_494ca4_IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cpay_494ca4_InvoiceCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invoice created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cpay_494ca4_InvoiceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      },
+      "get": {
+        "summary": "List invoices for a merchant",
+        "operationId": "listInvoices",
+        "parameters": [
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/cpay_494ca4_InvoiceResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/invoices/{reference}/actions/send": {
+      "post": {
+        "summary": "Send an invoice to its payer",
+        "operationId": "sendInvoice",
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cpay_494ca4_InvoiceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/invoices/{reference}/actions/cancel": {
+      "post": {
+        "summary": "Cancel an invoice",
+        "operationId": "cancelInvoice",
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cpay_494ca4_InvoiceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/statements": {
+      "get": {
+        "summary": "Export merchant statement rows",
+        "operationId": "exportMerchantStatements",
+        "parameters": [
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Merchant statement export",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cpay_494ca4_StatementExportResponse"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/payments/collect": {
+      "post": {
+        "summary": "Submit a mobile money collection request (compat orchestration path)",
+        "operationId": "collectPayment",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cpay_494ca4_IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cpay_494ca4_PaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Payment accepted for processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cpay_494ca4_PaymentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "PAYMENT_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/payments/payout": {
+      "post": {
+        "summary": "Submit a mobile money payout request (compat orchestration path)",
+        "operationId": "payoutPayment",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cpay_494ca4_IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cpay_494ca4_PaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Payout accepted; may be APPROVAL_PENDING if a maker-checker limit fired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/cpay_494ca4_PaymentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "PAYMENT_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/balances": {
+      "get": {
+        "summary": "List a merchant's available channel balances",
+        "operationId": "merchantBalances",
+        "parameters": [
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Channel balances"
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/refunds": {
+      "post": {
+        "summary": "Submit a refund request (full or partial via MoneyAmount)",
+        "operationId": "createRefund",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cpay_494ca4_IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cpay_494ca4_RefundRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Refund accepted for processing"
+          },
+          "400": {
+            "$ref": "#/components/responses/cpay_494ca4_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "PAYMENT_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      },
+      "get": {
+        "summary": "List refunds for a merchant",
+        "operationId": "listRefunds",
+        "parameters": [
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Refund records"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "PAYMENT_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/refunds/{reference}": {
+      "get": {
+        "summary": "Check a refund status by refund reference",
+        "operationId": "refundStatus",
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Refund status"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "PAYMENT_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/batch-payouts/{batchId}/status": {
+      "get": {
+        "summary": "Get batch payout aggregate status",
+        "operationId": "batchPayoutStatus",
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Batch payout status"
+          },
+          "404": {
+            "description": "Batch not found"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "PAYMENT_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/batch-payouts/{batchId}/retry-failed": {
+      "post": {
+        "summary": "Retry only the failed rows of a batch payout",
+        "operationId": "retryFailedBatchPayout",
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Number of rows retried"
+          },
+          "404": {
+            "description": "Batch not found"
+          },
+          "401": {
+            "$ref": "#/components/responses/cpay_494ca4_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "PAYMENT_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/identity/verify": {
+      "post": {
+        "operationId": "verifyMerchantIdentity",
+        "summary": "Verify an identity through an enabled provider",
+        "description": "Requires an authenticated merchant and enabled identity service. Supply identityNumber or its nin compatibility alias. Country defaults to UG and identityType defaults to NIN. Responses contain masked subject details. API access admission and any provider/service fee are separate.",
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "merchantNumber"
+                ],
+                "properties": {
+                  "merchantNumber": {
+                    "type": "string"
+                  },
+                  "identityType": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  },
+                  "identityNumber": {
+                    "type": "string"
+                  },
+                  "nin": {
+                    "type": "string"
+                  },
+                  "fullName": {
+                    "type": "string"
+                  },
+                  "msisdn": {
+                    "type": "string"
+                  },
+                  "requestedBy": {
+                    "type": "string"
+                  },
+                  "consentGranted": {
+                    "type": "boolean",
+                    "description": "Recorded consent required by the applicable identity verification workflow."
+                  }
+                },
+                "anyOf": [
+                  {
+                    "required": [
+                      "identityNumber"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "nin"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification request result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requestReference": {
+                      "type": "string"
+                    },
+                    "identityType": {
+                      "type": "string"
+                    },
+                    "country": {
+                      "type": "string"
+                    },
+                    "subjectNameMasked": {
+                      "type": "string"
+                    },
+                    "subjectMsisdnMasked": {
+                      "type": "string"
+                    },
+                    "identityNumberMask": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "providerReference": {
+                      "type": "string"
+                    },
+                    "requestedBy": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid merchant signature"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/identity/requests/{reference}": {
+      "get": {
+        "operationId": "getMerchantIdentityRequest",
+        "summary": "Read an identity request within your merchant scope",
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Merchant number resolved by the verified signature."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Masked identity request state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requestReference": {
+                      "type": "string"
+                    },
+                    "identityType": {
+                      "type": "string"
+                    },
+                    "country": {
+                      "type": "string"
+                    },
+                    "subjectNameMasked": {
+                      "type": "string"
+                    },
+                    "subjectMsisdnMasked": {
+                      "type": "string"
+                    },
+                    "identityNumberMask": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "providerReference": {
+                      "type": "string"
+                    },
+                    "requestedBy": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reference not found in this merchant scope"
+          },
+          "401": {
+            "description": "Invalid merchant signature"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/merchant/balances": {
+      "get": {
+        "operationId": "getSignedMerchantBalanceViews",
+        "summary": "Read merchant ledger, pending and available balance views",
+        "description": "A signed API despite its merchant path prefix; a portal session alone is insufficient. Balances retain their individual currency.",
+        "security": [
+          {
+            "cpay_494ca4_CPayV2Signature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Merchant number resolved by the verified signature."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Balance views",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "merchantId": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "channelCode": {
+                        "type": "string"
+                      },
+                      "gatewayId": {
+                        "type": "string"
+                      },
+                      "currency": {
+                        "type": "string"
+                      },
+                      "availableBalance": {
+                        "type": "string"
+                      },
+                      "ledgerBalance": {
+                        "type": "string"
+                      },
+                      "pendingBalance": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid merchant signature"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cpay-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/identity/capabilities": {
+      "get": {
+        "tags": [
+          "Identity & Validation"
+        ],
+        "summary": "List merchant-visible identity provider capabilities",
+        "operationId": "getMerchantIdentityCapabilities",
+        "security": [
+          {
+            "cito_8a569b_CPayV2Signature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Identity provider capabilities without PII"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_8a569b_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_8a569b_UnauthorizedSignedRequest"
+          }
+        },
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-platform-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/communication/messages": {
+      "post": {
+        "tags": [
+          "Communications SMS"
+        ],
+        "operationId": "sendCommunicationSms",
+        "summary": "Queue one SMS for durable delivery",
+        "security": [
+          {
+            "cito_a767bf_signedMerchantRequest": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a767bf_IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a767bf_SmsSendRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/cito_a767bf_AcceptedObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a767bf_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a767bf_Unauthorized"
+          }
+        },
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-communications-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/communication/messages/bulk": {
+      "post": {
+        "tags": [
+          "Communications SMS"
+        ],
+        "operationId": "sendBulkCommunicationSms",
+        "summary": "Queue up to 1,000 SMS recipients with independent delivery evidence",
+        "security": [
+          {
+            "cito_a767bf_signedMerchantRequest": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a767bf_IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a767bf_SmsBulkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/cito_a767bf_AcceptedObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a767bf_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a767bf_Unauthorized"
+          }
+        },
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-communications-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/communication/messages/preview": {
+      "post": {
+        "tags": [
+          "Communications SMS"
+        ],
+        "operationId": "previewCommunicationSmsRoute",
+        "summary": "Analyze SMS encoding, segments, eligible providers and estimated route cost",
+        "security": [
+          {
+            "cito_a767bf_signedMerchantRequest": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a767bf_SmsPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a767bf_ObjectOk"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a767bf_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a767bf_Unauthorized"
+          }
+        },
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-communications-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/communication/messages/{reference}": {
+      "get": {
+        "tags": [
+          "Communications SMS"
+        ],
+        "operationId": "getCommunicationSmsStatus",
+        "summary": "Read delivery state for a queued communication",
+        "security": [
+          {
+            "cito_a767bf_signedMerchantRequest": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "merchantNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a767bf_ObjectOk"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a767bf_Unauthorized"
+          },
+          "404": {
+            "description": "Communication not found."
+          }
+        },
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-communications-v2-openapi.yaml",
+        "x-cito-consumer-auth": "RSA_V2",
+        "x-cito-environment-policy": "NO_SANDBOX_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/customers": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "listBillingCustomers",
+        "summary": "List Billing Customers",
+        "x-sdk-operation-group": "billing.customers",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_ObjectList"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      },
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "createBillingCustomer",
+        "summary": "Create Billing Customer",
+        "x-sdk-operation-group": "billing.customers",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_CustomerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/accounts": {
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "createBillingAccount",
+        "summary": "Create Billing Account",
+        "x-sdk-operation-group": "billing.accounts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_AccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/contracts": {
+      "post": {
+        "tags": [
+          "Contracts"
+        ],
+        "operationId": "createBillingContract",
+        "summary": "Create Billing Contract",
+        "x-sdk-operation-group": "billing.contracts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_ContractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/contracts/{reference}/submit": {
+      "post": {
+        "tags": [
+          "Contracts"
+        ],
+        "operationId": "submitBillingContract",
+        "summary": "Submit Billing Contract",
+        "x-sdk-operation-group": "billing.contracts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/contracts/{reference}/approve": {
+      "post": {
+        "tags": [
+          "Contracts"
+        ],
+        "operationId": "approveBillingContract",
+        "summary": "Approve Billing Contract",
+        "x-sdk-operation-group": "billing.contracts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/contracts/{reference}/activate": {
+      "post": {
+        "tags": [
+          "Contracts"
+        ],
+        "operationId": "activateBillingContract",
+        "summary": "Activate Billing Contract",
+        "x-sdk-operation-group": "billing.contracts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/contracts/{reference}/price-overrides": {
+      "post": {
+        "tags": [
+          "Contracts",
+          "Pricing"
+        ],
+        "operationId": "submitContractPriceOverride",
+        "summary": "Submit Contract Price Override",
+        "x-sdk-operation-group": "billing.pricing",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_PriceOverrideRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/price-overrides/{overrideId}/approve": {
+      "post": {
+        "tags": [
+          "Contracts",
+          "Pricing"
+        ],
+        "operationId": "approveContractPriceOverride",
+        "summary": "Approve Contract Price Override",
+        "x-sdk-operation-group": "billing.pricing",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "overrideId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/subscriptions": {
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "createBillingSubscription",
+        "summary": "Create Billing Subscription",
+        "x-sdk-operation-group": "billing.subscriptions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_SubscriptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/subscriptions/{reference}/activate": {
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "activateBillingSubscription",
+        "summary": "Activate Billing Subscription",
+        "x-sdk-operation-group": "billing.subscriptions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/subscriptions/{reference}/pause": {
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "pauseBillingSubscription",
+        "summary": "Pause Billing Subscription",
+        "x-sdk-operation-group": "billing.subscriptions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/subscriptions/{reference}/cancel": {
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "cancelBillingSubscription",
+        "summary": "Cancel Billing Subscription",
+        "x-sdk-operation-group": "billing.subscriptions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/subscriptions/{reference}/entitlements": {
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "grantBillingEntitlement",
+        "summary": "Grant Billing Entitlement",
+        "x-sdk-operation-group": "billing.entitlements",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_EntitlementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/pricing/quotes": {
+      "post": {
+        "tags": [
+          "Pricing"
+        ],
+        "operationId": "quoteBillingPrice",
+        "summary": "Quote Billing Price",
+        "description": "Resolves effective contract override, customer price, provider cost, tax and FX without reserving funds.\n\nConsumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "x-sdk-operation-group": "billing.pricing",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_PricingQuoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_READ",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/charges": {
+      "post": {
+        "tags": [
+          "Charging"
+        ],
+        "operationId": "authorizeBillingChargeCompatibility",
+        "summary": "Authorize Billing Charge Compatibility",
+        "description": "Compatibility route accepting caller-supplied net amount. New integrations should use rate-and-authorize.\n\nConsumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "x-sdk-operation-group": "billing.charging",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_AuthorizeChargeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_CHARGE",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/charges/rate-and-authorize": {
+      "post": {
+        "tags": [
+          "Charging",
+          "Pricing"
+        ],
+        "operationId": "rateAndAuthorizeBillingCharge",
+        "summary": "Rate And Authorize Billing Charge",
+        "description": "Preferred server-side deterministic pricing and online authorization path.\n\nConsumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "x-sdk-operation-group": "billing.charging",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_RatedAuthorizationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_CHARGE",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/charges/{reference}": {
+      "get": {
+        "tags": [
+          "Charging"
+        ],
+        "operationId": "getBillingCharge",
+        "summary": "Get Billing Charge",
+        "x-sdk-operation-group": "billing.charging",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/charges/{reference}/commit": {
+      "post": {
+        "tags": [
+          "Charging"
+        ],
+        "operationId": "commitBillingCharge",
+        "summary": "Commit Billing Charge",
+        "x-sdk-operation-group": "billing.charging",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_CHARGE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/charges/{reference}/release": {
+      "post": {
+        "tags": [
+          "Charging"
+        ],
+        "operationId": "releaseBillingCharge",
+        "summary": "Release Billing Charge",
+        "x-sdk-operation-group": "billing.charging",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_CHARGE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/charges/{reference}/reverse": {
+      "post": {
+        "tags": [
+          "Charging",
+          "Protected Actions"
+        ],
+        "operationId": "reverseBillingCharge",
+        "summary": "Reverse Billing Charge",
+        "x-sdk-operation-group": "billing.charging",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_Reference"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_CHARGE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/usage/events": {
+      "post": {
+        "tags": [
+          "Usage"
+        ],
+        "operationId": "ingestBillingUsageEvent",
+        "summary": "Ingest Billing Usage Event",
+        "x-sdk-operation-group": "billing.usage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_UsageEventRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      },
+      "get": {
+        "tags": [
+          "Usage"
+        ],
+        "operationId": "listBillingUsageEvents",
+        "summary": "List Billing Usage Events",
+        "x-sdk-operation-group": "billing.usage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "serviceCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_ObjectList"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/usage/summary": {
+      "get": {
+        "tags": [
+          "Usage"
+        ],
+        "operationId": "summarizeBillingUsage",
+        "summary": "Summarize Billing Usage",
+        "x-sdk-operation-group": "billing.usage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_ObjectList"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/invoices": {
+      "get": {
+        "tags": [
+          "Billing Center"
+        ],
+        "operationId": "listBillingInvoices",
+        "summary": "List Billing Invoices",
+        "x-sdk-operation-group": "billing.invoices",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_ObjectList"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/invoices/{invoiceNumber}": {
+      "get": {
+        "tags": [
+          "Billing Center"
+        ],
+        "operationId": "getBillingInvoice",
+        "summary": "Get Billing Invoice",
+        "description": "Returns invoice header, lines, credit notes, payment allocations and retained tax evidence.",
+        "x-sdk-operation-group": "billing.invoices",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "invoiceNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/quotas": {
+      "get": {
+        "tags": [
+          "Billing Center"
+        ],
+        "operationId": "getBillingQuotaUsage",
+        "summary": "Get Billing Quota Usage",
+        "x-sdk-operation-group": "billing.quotas",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/entitlements": {
+      "get": {
+        "tags": [
+          "Billing Center"
+        ],
+        "operationId": "listBillingEntitlements",
+        "summary": "List Billing Entitlements",
+        "x-sdk-operation-group": "billing.entitlements",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_ObjectList"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/catalog": {
+      "get": {
+        "tags": [
+          "Billing Center"
+        ],
+        "operationId": "getBillingCatalog",
+        "summary": "Get Billing Catalog",
+        "x-sdk-operation-group": "billing.catalog",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "asOf",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_ObjectList"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/protected-actions": {
+      "post": {
+        "tags": [
+          "Protected Actions"
+        ],
+        "operationId": "requestBillingProtectedAction",
+        "summary": "Request Billing Protected Action",
+        "x-sdk-operation-group": "billing.protectedActions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_ProtectedActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/protected-actions/{id}/approve": {
+      "post": {
+        "tags": [
+          "Protected Actions"
+        ],
+        "operationId": "approveBillingProtectedAction",
+        "summary": "Approve Billing Protected Action",
+        "x-sdk-operation-group": "billing.protectedActions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_DecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/webhooks/events": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "listBillingWebhookEventTypes",
+        "summary": "List Billing Webhook Event Types",
+        "x-sdk-operation-group": "billing.webhooks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_ObjectList"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/webhooks": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "listBillingWebhooks",
+        "summary": "List Billing Webhooks",
+        "x-sdk-operation-group": "billing.webhooks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_ObjectList"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      },
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "createBillingWebhook",
+        "summary": "Create Billing Webhook",
+        "x-sdk-operation-group": "billing.webhooks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_WebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/webhooks/{endpointId}/rotate-secret": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "rotateBillingWebhookSecret",
+        "summary": "Rotate Billing Webhook Secret",
+        "x-sdk-operation-group": "billing.webhooks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "endpointId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/webhooks/deliveries": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "listBillingWebhookDeliveries",
+        "summary": "List Billing Webhook Deliveries",
+        "x-sdk-operation-group": "billing.webhooks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_ObjectList"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_READ",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/webhooks/deliveries/{deliveryId}/replay": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "replayBillingWebhookDelivery",
+        "summary": "Replay Billing Webhook Delivery",
+        "x-sdk-operation-group": "billing.webhooks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "deliveryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/webhooks/test": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "testBillingWebhook",
+        "summary": "Test Billing Webhook",
+        "x-sdk-operation-group": "billing.webhooks",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/cito_a12dea_WebhookTestRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/cito_a12dea_Object"
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "x-cito-required-scope": "BILLING_WRITE",
+        "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.",
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    },
+    "/api/v2/native/billing/baas/exports/focus": {
+      "get": {
+        "tags": [
+          "Exports"
+        ],
+        "operationId": "exportBillingFocus14CostAndUsage",
+        "summary": "Export Billing Focus14 Cost And Usage",
+        "description": "Tenant-scoped FOCUS 1.4 Cost and Usage CSV with separate Cito provider-cost provenance columns.",
+        "x-sdk-operation-group": "billing.exports",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cito_a12dea_CitoEnvironment"
+          },
+          {
+            "$ref": "#/components/parameters/cito_a12dea_RequestId"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FOCUS 1.4 Cost and Usage CSV",
+            "headers": {
+              "X-Cito-FOCUS-Version": {
+                "schema": {
+                  "type": "string",
+                  "const": "1.4"
+                }
+              }
+            },
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/cito_a12dea_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/cito_a12dea_Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "cito_a12dea_CitoBaasApiKey": []
+          }
+        ],
+        "x-cito-audience": "THIRD_PARTY",
+        "x-cito-billing": {
+          "unit": "AUTHENTICATED_REQUEST",
+          "defaultRate": "0.0000",
+          "currency": "UGX",
+          "currentRates": "/api/v2/portal/api-reference/rates"
+        },
+        "x-source-contract": "cito-billing-baas-v2.1-openapi.yaml",
+        "x-cito-consumer-auth": "BAAS_API_KEY",
+        "x-cito-environment-policy": "BAAS_SELECTOR",
+        "x-cito-readiness-note": "Contract availability is not provider activation, settlement or delivery certification."
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cpay_494ca4_CPayV2Signature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CPay-Signature"
+      },
+      "cito_8a569b_CPayV2Signature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CPay-Signature",
+        "description": "Signature-based merchant authentication enforced by the CPay/Cito v2 request security service."
+      },
+      "cito_a767bf_signedMerchantRequest": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CPay-Signature",
+        "description": "Cito signed merchant-request authentication. Merchant and timestamp headers are validated by the shared v2 request security layer."
+      },
+      "cito_a12dea_CitoBaasApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Cito-Api-Key"
+      }
+    },
+    "parameters": {
+      "cpay_494ca4_IdempotencyKey": {
+        "name": "X-CPay-Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "description": "Merchant-scoped request identity. Identical requests replay their stored result; different bodies conflict. Failed request cleanup replays REQUEST_FAILED without releasing the key. Abandoned claims recover after 15 minutes. Check the payment reference before using a new key; REQUEST_FAILED does not prove provider failure.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "cito_a767bf_IdempotencyKey": {
+        "name": "X-CPay-Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "cito_a12dea_CitoEnvironment": {
+        "name": "X-Cito-Environment",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "SANDBOX",
+            "PRODUCTION"
+          ]
+        }
+      },
+      "cito_a12dea_RequestId": {
+        "name": "X-Request-Id",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 191
+        }
+      },
+      "cito_a12dea_Reference": {
+        "name": "reference",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 160
+        }
+      }
+    },
+    "schemas": {
+      "cpay_494ca4_PaymentParty": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "cpay_494ca4_PaymentRequest": {
+        "type": "object",
+        "required": [
+          "merchantNumber",
+          "country",
+          "currency",
+          "amount",
+          "reference",
+          "description",
+          "callbackUrl"
+        ],
+        "properties": {
+          "merchantNumber": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "callbackUrl": {
+            "type": "string"
+          },
+          "payer": {
+            "$ref": "#/components/schemas/cpay_494ca4_PaymentParty"
+          },
+          "payee": {
+            "$ref": "#/components/schemas/cpay_494ca4_PaymentParty"
+          }
+        }
+      },
+      "cpay_494ca4_PaymentResult": {
+        "type": "object",
+        "description": "Payment lifecycle result. REQUEST_FAILED represents an incomplete API request, not a terminal provider outcome; query the reference before retrying.",
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "transactionId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "providerResponse": {
+            "type": "string"
+          }
+        }
+      },
+      "cpay_494ca4_WebhookEventCatalogEntry": {
+        "type": "object",
+        "properties": {
+          "eventType": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "qualifiedType": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "schema": {
+            "type": "object"
+          }
+        }
+      },
+      "cpay_494ca4_AccountValidationRequest": {
+        "type": "object",
+        "required": [
+          "merchantNumber",
+          "msisdn"
+        ],
+        "properties": {
+          "merchantNumber": {
+            "type": "string"
+          },
+          "msisdn": {
+            "type": "string"
+          }
+        }
+      },
+      "cpay_494ca4_AccountValidationResponse": {
+        "type": "object",
+        "properties": {
+          "msisdn": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "cpay_494ca4_PaymentLinkCreateRequest": {
+        "type": "object",
+        "required": [
+          "merchantNumber",
+          "amount",
+          "currency",
+          "description"
+        ],
+        "properties": {
+          "merchantNumber": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "callbackUrl": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "cpay_494ca4_PaymentLinkResponse": {
+        "type": "object",
+        "properties": {
+          "linkReference": {
+            "type": "string"
+          },
+          "checkoutUrl": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "cpay_494ca4_StatementExportResponse": {
+        "type": "object",
+        "properties": {
+          "merchantNumber": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/cpay_494ca4_StatementRow"
+            }
+          }
+        }
+      },
+      "cpay_494ca4_StatementRow": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "createdOn": {
+            "type": "string"
+          },
+          "gatewayId": {
+            "type": "string"
+          },
+          "transactionType": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "merchantReference": {
+            "type": "string"
+          },
+          "transactionId": {
+            "type": "string"
+          },
+          "transactionStatus": {
+            "type": "string"
+          }
+        }
+      },
+      "cpay_494ca4_RefundRequest": {
+        "type": "object",
+        "required": [
+          "merchantNumber",
+          "originalReference",
+          "amount",
+          "currency"
+        ],
+        "properties": {
+          "merchantNumber": {
+            "type": "string"
+          },
+          "originalReference": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "callbackUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "cpay_494ca4_InvoiceCreateRequest": {
+        "type": "object",
+        "required": [
+          "merchantNumber",
+          "amount",
+          "currency"
+        ],
+        "properties": {
+          "merchantNumber": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "payerName": {
+            "type": "string"
+          },
+          "payerContact": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "cpay_494ca4_InvoiceResponse": {
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "payerName": {
+            "type": "string"
+          },
+          "payerContact": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "payUrl": {
+            "type": "string"
+          },
+          "createdTransactionId": {
+            "type": "string"
+          }
+        }
+      },
+      "cito_8a569b_ErrorResponse": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "cito_a767bf_ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "cito_a767bf_RoutingOptions": {
+        "type": "object",
+        "properties": {
+          "senderId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scheduledAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "routingStrategy": {
+            "type": "string",
+            "enum": [
+              "BALANCED",
+              "LOWEST_COST",
+              "RELIABILITY_FIRST",
+              "PRIORITY"
+            ],
+            "default": "BALANCED"
+          },
+          "countryCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 2,
+            "maxLength": 3
+          },
+          "currencyCode": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "default": "UGX"
+          },
+          "requireDeliveryReceipts": {
+            "type": "boolean",
+            "default": true
+          },
+          "requireInbound": {
+            "type": "boolean",
+            "default": false
+          },
+          "fallbackEnabled": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "cito_a767bf_SmsSendRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/cito_a767bf_RoutingOptions"
+          },
+          {
+            "type": "object",
+            "required": [
+              "merchantNumber",
+              "recipient",
+              "content"
+            ],
+            "properties": {
+              "merchantNumber": {
+                "type": "string",
+                "minLength": 1
+              },
+              "channel": {
+                "type": "string",
+                "enum": [
+                  "SMS"
+                ],
+                "default": "SMS"
+              },
+              "recipient": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 20
+              },
+              "content": {
+                "type": "string",
+                "minLength": 1
+              },
+              "purpose": {
+                "type": "string",
+                "default": "NOTIFICATION"
+              },
+              "externalReference": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 128
+              },
+              "expiresInSeconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              }
+            }
+          }
+        ]
+      },
+      "cito_a767bf_SmsBulkRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/cito_a767bf_RoutingOptions"
+          },
+          {
+            "type": "object",
+            "required": [
+              "merchantNumber",
+              "recipients",
+              "content"
+            ],
+            "properties": {
+              "merchantNumber": {
+                "type": "string",
+                "minLength": 1
+              },
+              "recipients": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1000,
+                "items": {
+                  "type": "string",
+                  "minLength": 7,
+                  "maxLength": 20
+                }
+              },
+              "content": {
+                "type": "string",
+                "minLength": 1
+              },
+              "purpose": {
+                "type": "string",
+                "default": "NOTIFICATION"
+              },
+              "externalReference": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 128
+              },
+              "expiresInSeconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              }
+            }
+          }
+        ]
+      },
+      "cito_a767bf_SmsPreviewRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/cito_a767bf_RoutingOptions"
+          },
+          {
+            "type": "object",
+            "required": [
+              "merchantNumber",
+              "content"
+            ],
+            "properties": {
+              "merchantNumber": {
+                "type": "string",
+                "minLength": 1
+              },
+              "content": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        ]
+      },
+      "cito_a12dea_GenericObject": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "cito_a12dea_Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "cito_a12dea_UsageEventRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasUsageController.java#UsageEventRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "serviceCode": {
+            "type": "string"
+          },
+          "meterCode": {
+            "type": "string"
+          },
+          "eventTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          },
+          "dimensions": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "sourceReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-sourceReference"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Persist one stable key for the original business operation; reuse it with commercially identical input. This is a JSON body field, not the CPay signature header.",
+            "example": "operation-unique-stable-key"
+          }
+        },
+        "x-java-record": "BillingBaasUsageController.java#UsageEventRequest",
+        "required": [
+          "serviceCode",
+          "meterCode",
+          "quantity",
+          "sourceReference",
+          "idempotencyKey"
+        ]
+      },
+      "cito_a12dea_CustomerRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#CustomerRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "externalReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-externalReference"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "legalName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadataJson": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional JSON encoded as a string, not a nested JSON object.",
+            "example": "{}"
+          }
+        },
+        "x-java-record": "BillingBaasController.java#CustomerRequest",
+        "required": [
+          "externalReference",
+          "displayName"
+        ]
+      },
+      "cito_a12dea_AccountRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#AccountRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "customerReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-customerReference"
+          },
+          "accountReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-accountReference"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          }
+        },
+        "x-java-record": "BillingBaasController.java#AccountRequest",
+        "required": [
+          "customerReference",
+          "accountReference",
+          "currency"
+        ]
+      },
+      "cito_a12dea_ContractRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#ContractRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "customerReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-customerReference"
+          },
+          "contractReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-contractReference"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          },
+          "effectiveFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "effectiveTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "termsJson": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional JSON encoded as a string, not a nested JSON object.",
+            "example": "{}"
+          }
+        },
+        "x-java-record": "BillingBaasController.java#ContractRequest",
+        "required": [
+          "customerReference",
+          "contractReference",
+          "currency"
+        ]
+      },
+      "cito_a12dea_SubscriptionRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#SubscriptionRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "customerReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-customerReference"
+          },
+          "accountReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-accountReference"
+          },
+          "contractReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-contractReference"
+          },
+          "subscriptionReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-subscriptionReference"
+          },
+          "serviceCode": {
+            "type": "string"
+          },
+          "planCode": {
+            "type": "string"
+          },
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "startsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "endsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasController.java#SubscriptionRequest",
+        "required": [
+          "customerReference",
+          "accountReference",
+          "contractReference",
+          "subscriptionReference",
+          "serviceCode",
+          "planCode"
+        ]
+      },
+      "cito_a12dea_EntitlementRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#EntitlementRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "entitlementCode": {
+            "type": "string"
+          },
+          "limitQuantity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasController.java#EntitlementRequest",
+        "required": [
+          "entitlementCode"
+        ]
+      },
+      "cito_a12dea_AuthorizeChargeRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#AuthorizeChargeRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "billingAccountReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-billingAccountReference"
+          },
+          "serviceCode": {
+            "type": "string"
+          },
+          "entitlementCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "usageQuantity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "netAmount": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Persist one stable key for the original business operation; reuse it with commercially identical input. This is a JSON body field, not the CPay signature header.",
+            "example": "operation-unique-stable-key"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasController.java#AuthorizeChargeRequest",
+        "required": [
+          "billingAccountReference",
+          "serviceCode",
+          "usageQuantity",
+          "netAmount",
+          "currency",
+          "idempotencyKey"
+        ]
+      },
+      "cito_a12dea_ProtectedActionRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#ProtectedActionRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "actionType": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceReference": {
+            "type": "string"
+          }
+        },
+        "x-java-record": "BillingBaasController.java#ProtectedActionRequest",
+        "required": [
+          "actionType",
+          "resourceType",
+          "resourceReference"
+        ]
+      },
+      "cito_a12dea_DecisionRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasController.java#DecisionRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "x-java-record": "BillingBaasController.java#DecisionRequest"
+      },
+      "cito_a12dea_PricingQuoteRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasPricingController.java#PricingQuoteRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "billingAccountReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-billingAccountReference"
+          },
+          "contractReference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-contractReference"
+          },
+          "serviceCode": {
+            "type": "string"
+          },
+          "meterCode": {
+            "type": "string"
+          },
+          "ratingBaseAmount": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "sourceCurrency": {
+            "type": "string",
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          },
+          "asOf": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasPricingController.java#PricingQuoteRequest",
+        "required": [
+          "billingAccountReference",
+          "serviceCode",
+          "meterCode",
+          "ratingBaseAmount",
+          "sourceCurrency"
+        ]
+      },
+      "cito_a12dea_RatedAuthorizationRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasPricingController.java#RatedAuthorizationRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "billingAccountReference": {
+            "type": "string",
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-billingAccountReference"
+          },
+          "contractReference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Caller reference or existing reference in the authenticated billing tenant. Sample identifiers are not provisioned records.",
+            "example": "example-contractReference"
+          },
+          "serviceCode": {
+            "type": "string"
+          },
+          "meterCode": {
+            "type": "string"
+          },
+          "entitlementCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "usageQuantity": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "ratingBaseAmount": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^-?\\d+(?:\\.\\d+)?$"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Exact decimal; send as a JSON string to avoid binary floating-point precision loss. Business validation and canonical four-decimal accounting still apply.",
+            "example": "1.0000"
+          },
+          "sourceCurrency": {
+            "type": "string",
+            "description": "Currency accepted by the configured billing account and pricing contract.",
+            "example": "UGX"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Persist one stable key for the original business operation; reuse it with commercially identical input. This is a JSON body field, not the CPay signature header.",
+            "example": "operation-unique-stable-key"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasPricingController.java#RatedAuthorizationRequest",
+        "required": [
+          "billingAccountReference",
+          "serviceCode",
+          "meterCode",
+          "usageQuantity",
+          "ratingBaseAmount",
+          "sourceCurrency",
+          "idempotencyKey"
+        ]
+      },
+      "cito_a12dea_PriceOverrideRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasPricingController.java#PriceOverrideRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "serviceCode": {
+            "type": "string"
+          },
+          "meterCode": {
+            "type": "string"
+          },
+          "priceBookVersionId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Existing effective price-book version ID; changes remain independently approved.",
+            "example": 1
+          },
+          "effectiveFrom": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          },
+          "effectiveTo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "ISO-8601 instant. Preserve the original value when retrying the same business operation."
+          }
+        },
+        "x-java-record": "BillingBaasPricingController.java#PriceOverrideRequest",
+        "required": [
+          "serviceCode",
+          "meterCode",
+          "priceBookVersionId"
+        ]
+      },
+      "cito_a12dea_WebhookRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasWebhookController.java#WebhookRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "eventType": {
+            "type": "string"
+          },
+          "endpointUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Approved HTTPS merchant receiver. Registering or testing it can enqueue real outbound delivery; do not batch-run this action.",
+            "example": "https://receiver.example/cito/events"
+          }
+        },
+        "x-java-record": "BillingBaasWebhookController.java#WebhookRequest",
+        "required": [
+          "eventType",
+          "endpointUrl"
+        ]
+      },
+      "cito_a12dea_WebhookTestRequest": {
+        "type": "object",
+        "description": "Request fields from BillingBaasWebhookController.java#WebhookTestRequest. Field presence does not bypass tenant scope, independent approval, effective dates, quota or financial validation.",
+        "properties": {
+          "eventType": {
+            "type": "string"
+          }
+        },
+        "x-java-record": "BillingBaasWebhookController.java#WebhookTestRequest",
+        "required": [
+          "eventType"
+        ]
+      }
+    },
+    "responses": {
+      "cpay_494ca4_BadRequest": {
+        "description": "Request was rejected"
+      },
+      "cpay_494ca4_Unauthorized": {
+        "description": "Request signature or credentials were rejected"
+      },
+      "cito_8a569b_BadRequest": {
+        "description": "Request rejected by validation, entitlement, or business rules",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/cito_8a569b_ErrorResponse"
+            }
+          }
+        }
+      },
+      "cito_8a569b_UnauthorizedSignedRequest": {
+        "description": "A valid signed merchant request is required",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/cito_8a569b_ErrorResponse"
+            }
+          }
+        }
+      },
+      "cito_a767bf_ObjectOk": {
+        "description": "Request completed successfully.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "cito_a767bf_AcceptedObject": {
+        "description": "Request accepted for processing.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "cito_a767bf_BadRequest": {
+        "description": "Request validation failed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/cito_a767bf_ErrorResponse"
+            }
+          }
+        }
+      },
+      "cito_a767bf_Unauthorized": {
+        "description": "Authentication or merchant session failed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/cito_a767bf_ErrorResponse"
+            }
+          }
+        }
+      },
+      "cito_a12dea_Object": {
+        "description": "Successful response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/cito_a12dea_GenericObject"
+            }
+          }
+        }
+      },
+      "cito_a12dea_ObjectList": {
+        "description": "Successful list response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/cito_a12dea_GenericObject"
+              }
+            }
+          }
+        }
+      },
+      "cito_a12dea_BadRequest": {
+        "description": "Validation or protected business rule rejected the request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/cito_a12dea_Error"
+            }
+          }
+        }
+      },
+      "cito_a12dea_Unauthorized": {
+        "description": "Credential, scope, environment or product entitlement rejected the request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/cito_a12dea_Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-source-sha256": "8c282b992231254754d19583efa33e16927a466075a91620bf850f0899866003"
+}

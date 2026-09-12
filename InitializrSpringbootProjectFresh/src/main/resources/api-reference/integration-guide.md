@@ -64,7 +64,7 @@ NONCE
 BODY_SHA256_HEX
 ```
 
-Use the uppercase HTTP method and the exact API path, without a hostname. Sort query parameter names, then repeated values; encode names and values with the server's Java form-url-encoding rules (UTF-8, spaces as `+`). Join encoded pairs using `&`. For an empty query use an empty third line. Hash the exact UTF-8 body bytes; a bodyless GET hashes the empty string. Do not reformat the JSON after signing.
+Use the uppercase HTTP method and the exact API path, without a hostname. Sort query parameter names, then repeated values; encode names and values with the server's Java form-url-encoding rules (UTF-8, spaces as `+`). Join encoded pairs using `&`. For an empty query use an empty third line. The released Java verifier trims leading/trailing U+0000–U+0020 from the body before hashing UTF-8. SDK 2.0 matches that compatibility rule; compact JSON with no surrounding whitespace is recommended. Whitespace inside JSON is significant, and a bodyless GET hashes the empty string. Do not reformat JSON after signing. See `Docs/Api-v2-signing.md` and the shared conformance vectors.
 
 For example, a balance request uses `GET`, path `/api/v2/balances`, query `merchantNumber=YOUR_MERCHANT_NUMBER`, and an empty body. The repository's `Docs/Api-v2-signing.md` and `sdk/` helpers explain the compatibility protocol. Validate signatures in the approved test environment before automating retries.
 
@@ -224,3 +224,12 @@ The merchant activation journey and administrator merchant-readiness view use th
 The developer quickstart button filters documentation locally and never sends a request. Review the connected deployment, authentication and current access price before an explicitly approved non-money test. The workbench itself is not a sandbox.
 
 Production SMTP transport was independently reachable from a sibling diagnostic worker on 11 September 2026; this is not proof of application authentication or inbox delivery. Do not claim email delivery from transport success alone.
+
+
+## 15. External developer handover kit
+
+Use `Docs/Api/consumer/START-HERE.md` and the revision-stamped Cito External Developer Kit. Its OpenAPI and Postman collection contain only current third-party v2 operations. Merchant workspace/session operations, administrator APIs and legacy body-signature routes are not in that external projection. The broader authenticated merchant reference remains available separately.
+
+Node, Python and PHP SDK 2.0 use server-compatible query sorting/encoding, explicit environments, stable caller-provided operation keys, bounded transport timeouts and no automatic redirects/retries. The supplied Postman collection uses local Vault keys and built-in Web Crypto; it never loads a remote signing library and starts with requests disabled. Read the migration guide before replacing an older helper.
+
+A developer kit is not a merchant's credentials, provider activation, current tariff or end-to-end production acceptance. Obtain the approved deployment, merchant/key or scoped BaaS credential, permitted services and applicable limits through the existing onboarding workflow. A real zero rate, when configured, remains distinct from an unknown rate.

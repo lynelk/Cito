@@ -12,6 +12,9 @@ describe('safe developer quickstart', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Explore capability documentation' }));
       expect(explore).toHaveBeenCalledOnce();
       expect(network).not.toHaveBeenCalled();
+      const handover = screen.getByRole('link', { name: /external developer handover kit/i });
+      expect(handover.getAttribute('href')).toBe('https://github.com/lynelk/Cito/tree/main/Docs/Api/consumer');
+      expect(handover.getAttribute('rel')).toContain('noopener');
       expect(screen.getByText(/does not create a sandbox/)).toBeTruthy();
     } finally { network.mockRestore(); }
   });

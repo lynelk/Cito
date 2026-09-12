@@ -1,368 +1,3033 @@
 {
   "info": {
-    "name": "CPay v2 API",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "name": "Cito External Developer API 2.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Connect Once. Operate Everything. Consumer-only collection generated from canonical contracts. Requires current Postman desktop, local Vault and Web Crypto. Configure approved origin/environment. Requests are disabled by default; writes require exact one-use confirmation. Never disable TLS checks. Do not run the whole collection against production."
   },
-  "variable": [
-    { "key": "baseUrl", "value": "https://cpaytest.coresynergi.es:8443" },
-    { "key": "merchantNumber", "value": "1000000" },
-    { "key": "checkoutToken", "value": "replace-with-created-payment-link-token" },
-    { "key": "adminUser", "value": "replace-with-admin-email" },
-    { "key": "adminPassword", "value": "replace-with-admin-password" }
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Cito consumer kit 2.0. Uses local Vault + Web Crypto; no network-loaded signing libraries.",
+          "// {\"activateBillingContract\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/contracts/{reference}/activate\"},\"activateBillingSubscription\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/subscriptions/{reference}/activate\"},\"approveBillingContract\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/contracts/{reference}/approve\"},\"approveBillingProtectedAction\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/protected-actions/{id}/approve\"},\"approveContractPriceOverride\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/price-overrides/{overrideId}/approve\"},\"authorizeBillingChargeCompatibility\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/charges\"},\"batchPayoutStatus\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/batch-payouts/{batchId}/status\"},\"cancelBillingSubscription\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/subscriptions/{reference}/cancel\"},\"cancelInvoice\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/invoices/{reference}/actions/cancel\"},\"collectPayment\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/payments/collect\"},\"commitBillingCharge\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/charges/{reference}/commit\"},\"createBillingAccount\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/accounts\"},\"createBillingContract\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/contracts\"},\"createBillingCustomer\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/customers\"},\"createBillingSubscription\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/subscriptions\"},\"createBillingWebhook\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/webhooks\"},\"createInvoice\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/invoices\"},\"createPaymentLink\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/payment-links\"},\"createRefund\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/refunds\"},\"exportBillingFocus14CostAndUsage\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/exports/focus\"},\"exportMerchantStatements\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/statements\"},\"getBillingCatalog\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/catalog\"},\"getBillingCharge\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/charges/{reference}\"},\"getBillingInvoice\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/invoices/{invoiceNumber}\"},\"getBillingQuotaUsage\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/quotas\"},\"getCommunicationSmsStatus\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/communication/messages/{reference}\"},\"getMerchantIdentityCapabilities\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/identity/capabilities\"},\"getMerchantIdentityRequest\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/identity/requests/{reference}\"},\"getSignedMerchantBalanceViews\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/merchant/balances\"},\"grantBillingEntitlement\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/subscriptions/{reference}/entitlements\"},\"ingestBillingUsageEvent\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/usage/events\"},\"listBillingCustomers\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/customers\"},\"listBillingEntitlements\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/entitlements\"},\"listBillingInvoices\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/invoices\"},\"listBillingUsageEvents\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/usage/events\"},\"listBillingWebhookDeliveries\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/webhooks/deliveries\"},\"listBillingWebhookEventTypes\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/webhooks/events\"},\"listBillingWebhooks\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/webhooks\"},\"listChannels\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/channels\"},\"listInvoices\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/invoices\"},\"listRefunds\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/refunds\"},\"listWebhookEvents\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/webhooks/events\"},\"merchantBalances\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/balances\"},\"nativeCollect\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/payments/collect\"},\"nativePayout\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/payments/payout\"},\"pauseBillingSubscription\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/subscriptions/{reference}/pause\"},\"payoutPayment\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/payments/payout\"},\"previewCommunicationSmsRoute\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/communication/messages/preview\"},\"quoteBillingPrice\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/pricing/quotes\"},\"rateAndAuthorizeBillingCharge\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/charges/rate-and-authorize\"},\"refundStatus\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/refunds/{reference}\"},\"releaseBillingCharge\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/charges/{reference}/release\"},\"replayBillingWebhookDelivery\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/webhooks/deliveries/{deliveryId}/replay\"},\"requestBillingProtectedAction\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/protected-actions\"},\"retryFailedBatchPayout\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/batch-payouts/{batchId}/retry-failed\"},\"reverseBillingCharge\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/charges/{reference}/reverse\"},\"rotateBillingWebhookSecret\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/webhooks/{endpointId}/rotate-secret\"},\"sendBulkCommunicationSms\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/communication/messages/bulk\"},\"sendCommunicationSms\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/communication/messages\"},\"sendInvoice\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/invoices/{reference}/actions/send\"},\"submitBillingContract\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/contracts/{reference}/submit\"},\"submitContractPriceOverride\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/contracts/{reference}/price-overrides\"},\"summarizeBillingUsage\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/usage/summary\"},\"testBillingWebhook\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/webhooks/test\"},\"transactionStatus\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/payments/{reference}\"},\"validateAccount\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/accounts/validate\"},\"verifyMerchantIdentity\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/identity/verify\"}} is replaced by the source-controlled generator, not hand-edited.",
+          "const policies = {\"activateBillingContract\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/contracts/{reference}/activate\"},\"activateBillingSubscription\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/subscriptions/{reference}/activate\"},\"approveBillingContract\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/contracts/{reference}/approve\"},\"approveBillingProtectedAction\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/protected-actions/{id}/approve\"},\"approveContractPriceOverride\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/price-overrides/{overrideId}/approve\"},\"authorizeBillingChargeCompatibility\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/charges\"},\"batchPayoutStatus\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/batch-payouts/{batchId}/status\"},\"cancelBillingSubscription\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/subscriptions/{reference}/cancel\"},\"cancelInvoice\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/invoices/{reference}/actions/cancel\"},\"collectPayment\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/payments/collect\"},\"commitBillingCharge\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/charges/{reference}/commit\"},\"createBillingAccount\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/accounts\"},\"createBillingContract\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/contracts\"},\"createBillingCustomer\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/customers\"},\"createBillingSubscription\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/subscriptions\"},\"createBillingWebhook\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/webhooks\"},\"createInvoice\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/invoices\"},\"createPaymentLink\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/payment-links\"},\"createRefund\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/refunds\"},\"exportBillingFocus14CostAndUsage\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/exports/focus\"},\"exportMerchantStatements\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/statements\"},\"getBillingCatalog\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/catalog\"},\"getBillingCharge\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/charges/{reference}\"},\"getBillingInvoice\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/invoices/{invoiceNumber}\"},\"getBillingQuotaUsage\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/quotas\"},\"getCommunicationSmsStatus\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/communication/messages/{reference}\"},\"getMerchantIdentityCapabilities\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/identity/capabilities\"},\"getMerchantIdentityRequest\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/identity/requests/{reference}\"},\"getSignedMerchantBalanceViews\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/merchant/balances\"},\"grantBillingEntitlement\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/subscriptions/{reference}/entitlements\"},\"ingestBillingUsageEvent\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/usage/events\"},\"listBillingCustomers\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/customers\"},\"listBillingEntitlements\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/entitlements\"},\"listBillingInvoices\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/invoices\"},\"listBillingUsageEvents\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/usage/events\"},\"listBillingWebhookDeliveries\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/webhooks/deliveries\"},\"listBillingWebhookEventTypes\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/webhooks/events\"},\"listBillingWebhooks\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/webhooks\"},\"listChannels\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/channels\"},\"listInvoices\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/invoices\"},\"listRefunds\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/refunds\"},\"listWebhookEvents\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/webhooks/events\"},\"merchantBalances\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/balances\"},\"nativeCollect\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/payments/collect\"},\"nativePayout\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/payments/payout\"},\"pauseBillingSubscription\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/subscriptions/{reference}/pause\"},\"payoutPayment\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/payments/payout\"},\"previewCommunicationSmsRoute\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/communication/messages/preview\"},\"quoteBillingPrice\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/pricing/quotes\"},\"rateAndAuthorizeBillingCharge\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/charges/rate-and-authorize\"},\"refundStatus\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/refunds/{reference}\"},\"releaseBillingCharge\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/charges/{reference}/release\"},\"replayBillingWebhookDelivery\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/webhooks/deliveries/{deliveryId}/replay\"},\"requestBillingProtectedAction\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/protected-actions\"},\"retryFailedBatchPayout\":{\"auth\":\"RSA_V2\",\"environment\":\"PAYMENT_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/batch-payouts/{batchId}/retry-failed\"},\"reverseBillingCharge\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/charges/{reference}/reverse\"},\"rotateBillingWebhookSecret\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/webhooks/{endpointId}/rotate-secret\"},\"sendBulkCommunicationSms\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/communication/messages/bulk\"},\"sendCommunicationSms\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/communication/messages\"},\"sendInvoice\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/invoices/{reference}/actions/send\"},\"submitBillingContract\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/contracts/{reference}/submit\"},\"submitContractPriceOverride\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/contracts/{reference}/price-overrides\"},\"summarizeBillingUsage\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/native/billing/baas/usage/summary\"},\"testBillingWebhook\":{\"auth\":\"BAAS_API_KEY\",\"environment\":\"BAAS_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/native/billing/baas/webhooks/test\"},\"transactionStatus\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"GET\",\"path\":\"/api/v2/payments/{reference}\"},\"validateAccount\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/accounts/validate\"},\"verifyMerchantIdentity\":{\"auth\":\"RSA_V2\",\"environment\":\"NO_SANDBOX_SELECTOR\",\"method\":\"POST\",\"path\":\"/api/v2/identity/verify\"}};",
+          "function stop(message) { pm.execution.skipRequest(); throw new Error(message); }",
+          "function needed(name) {",
+          "  const value = pm.environment.get(name);",
+          "  if (typeof value !== 'string' || !value.trim() || /\\{\\{|REPLACE|YOUR_/.test(value)) stop(`Configure ${name} in the selected local environment`);",
+          "  return value;",
+          "}",
+          "function formEncode(s) { return encodeURIComponent(s).replace(/[!'()~]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g,'+'); }",
+          "function javaTrim(value) {",
+          "  // Java String.trim() with bounded linear scans, not a backtracking suffix regex.",
+          "  let start = 0, end = value.length;",
+          "  while (start < end && value.charCodeAt(start) <= 0x20) start++;",
+          "  while (end > start && value.charCodeAt(end - 1) <= 0x20) end--;",
+          "  return value.slice(start, end);",
+          "}",
+          "function canonicalQuery(params) {",
+          "  return [...params].sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:a[1]<b[1]?-1:a[1]>b[1]?1:0).map(([k,v])=>formEncode(k)+'='+formEncode(v)).join('&');",
+          "}",
+          "try {",
+          "  if (!pm.execution || typeof pm.execution.skipRequest !== 'function') throw new Error('Use a current Postman desktop app with skipRequest, local Vault and Web Crypto');",
+          "  const policy=policies[pm.info.requestName];",
+          "  if (!policy) stop('Unknown request; regenerate the collection from the Cito consumer contract');",
+          "  if (pm.environment.get('allowRequests') !== 'true') stop('Set allowRequests=true after checking the approved environment and published API access prices');",
+          "  const approved=needed('baseUrl'); const environment=needed('environment');",
+          "  if (!['SANDBOX','PRODUCTION'].includes(environment)) stop('environment must be SANDBOX or PRODUCTION');",
+          "  const origin=new URL(approved);",
+          "  if (origin.protocol!=='https:' || origin.username || origin.password || origin.pathname!=='/' || origin.search || origin.hash || origin.hostname.endsWith('.invalid')) stop('baseUrl must be an approved HTTPS origin');",
+          "  const expanded=pm.variables.replaceIn(pm.request.url.toString());",
+          "  if (/\\{\\{|\\}\\}/.test(expanded)) stop('Resolve all path and query variables before sending');",
+          "  const url=new URL(expanded);",
+          "  const escaped=policy.path.split(/(\\{[^}]+\\})/).map(p=>p.startsWith('{')?'[^/]+':p.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&')).join('');",
+          "  if (url.origin!==origin.origin || url.username || url.password || url.hash || !new RegExp('^'+escaped+'$').test(url.pathname) || pm.request.method!==policy.method) stop('Request destination/method differs from the selected consumer contract');",
+          "  if (environment==='SANDBOX' && policy.environment==='NO_SANDBOX_SELECTOR' && policy.method!=='GET') stop('This operation has no verified sandbox selector; do not treat it as a sandbox test');",
+          "  if (policy.method!=='GET') {",
+          "    if (pm.environment.get('confirmOperation')!==pm.info.requestName) stop('Set confirmOperation to this exact operationId for one deliberate write');",
+          "    pm.environment.unset('confirmOperation'); // One-use intent, not a live-provider activation approval.",
+          "  }",
+          "  let body=pm.request.body && pm.request.body.mode==='raw' ? pm.variables.replaceIn(pm.request.body.raw) : '';",
+          "  if (/\\{\\{[^}]+\\}\\}/.test(body)) stop('Resolve all request-body variables before sending');",
+          "  if (body) { JSON.parse(body); pm.request.body.update({mode:'raw',raw:body,options:{raw:{language:'json'}}}); }",
+          "  if (policy.auth==='RSA_V2') {",
+          "    const merchant=needed('merchantNumber');",
+          "    if (/[\\x00-\\x20\\x7f]/.test(merchant)) stop('merchantNumber is invalid');",
+          "    const parsed=body ? JSON.parse(body) : {};",
+          "    if (parsed.merchantNumber!==undefined && parsed.merchantNumber!==merchant) stop('Body merchant does not match configured merchant');",
+          "    if (url.searchParams.has('merchantNumber') && (url.searchParams.getAll('merchantNumber').length!==1 || url.searchParams.get('merchantNumber')!==merchant)) stop('Query merchant mismatch');",
+          "    if (parsed.merchantNumber===undefined && !url.searchParams.has('merchantNumber')) stop('This signed request needs the documented merchantNumber in its body or query');",
+          "    if (parsed.metadata && parsed.metadata.environment && parsed.metadata.environment!==environment) stop('Body and header environments conflict');",
+          "    const query=canonicalQuery(url.searchParams); url.search=query; pm.request.url.update(url.toString());",
+          "    pm.request.headers.upsert({key:'X-CPay-Environment',value:environment});",
+          "    if (policy.method!=='GET') {",
+          "      const idem=needed('idempotencyKey');",
+          "      if (/[\\x00-\\x20\\x7f]/.test(idem) || idem.length>256) stop('idempotencyKey is invalid');",
+          "      pm.request.headers.upsert({key:'X-CPay-Idempotency-Key',value:idem});",
+          "    }",
+          "    const timestamp=new Date().toISOString(); const nonce=crypto.randomUUID();",
+          "    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(javaTrim(body)));",
+          "    const hex=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');",
+          "    const canonical=[policy.method,url.pathname,query,timestamp,nonce,hex].join('\\n');",
+          "    const pem=await pm.vault.get('cito-rsa-private-key');",
+          "    if (typeof pem!=='string' || !pem.includes('-----BEGIN PRIVATE KEY-----')) stop('Local Vault cito-rsa-private-key must contain a PKCS#8 RSA private key');",
+          "    const raw=pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s/g,'');",
+          "    const bytes=Uint8Array.from(atob(raw),c=>c.charCodeAt(0));",
+          "    const key=await crypto.subtle.importKey('pkcs8',bytes,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);",
+          "    if (key.algorithm.modulusLength<2048) stop('RSA key must be at least 2048 bits');",
+          "    const signature=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(canonical));",
+          "    const encoded=btoa(String.fromCharCode(...new Uint8Array(signature)));",
+          "    for (const [key,value] of Object.entries({'X-CPay-Merchant-Number':merchant,'X-CPay-Signature-Version':'v2','X-CPay-Timestamp':timestamp,'X-CPay-Nonce':nonce,'X-CPay-Signature':encoded})) pm.request.headers.upsert({key,value});",
+          "  } else if (policy.auth==='BAAS_API_KEY') {",
+          "    const apiKey=await pm.vault.get('cito-baas-api-key');",
+          "    if (typeof apiKey!=='string' || !apiKey || /[\\x00-\\x20\\x7f]/.test(apiKey)) stop('Local Vault cito-baas-api-key is missing or invalid');",
+          "    pm.request.headers.upsert({key:'X-Cito-Api-Key',value:apiKey});",
+          "    pm.request.headers.upsert({key:'X-Cito-Environment',value:environment});",
+          "    pm.request.headers.upsert({key:'X-Request-Id',value:crypto.randomUUID()});",
+          "  } else stop('Unsupported auth contract');",
+          "} catch (error) {",
+          "  if (pm.execution && typeof pm.execution.skipRequest==='function') pm.execution.skipRequest();",
+          "  // Never log a key, raw provider body, private-key parser error or signed request.",
+          "  throw new Error('Cito request was not sent: verify local environment, body, permissions and Vault setup. No automatic retry.');",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('HTTP request was accepted (not proof of settlement or delivery)', () => {",
+          "  pm.expect(pm.response.code).to.be.within(200, 299);",
+          "});",
+          "if (pm.response.code === 202) {",
+          "  pm.test('202 remains pending, not completed money movement', () => pm.expect(pm.response.code).to.equal(202));",
+          "}",
+          "// Never automatically trigger a second request or change its reference/key after a failure."
+        ]
+      }
+    }
   ],
   "item": [
     {
-      "name": "Native Collect",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "X-CPay-Signature-Version", "value": "v2" },
-          { "key": "X-CPay-Timestamp", "value": "{{timestamp}}" },
-          { "key": "X-CPay-Nonce", "value": "{{nonce}}" },
-          { "key": "X-CPay-Signature", "value": "{{signature}}" },
-          { "key": "X-CPay-Idempotency-Key", "value": "{{idempotencyKey}}" }
-        ],
-        "url": "{{baseUrl}}/api/v2/native/payments/collect",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"channel\": \"mtn_momo\",\n  \"country\": \"UG\",\n  \"currency\": \"UGX\",\n  \"amount\": \"5000.00\",\n  \"reference\": \"ORD-10001\",\n  \"description\": \"Order payment\",\n  \"callbackUrl\": \"https://merchant.example/cpay/callback\",\n  \"payer\": {\"type\": \"MSISDN\", \"value\": \"256770000000\"}\n}"
+      "name": "Payments and discovery",
+      "item": [
+        {
+          "name": "nativeCollect",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/payments/collect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "payments",
+                "collect"
+              ],
+              "query": []
+            },
+            "description": "Submit an adapter-native mobile money collection request\n\nAuth: RSA_V2. Environment policy: PAYMENT_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=nativeCollect. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"amount\": \"{{amount}}\",\n  \"currency\": \"{{currency}}\",\n  \"country\": \"{{country}}\",\n  \"channel\": \"{{channel}}\",\n  \"reference\": \"{{reference}}\",\n  \"description\": \"Developer integration example\",\n  \"payer\": {\n    \"type\": \"MSISDN\",\n    \"value\": \"{{testMsisdn}}\"\n  },\n  \"metadata\": {\n    \"environment\": \"{{environment}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "nativePayout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/payments/payout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "payments",
+                "payout"
+              ],
+              "query": []
+            },
+            "description": "Submit an adapter-native mobile money payout request\n\nAuth: RSA_V2. Environment policy: PAYMENT_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=nativePayout. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"amount\": \"{{amount}}\",\n  \"currency\": \"{{currency}}\",\n  \"country\": \"{{country}}\",\n  \"channel\": \"{{channel}}\",\n  \"reference\": \"{{reference}}\",\n  \"description\": \"Developer integration example\",\n  \"payee\": {\n    \"type\": \"MSISDN\",\n    \"value\": \"{{testMsisdn}}\"\n  },\n  \"metadata\": {\n    \"environment\": \"{{environment}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "listChannels",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/channels?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "channels"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Requires a verified merchant v2 signature. API access rate applies per authenticated request.\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listChannels. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "listWebhookEvents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/webhooks/events?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "webhooks",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Requires a verified merchant v2 signature. API access rate applies per authenticated request.\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listWebhookEvents. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "transactionStatus",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/payments/{{reference}}?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "payments",
+                "{{reference}}"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Check transaction status\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=transactionStatus. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "validateAccount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/accounts/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "accounts",
+                "validate"
+              ],
+              "query": []
+            },
+            "description": "Validate an account name before payout\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=validateAccount. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"msisdn\": \"{{REPLACE_VALUE}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "createPaymentLink",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/payment-links",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "payment-links"
+              ],
+              "query": []
+            },
+            "description": "Create a hosted checkout payment link\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=createPaymentLink. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"amount\": \"{{amount}}\",\n  \"currency\": \"{{currency}}\",\n  \"description\": \"{{REPLACE_VALUE}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "createInvoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "invoices"
+              ],
+              "query": []
+            },
+            "description": "Create an invoice / request-to-pay\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=createInvoice. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"amount\": \"{{amount}}\",\n  \"currency\": \"{{currency}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "listInvoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/invoices?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "invoices"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "List invoices for a merchant\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listInvoices. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "sendInvoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/invoices/{{reference}}/actions/send?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "invoices",
+                "{{reference}}",
+                "actions",
+                "send"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Send an invoice to its payer\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=sendInvoice. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "cancelInvoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/invoices/{{reference}}/actions/cancel?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "invoices",
+                "{{reference}}",
+                "actions",
+                "cancel"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Cancel an invoice\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=cancelInvoice. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "exportMerchantStatements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/statements?merchantNumber={{merchantNumber}}&startDate={{startDate}}&endDate={{endDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "statements"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                },
+                {
+                  "key": "startDate",
+                  "value": "{{startDate}}",
+                  "description": "",
+                  "disabled": false
+                },
+                {
+                  "key": "endDate",
+                  "value": "{{endDate}}",
+                  "description": "",
+                  "disabled": false
+                },
+                {
+                  "key": "format",
+                  "value": "{{format}}",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Export merchant statement rows\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=exportMerchantStatements. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "collectPayment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/payments/collect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "payments",
+                "collect"
+              ],
+              "query": []
+            },
+            "description": "Submit a mobile money collection request (compat orchestration path)\n\nAuth: RSA_V2. Environment policy: PAYMENT_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=collectPayment. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"country\": \"{{country}}\",\n  \"currency\": \"{{currency}}\",\n  \"amount\": \"{{amount}}\",\n  \"reference\": \"{{reference}}\",\n  \"description\": \"{{REPLACE_VALUE}}\",\n  \"callbackUrl\": \"{{callbackUrl}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "payoutPayment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/payments/payout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "payments",
+                "payout"
+              ],
+              "query": []
+            },
+            "description": "Submit a mobile money payout request (compat orchestration path)\n\nAuth: RSA_V2. Environment policy: PAYMENT_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=payoutPayment. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"country\": \"{{country}}\",\n  \"currency\": \"{{currency}}\",\n  \"amount\": \"{{amount}}\",\n  \"reference\": \"{{reference}}\",\n  \"description\": \"{{REPLACE_VALUE}}\",\n  \"callbackUrl\": \"{{callbackUrl}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "merchantBalances",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/balances?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "balances"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "List a merchant's available channel balances\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=merchantBalances. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "createRefund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/refunds",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "refunds"
+              ],
+              "query": []
+            },
+            "description": "Submit a refund request (full or partial via MoneyAmount)\n\nAuth: RSA_V2. Environment policy: PAYMENT_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=createRefund. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"originalReference\": \"{{REPLACE_VALUE}}\",\n  \"amount\": \"{{amount}}\",\n  \"currency\": \"{{currency}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "listRefunds",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/refunds?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "refunds"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List refunds for a merchant\n\nAuth: RSA_V2. Environment policy: PAYMENT_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listRefunds. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "refundStatus",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/refunds/{{reference}}?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "refunds",
+                "{{reference}}"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Check a refund status by refund reference\n\nAuth: RSA_V2. Environment policy: PAYMENT_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=refundStatus. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "batchPayoutStatus",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/batch-payouts/{{batchId}}/status?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "batch-payouts",
+                "{{batchId}}",
+                "status"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Get batch payout aggregate status\n\nAuth: RSA_V2. Environment policy: PAYMENT_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=batchPayoutStatus. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "retryFailedBatchPayout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/batch-payouts/{{batchId}}/retry-failed?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "batch-payouts",
+                "{{batchId}}",
+                "retry-failed"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Retry only the failed rows of a batch payout\n\nAuth: RSA_V2. Environment policy: PAYMENT_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=retryFailedBatchPayout. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "getSignedMerchantBalanceViews",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/merchant/balances?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "merchant",
+                "balances"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "Merchant number resolved by the verified signature.",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "A signed API despite its merchant path prefix; a portal session alone is insufficient. Balances retain their individual currency.\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=getSignedMerchantBalanceViews. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Native Payout",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "X-CPay-Signature-Version", "value": "v2" },
-          { "key": "X-CPay-Timestamp", "value": "{{timestamp}}" },
-          { "key": "X-CPay-Nonce", "value": "{{nonce}}" },
-          { "key": "X-CPay-Signature", "value": "{{signature}}" },
-          { "key": "X-CPay-Idempotency-Key", "value": "{{idempotencyKey}}" }
-        ],
-        "url": "{{baseUrl}}/api/v2/native/payments/payout",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"channel\": \"airtel_money\",\n  \"country\": \"UG\",\n  \"currency\": \"UGX\",\n  \"amount\": \"5000.00\",\n  \"reference\": \"PAYOUT-10001\",\n  \"description\": \"Customer payout\",\n  \"callbackUrl\": \"https://merchant.example/cpay/callback\",\n  \"payee\": {\"type\": \"MSISDN\", \"value\": \"256750000000\"}\n}"
+      "name": "Identity",
+      "item": [
+        {
+          "name": "verifyMerchantIdentity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/identity/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "identity",
+                "verify"
+              ],
+              "query": []
+            },
+            "description": "Requires an authenticated merchant and enabled identity service. Supply identityNumber or its nin compatibility alias. Country defaults to UG and identityType defaults to NIN. Responses contain masked subject details. API access admission and any provider/service fee are separate.\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=verifyMerchantIdentity. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "\"{{REPLACE_VALUE}}\"",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "getMerchantIdentityRequest",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/identity/requests/{{reference}}?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "identity",
+                "requests",
+                "{{reference}}"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "Merchant number resolved by the verified signature.",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Read an identity request within your merchant scope\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=getMerchantIdentityRequest. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "getMerchantIdentityCapabilities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/identity/capabilities?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "identity",
+                "capabilities"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "List merchant-visible identity provider capabilities\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=getMerchantIdentityCapabilities. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Validate Account",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "X-CPay-Signature-Version", "value": "v2" },
-          { "key": "X-CPay-Timestamp", "value": "{{timestamp}}" },
-          { "key": "X-CPay-Nonce", "value": "{{nonce}}" },
-          { "key": "X-CPay-Signature", "value": "{{signature}}" }
-        ],
-        "url": "{{baseUrl}}/api/v2/accounts/validate",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"msisdn\": \"256770000000\"\n}"
+      "name": "Communications",
+      "item": [
+        {
+          "name": "sendCommunicationSms",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/communication/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "communication",
+                "messages"
+              ],
+              "query": []
+            },
+            "description": "Queue one SMS for durable delivery\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=sendCommunicationSms. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"recipient\": \"{{REPLACE_VALUE}}\",\n  \"content\": \"{{REPLACE_VALUE}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "sendBulkCommunicationSms",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/communication/messages/bulk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "communication",
+                "messages",
+                "bulk"
+              ],
+              "query": []
+            },
+            "description": "Queue up to 1,000 SMS recipients with independent delivery evidence\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=sendBulkCommunicationSms. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"recipients\": [\n    \"{{REPLACE_VALUE}}\"\n  ],\n  \"content\": \"{{REPLACE_VALUE}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "previewCommunicationSmsRoute",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/communication/messages/preview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "communication",
+                "messages",
+                "preview"
+              ],
+              "query": []
+            },
+            "description": "Analyze SMS encoding, segments, eligible providers and estimated route cost\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=previewCommunicationSmsRoute. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"content\": \"{{REPLACE_VALUE}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "getCommunicationSmsStatus",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/communication/messages/{{reference}}?merchantNumber={{merchantNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "communication",
+                "messages",
+                "{{reference}}"
+              ],
+              "query": [
+                {
+                  "key": "merchantNumber",
+                  "value": "{{merchantNumber}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Read delivery state for a queued communication\n\nAuth: RSA_V2. Environment policy: NO_SANDBOX_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=getCommunicationSmsStatus. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Statement Export CSV",
-      "request": {
-        "method": "GET",
-        "header": [
-          { "key": "X-CPay-Signature-Version", "value": "v2" },
-          { "key": "X-CPay-Timestamp", "value": "{{timestamp}}" },
-          { "key": "X-CPay-Nonce", "value": "{{nonce}}" },
-          { "key": "X-CPay-Signature", "value": "{{signature}}" }
-        ],
-        "url": "{{baseUrl}}/api/v2/statements?merchantNumber={{merchantNumber}}&startDate=2026-07-01&endDate=2026-07-16&format=csv&limit=1000"
-      }
-    },
-    {
-      "name": "Create Payment Link",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "X-CPay-Signature-Version", "value": "v2" },
-          { "key": "X-CPay-Timestamp", "value": "{{timestamp}}" },
-          { "key": "X-CPay-Nonce", "value": "{{nonce}}" },
-          { "key": "X-CPay-Signature", "value": "{{signature}}" },
-          { "key": "X-CPay-Idempotency-Key", "value": "{{idempotencyKey}}" }
-        ],
-        "url": "{{baseUrl}}/api/v2/payment-links",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"country\": \"UG\",\n  \"currency\": \"UGX\",\n  \"amount\": \"25000.00\",\n  \"reference\": \"PLINK-10001\",\n  \"description\": \"Hosted checkout invoice\",\n  \"callbackUrl\": \"https://merchant.example/cpay/callback\"\n}"
+      "name": "Billing / BaaS",
+      "item": [
+        {
+          "name": "listBillingCustomers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "customers"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listBillingCustomers. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "createBillingCustomer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "customers"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=createBillingCustomer. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalReference\": \"{{externalReference}}\",\n  \"displayName\": \"{{displayName}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "createBillingAccount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "accounts"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=createBillingAccount. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerReference\": \"{{customerReference}}\",\n  \"accountReference\": \"{{accountReference}}\",\n  \"currency\": \"{{currency}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "createBillingContract",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/contracts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "contracts"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=createBillingContract. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerReference\": \"{{customerReference}}\",\n  \"contractReference\": \"{{contractReference}}\",\n  \"currency\": \"{{currency}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "submitBillingContract",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/contracts/{{reference}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "contracts",
+                "{{reference}}",
+                "submit"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=submitBillingContract. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "approveBillingContract",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/contracts/{{reference}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "contracts",
+                "{{reference}}",
+                "approve"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=approveBillingContract. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "activateBillingContract",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/contracts/{{reference}}/activate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "contracts",
+                "{{reference}}",
+                "activate"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=activateBillingContract. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "submitContractPriceOverride",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/contracts/{{reference}}/price-overrides",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "contracts",
+                "{{reference}}",
+                "price-overrides"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=submitContractPriceOverride. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceCode\": \"{{serviceCode}}\",\n  \"meterCode\": \"{{meterCode}}\",\n  \"priceBookVersionId\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "approveContractPriceOverride",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/price-overrides/{{overrideId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "price-overrides",
+                "{{overrideId}}",
+                "approve"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=approveContractPriceOverride. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "createBillingSubscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/subscriptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "subscriptions"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=createBillingSubscription. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerReference\": \"{{customerReference}}\",\n  \"accountReference\": \"{{accountReference}}\",\n  \"contractReference\": \"{{contractReference}}\",\n  \"subscriptionReference\": \"{{subscriptionReference}}\",\n  \"serviceCode\": \"{{serviceCode}}\",\n  \"planCode\": \"{{planCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "activateBillingSubscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/subscriptions/{{reference}}/activate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "subscriptions",
+                "{{reference}}",
+                "activate"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=activateBillingSubscription. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "pauseBillingSubscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/subscriptions/{{reference}}/pause",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "subscriptions",
+                "{{reference}}",
+                "pause"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=pauseBillingSubscription. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "cancelBillingSubscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/subscriptions/{{reference}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "subscriptions",
+                "{{reference}}",
+                "cancel"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=cancelBillingSubscription. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "grantBillingEntitlement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/subscriptions/{{reference}}/entitlements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "subscriptions",
+                "{{reference}}",
+                "entitlements"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=grantBillingEntitlement. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entitlementCode\": \"{{REPLACE_VALUE}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "quoteBillingPrice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/pricing/quotes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "pricing",
+                "quotes"
+              ],
+              "query": []
+            },
+            "description": "Resolves effective contract override, customer price, provider cost, tax and FX without reserving funds.\n\nConsumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=quoteBillingPrice. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billingAccountReference\": \"{{billingAccountReference}}\",\n  \"serviceCode\": \"{{serviceCode}}\",\n  \"meterCode\": \"{{meterCode}}\",\n  \"ratingBaseAmount\": \"1.0000\",\n  \"sourceCurrency\": \"UGX\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "authorizeBillingChargeCompatibility",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/charges",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "charges"
+              ],
+              "query": []
+            },
+            "description": "Compatibility route accepting caller-supplied net amount. New integrations should use rate-and-authorize.\n\nConsumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=authorizeBillingChargeCompatibility. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billingAccountReference\": \"{{billingAccountReference}}\",\n  \"serviceCode\": \"{{serviceCode}}\",\n  \"usageQuantity\": \"1.0000\",\n  \"netAmount\": \"1.0000\",\n  \"currency\": \"{{currency}}\",\n  \"idempotencyKey\": \"{{idempotencyKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "rateAndAuthorizeBillingCharge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/charges/rate-and-authorize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "charges",
+                "rate-and-authorize"
+              ],
+              "query": []
+            },
+            "description": "Preferred server-side deterministic pricing and online authorization path.\n\nConsumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=rateAndAuthorizeBillingCharge. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"billingAccountReference\": \"{{billingAccountReference}}\",\n  \"serviceCode\": \"{{serviceCode}}\",\n  \"meterCode\": \"{{meterCode}}\",\n  \"usageQuantity\": \"1.0000\",\n  \"ratingBaseAmount\": \"1.0000\",\n  \"sourceCurrency\": \"UGX\",\n  \"idempotencyKey\": \"{{idempotencyKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "getBillingCharge",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/charges/{{reference}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "charges",
+                "{{reference}}"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=getBillingCharge. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "commitBillingCharge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/charges/{{reference}}/commit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "charges",
+                "{{reference}}",
+                "commit"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=commitBillingCharge. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "releaseBillingCharge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/charges/{{reference}}/release",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "charges",
+                "{{reference}}",
+                "release"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=releaseBillingCharge. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "reverseBillingCharge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/charges/{{reference}}/reverse",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "charges",
+                "{{reference}}",
+                "reverse"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_CHARGE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=reverseBillingCharge. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "ingestBillingUsageEvent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/usage/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "usage",
+                "events"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=ingestBillingUsageEvent. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceCode\": \"{{serviceCode}}\",\n  \"meterCode\": \"{{meterCode}}\",\n  \"quantity\": \"1.0000\",\n  \"sourceReference\": \"example-sourceReference\",\n  \"idempotencyKey\": \"{{idempotencyKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "listBillingUsageEvents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/usage/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "usage",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{from}}",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "{{to}}",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "serviceCode",
+                  "value": "{{serviceCode}}",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listBillingUsageEvents. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "summarizeBillingUsage",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/usage/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "usage",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{from}}",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "{{to}}",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=summarizeBillingUsage. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "listBillingInvoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "invoices"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "{{status}}",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Billing Invoices\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listBillingInvoices. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "getBillingInvoice",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/invoices/{{invoiceNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "invoices",
+                "{{invoiceNumber}}"
+              ],
+              "query": []
+            },
+            "description": "Returns invoice header, lines, credit notes, payment allocations and retained tax evidence.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=getBillingInvoice. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "getBillingQuotaUsage",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/quotas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "quotas"
+              ],
+              "query": []
+            },
+            "description": "Get Billing Quota Usage\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=getBillingQuotaUsage. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "listBillingEntitlements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/entitlements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "entitlements"
+              ],
+              "query": []
+            },
+            "description": "List Billing Entitlements\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listBillingEntitlements. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "getBillingCatalog",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/catalog",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "catalog"
+              ],
+              "query": [
+                {
+                  "key": "asOf",
+                  "value": "{{asOf}}",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get Billing Catalog\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=getBillingCatalog. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "requestBillingProtectedAction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/protected-actions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "protected-actions"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=requestBillingProtectedAction. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionType\": \"{{REPLACE_VALUE}}\",\n  \"resourceType\": \"{{REPLACE_VALUE}}\",\n  \"resourceReference\": \"{{REPLACE_VALUE}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "approveBillingProtectedAction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/protected-actions/{{id}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "protected-actions",
+                "{{id}}",
+                "approve"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=approveBillingProtectedAction. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "listBillingWebhookEventTypes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/webhooks/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "webhooks",
+                "events"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listBillingWebhookEventTypes. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "listBillingWebhooks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listBillingWebhooks. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "createBillingWebhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=createBillingWebhook. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventType\": \"{{REPLACE_VALUE}}\",\n  \"endpointUrl\": \"https://receiver.example/cito/events\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "rotateBillingWebhookSecret",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/webhooks/{{endpointId}}/rotate-secret",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "webhooks",
+                "{{endpointId}}",
+                "rotate-secret"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=rotateBillingWebhookSecret. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "listBillingWebhookDeliveries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/webhooks/deliveries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "webhooks",
+                "deliveries"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_READ. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=listBillingWebhookDeliveries. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "replayBillingWebhookDelivery",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/webhooks/deliveries/{{deliveryId}}/replay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "webhooks",
+                "deliveries",
+                "{{deliveryId}}",
+                "replay"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=replayBillingWebhookDelivery. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "testBillingWebhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/webhooks/test",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "webhooks",
+                "test"
+              ],
+              "query": []
+            },
+            "description": "Consumer authentication: X-Cito-Api-Key, explicit X-Cito-Environment, and service-account scope BILLING_WRITE. Tenant mapping, quotas and independent maker/checker controls remain enforced. No CPay RSA signature is used for this operation.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=testBillingWebhook. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventType\": \"{{REPLACE_VALUE}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "exportBillingFocus14CostAndUsage",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/native/billing/baas/exports/focus?from={{from}}&to={{to}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "native",
+                "billing",
+                "baas",
+                "exports",
+                "focus"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{from}}",
+                  "description": "",
+                  "disabled": false
+                },
+                {
+                  "key": "to",
+                  "value": "{{to}}",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Tenant-scoped FOCUS 1.4 Cost and Usage CSV with separate Cito provider-cost provenance columns.\n\nAuth: BAAS_API_KEY. Environment policy: BAAS_SELECTOR. Read the contract schemas; example identifiers are not provisioned accounts. Every write requires one-use confirmOperation=exportBillingFocus14CostAndUsage. The collection never retries automatically.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
         }
-      }
-    },
-    {
-      "name": "Hosted Checkout Pay",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": "{{baseUrl}}/api/v2/checkout/{{checkoutToken}}/pay",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"payerAccount\": \"256770000000\",\n  \"channel\": \"mtn_momo\"\n}"
-        }
-      }
-    },
-    {
-      "name": "FX Quote",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "X-CPay-Signature-Version", "value": "v2" },
-          { "key": "X-CPay-Timestamp", "value": "{{timestamp}}" },
-          { "key": "X-CPay-Nonce", "value": "{{nonce}}" },
-          { "key": "X-CPay-Signature", "value": "{{signature}}" }
-        ],
-        "url": "{{baseUrl}}/api/v2/fx/quotes",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"sourceCurrency\": \"UGX\",\n  \"targetCurrency\": \"KES\",\n  \"sourceAmount\": \"100000.00\"\n}"
-        }
-      }
-    },
-    {
-      "name": "Cross-Border Transfer",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "X-CPay-Signature-Version", "value": "v2" },
-          { "key": "X-CPay-Timestamp", "value": "{{timestamp}}" },
-          { "key": "X-CPay-Nonce", "value": "{{nonce}}" },
-          { "key": "X-CPay-Signature", "value": "{{signature}}" }
-        ],
-        "url": "{{baseUrl}}/api/v2/cross-border/transfers",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"merchantNumber\": \"{{merchantNumber}}\",\n  \"quoteReference\": \"FXQ-10001\",\n  \"sourceCountry\": \"UG\",\n  \"targetCountry\": \"KE\",\n  \"sourceCurrency\": \"UGX\",\n  \"targetCurrency\": \"KES\",\n  \"sourceAmount\": \"100000.00\",\n  \"beneficiaryAccount\": \"254700000000\",\n  \"beneficiaryName\": \"Jane Doe\",\n  \"description\": \"Cross-border transfer\"\n}"
-        }
-      }
-    },
-    {
-      "name": "Webhook Event Catalog",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/webhooks/events"
-      }
-    },
-    {
-      "name": "Reconciliation Import",
-      "request": {
-        "method": "POST",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/reconciliation/import?provider=MTN&importedBy=ops",
-        "body": {
-          "mode": "formdata",
-          "formdata": [
-            { "key": "file", "type": "file", "src": "/path/to/provider-statement.csv" }
-          ]
-        }
-      }
-    },
-    {
-      "name": "Reconciliation Auto-Match",
-      "request": {
-        "method": "POST",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/reconciliation/auto-match"
-      }
-    },
-    {
-      "name": "Reconciliation Review Request",
-      "request": {
-        "method": "POST",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/reconciliation/reviews/request?recordId=42&type=ADJUSTMENT&amount=2500.00&currency=UGX&reason=Provider+statement+mismatch&requestedBy=ops"
-      }
-    },
-    {
-      "name": "Recon Finance Close",
-      "request": {
-        "method": "POST",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/recon-finance/close?date=2026-08-05&currency=UGX&submittedBy=ops"
-      }
-    },
-    {
-      "name": "Recon Finance Close Approve",
-      "request": {
-        "method": "POST",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/recon-finance/close/approve?date=2026-08-05&currency=UGX&approvedBy=finance"
-      }
-    },
-    {
-      "name": "Settlement Open",
-      "request": {
-        "method": "POST",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/reconciliation/settlements/open?reference=STL-20260805-001&provider=MTN&channel=mtn_momo&currency=UGX&expectedAmount=1250000.00&openedBy=ops"
-      }
-    },
-    {
-      "name": "Payout Approvals List",
-      "request": {
-        "method": "GET",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/payout-approvals?limit=100"
-      }
-    },
-    {
-      "name": "Payout Approval Approve",
-      "request": {
-        "method": "POST",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/payout-approvals/1/approve?approvedBy=finance"
-      }
-    },
-    {
-      "name": "Webhook Register Endpoint",
-      "request": {
-        "method": "POST",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "url": "{{baseUrl}}/api/v2/admin/webhooks/merchants/1",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"eventType\": \"payment.completed\",\n  \"endpointUrl\": \"https://merchant.example/cpay/callback\",\n  \"actor\": \"ops\"\n}"
-        }
-      }
-    },
-    {
-      "name": "Webhook Test Callback",
-      "request": {
-        "method": "POST",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/webhooks/merchants/1/test-callback?eventType=payment.completed&actor=ops"
-      }
-    },
-    {
-      "name": "Regulator Daily Cash Flow",
-      "request": {
-        "method": "GET",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/regulator/daily-cash-flow?reportDate=2026-08-05"
-      }
-    },
-    {
-      "name": "Reporting Transaction Stats",
-      "request": {
-        "method": "GET",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/reporting/transaction-stats?from=2026-07-06&to=2026-08-05"
-      }
-    },
-    {
-      "name": "Treasury Positions",
-      "request": {
-        "method": "GET",
-        "auth": {
-          "type": "basic",
-          "basic": [
-            { "key": "username", "value": "{{adminUser}}", "type": "string" },
-            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
-          ]
-        },
-        "header": [],
-        "url": "{{baseUrl}}/api/v2/admin/treasury/positions"
-      }
+      ]
     }
-  ]
+  ],
+  "variable": [],
+  "protocolProfileBehavior": {
+    "followRedirects": false
+  }
 }
