@@ -4,6 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.citotech.cito.platform.kernel.PlatformTenantContext;
+import net.citotech.cito.platform.kernel.PlatformTenantContextResolver;
+import net.citotech.cito.platform.provider.PlatformProviderRegistry;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,19 +20,24 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v2/admin/platform-evidence")
 public class PlatformEvidenceController {
-    private final ExperienceAccessContext accessContext;
+    private final PlatformTenantContextResolver contexts;
+    private final PlatformProviderRegistry providers;
     private final JdbcTemplate jdbc;
 
-    public PlatformEvidenceController(ExperienceAccessContext accessContext, JdbcTemplate jdbc) {
-        this.accessContext = accessContext;
+    public PlatformEvidenceController(
+            PlatformTenantContextResolver contexts,
+            PlatformProviderRegistry providers,
+            JdbcTemplate jdbc) {
+        this.contexts = contexts;
+        this.providers = providers;
         this.jdbc = jdbc;
     }
 
     @GetMapping("/scorecard")
     public Map<String, Object> scorecard(
             HttpServletRequest request, Authentication authentication) {
-        var access = accessContext.require(request, authentication);
-        accessContext.requireAdmin(access);
+        PlatformTenantContext context = contexts.require(request, authentication);
+        contexts.requireAdmin(context);
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("evidenceBasis", "DURABLE_RECORDS_ONLY");
@@ -37,6 +45,7 @@ public class PlatformEvidenceController {
         out.put("commercial", commercialEvidence());
         out.put("developer", developerEvidence());
         out.put("adoption", adoptionEvidence());
+        out.put("providerDefinitions", providerDefinitions());
         out.put("providerCertification", providerCertification());
         return out;
     }
@@ -140,6 +149,22 @@ public class PlatformEvidenceController {
                         "FROM go_live_checklists",
                         "WHERE status IN ('APPROVED','LIVE')"));
         return values;
+    }
+
+    private List<Map<String, Object>> providerDefinitions() {
+        return providers.definitions().stream()
+                .map(
+                        definition ->
+                                Map.<String, Object>of(
+                                        "providerCode",
+                                        definition.providerCode(),
+                                        "domain",
+                                        definition.domain().name(),
+                                        "capabilities",
+                                        definition.capabilities(),
+                                        "environments",
+                                        definition.environments()))
+                .toList();
     }
 
     private List<Map<String, Object>> providerCertification() {
