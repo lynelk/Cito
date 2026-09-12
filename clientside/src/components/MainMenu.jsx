@@ -32,14 +32,28 @@ const navGroups = [
   ] },
 ];
 
+const canonicalRoutes = {
+  'merchant-readiness': '/bo/merchant-readiness',
+  'airtel-money': '/bo/airtel-money',
+};
+
 /** Canonical admin information architecture. Selection is route-driven by the host shell. */
 export default function MainMenu({ activeItem, onChangeMenu }) {
+  const select = (value) => {
+    const route = canonicalRoutes[value];
+    if (route) {
+      window.location.assign(route);
+      return;
+    }
+    onChangeMenu(value);
+  };
+
   return (
     <>
       {navGroups.map((group) => (
         <NavGroup title={group.title} key={group.title}>
           {group.items.map((item) => (
-            <NavItem key={item.value} icon={<item.Icon size={20} />} active={activeItem === item.value} onClick={() => onChangeMenu(item.value)}>
+            <NavItem key={item.value} icon={<item.Icon size={20} />} active={activeItem === item.value} onClick={() => select(item.value)}>
               {item.text}
             </NavItem>
           ))}

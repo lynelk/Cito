@@ -13,6 +13,7 @@ const LayoutMerchant = lazy(() => import('./components/LayoutMerchant'));
 const OperationsConsole = lazy(() => import('./features/OperationsConsole'));
 const ProviderTreasuryConsole = lazy(() => import('./features/ProviderTreasuryConsole'));
 const AirtelMoneyOperations = lazy(() => import('./features/AirtelMoneyOperations'));
+const AdminMerchantReadiness = lazy(() => import('./features/AdminMerchantReadiness'));
 const ProductionMaturityDashboard = lazy(() => import('./features/productionMaturity/ProductionMaturityDashboard'));
 const PublicProductPage = lazy(() => import('./components/PublicExperiencePages').then((module) => ({ default: module.PublicProductPage })));
 const PublicStatusPage = lazy(() => import('./components/PublicExperiencePages').then((module) => ({ default: module.PublicStatusPage })));
@@ -49,6 +50,7 @@ function Routers(): React.ReactElement {
           <Route path="/bo/operations" element={protectAdmin(<OperationsConsole />)} />
           <Route path="/bo/provider-treasury" element={protectAdmin(<ProviderTreasuryConsole />)} />
           <Route path="/bo/airtel-money" element={protectAdmin(<AirtelMoneyOperations />)} />
+          <Route path="/bo/merchant-readiness" element={protectAdmin(<AdminMerchantReadiness />)} />
           <Route path="/bo/production-maturity" element={protectAdmin(<ProductionMaturityDashboard />)} />
           <Route path="/bo/*" element={protectAdmin(<Layout />)} />
 
@@ -61,6 +63,7 @@ function Routers(): React.ReactElement {
           <Route path="/bo/admin/operations" element={<Navigate to="/bo/operations" replace />} />
           <Route path="/bo/admin/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
           <Route path="/bo/admin/airtel-money" element={<Navigate to="/bo/airtel-money" replace />} />
+          <Route path="/bo/admin/merchant-readiness" element={<Navigate to="/bo/merchant-readiness" replace />} />
           <Route path="/bo/admin/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
           <Route path="/bo/admin/*" element={protectAdmin(<Layout />)} />
           <Route path="/bo/partner" element={<Navigate to="/fo" replace />} />
@@ -72,6 +75,7 @@ function Routers(): React.ReactElement {
           <Route path="/admin/operations" element={<Navigate to="/bo/operations" replace />} />
           <Route path="/admin/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
           <Route path="/admin/airtel-money" element={<Navigate to="/bo/airtel-money" replace />} />
+          <Route path="/admin/merchant-readiness" element={<Navigate to="/bo/merchant-readiness" replace />} />
           <Route path="/admin/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
           <Route path="/admin/*" element={<Navigate to="/bo/insights" replace />} />
           <Route path="/partner" element={<Navigate to="/fo" replace />} />
@@ -81,6 +85,7 @@ function Routers(): React.ReactElement {
           <Route path="/operations" element={<Navigate to="/bo/operations" replace />} />
           <Route path="/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
           <Route path="/airtel-money" element={<Navigate to="/bo/airtel-money" replace />} />
+          <Route path="/merchant-readiness" element={<Navigate to="/bo/merchant-readiness" replace />} />
           <Route path="/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
         </Routes>
       </Suspense>
