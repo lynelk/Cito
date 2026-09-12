@@ -2,7 +2,8 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
 const {javaTrim}=require('../Node/cpay-signing');
 const root=path.resolve(__dirname,'../..');
-const file=fs.existsSync(path.join(root,'cito-collection.postman_collection.json')) ? path.join(root,'cito-collection.postman_collection.json') : path.join(root,'Docs/Api/cpay-v2-postman-collection.json');
+const delivered=path.join(root,'Cito-External-API.postman_collection.json');
+const file=fs.existsSync(delivered) ? delivered : path.join(root,'Docs/Api/cpay-v2-postman-collection.json');
 const collection=JSON.parse(fs.readFileSync(file,'utf8'));
 const source=collection.event.find(e=>e.listen==='prerequest').script.exec.join('\n');
 const start=source.indexOf('function javaTrim('),end=source.indexOf('\nfunction canonicalQuery(',start);
