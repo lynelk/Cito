@@ -1,0 +1,97 @@
+name: Cito production promotion runtime verification
+
+# Evidence-only branch. No application code, credentials, deployment or database writes.
+# Brand baseline 1.2; no visual changes. Tests only existing public/anonymous surfaces.
+on:
+  push:
+    branches: [release/production-verification-20260912]
+    paths: [.github/workflows/production-verification-20260912.yml]
+permissions:
+  contents: read
+jobs:
+  verify-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [staging, production]
+    env:
+      VERIFY_ENVIRONMENT: ${{ matrix.environment }}
+      EXPECTED_RELEASE: ea41bb69009b4cfd3accea99f1a0ff154ce3de3d
+    steps:
+      - name: Verify exact runtime revision, health, assets and access boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          python3 - <<'PY'
+          import datetime,json,os,re,time,urllib.request,urllib.error
+          from pathlib import Path
+          environment=os.environ['VERIFY_ENVIRONMENT']
+          base={'staging':'https://cito-staging-web-production.up.railway.app','production':'https://cito.coresynergi.es'}[environment]
+          expected=os.environ['EXPECTED_RELEASE']
+          assert re.fullmatch('[0-9a-f]{40}',expected)
+          report={'environment':environment,'base_url':base,'expected_release':expected,'checks':[],
+                  'authenticated_production_uat':'NOT_PERFORMED','provider_transactions':0,
+                  'verification_database_writes':0,'verification_configuration_writes':0}
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self,req,fp,code,msg,headers,newurl):return None
+          opener=urllib.request.build_opener(NoRedirect())
+          def get(path):
+              assert path.startswith('/') and not path.startswith('//')
+              req=urllib.request.Request(base+path,method='GET',headers={'User-Agent':'Cito-Release-Verification/1.0','Cache-Control':'no-cache'})
+              try:
+                  with opener.open(req,timeout=15) as response:return response.status,dict(response.headers),response.read(2000000)
+              except urllib.error.HTTPError as error:return error.code,dict(error.headers),error.read(2000000)
+          def check(name,passed,**evidence):
+              row={'check':name,'passed':bool(passed),**evidence}
+              report['checks'].append(row)
+              print(json.dumps(row),flush=True)
+              if not passed:raise RuntimeError(name)
+          try:
+              ready=False
+              for attempt in range(6):
+                  try:
+                      front_status,_,front_body=get('/releasez')
+                      back_status,_,back_body=get('/readyz')
+                      front=json.loads(front_body);back=json.loads(back_body)
+                      ready=(front_status==200 and back_status==200 and front.get('release_sha')==expected and back.get('release_sha')==expected and back.get('status')=='UP' and back.get('db')=='UP')
+                      print(json.dumps({'attempt':attempt+1,'frontend_http':front_status,'backend_http':back_status,'frontend_release':front.get('release_sha'),'backend_release':back.get('release_sha'),'database':back.get('db'),'gateway_mode':back.get('gateway_mode'),'ready':ready}),flush=True)
+                      if ready:break
+                  except (ValueError,urllib.error.URLError,TimeoutError) as error:
+                      print(json.dumps({'attempt':attempt+1,'health_error_type':type(error).__name__}),flush=True)
+                  if attempt<5:time.sleep(10)
+              check('frontend_backend_exact_release_and_database',ready,expected=expected)
+              report['frontend_release']=front.get('release_sha');report['backend_release']=back.get('release_sha')
+              report['database']=back.get('db');report['gateway_mode']=back.get('gateway_mode')
+              if environment=='staging':check('staging_provider_isolation',back.get('gateway_mode')=='SANDBOX')
+              for path in ('/','/bo','/fo','/fo/developers','/bo/admin/api-reference','/bo/provider-treasury?channel=mtn_momo'):
+                  status,headers,body=get(path)
+                  check('public_shell_'+path,status==200 and b'<html' in body.lower(),http=status)
+                  if path=='/':
+                      assets=sorted(set(re.findall(r'(?:src|href)=[\"\'](/assets/[^\"\']+)[\"\']',body.decode('utf-8'))))
+                      check('versioned_assets_present',bool(assets))
+                      for asset in assets[:10]:
+                          status,_,_=get(asset);check('asset_'+asset,status==200,http=status)
+              for path in ('/v3/api-docs','/api/v2/admin/api-reference/commercial','/api/v2/admin/api-reference/rates','/api/v2/admin/shared-provider/credentials','/api/v2/portal/api-reference/openapi'):
+                  status,_,body=get(path)
+                  check('anonymous_denied_'+path,status in (401,403) and b'"openapi"' not in body,http=status)
+              for path in ('/.env','/config/.env'):
+                  status,_,_=get(path);check('hidden_path_denied_'+path,status in (403,404),http=status)
+              report['result']='PASS'
+          except Exception as error:
+              report['result']='FAIL';report['error_type']=type(error).__name__
+              raise
+          finally:
+              report['checked_at_utc']=datetime.datetime.now(datetime.timezone.utc).isoformat()
+              Path('verification/'+environment+'.json').write_text(json.dumps(report,indent=2))
+              print(json.dumps(report,indent=2),flush=True)
+          PY
+      - name: Retain non-sensitive exact-revision evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-${{ matrix.environment }}-ea41bb69
+          path: verification/
+          retention-days: 30
