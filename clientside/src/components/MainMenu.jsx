@@ -18,6 +18,7 @@ const navGroups = [
     { value: 'treasury', text: 'Treasury / Float', Icon: Icons.CardsIcon },
   ] },
   { title: 'Operations', items: [
+    { value: 'mtn-momo', text: 'MTN MoMo', Icon: Icons.PaymentsIcon },
     { value: 'airtel-money', text: 'Airtel Money', Icon: Icons.PaymentsIcon },
     { value: 'reconciliation', text: 'Reconciliation', Icon: Icons.ReconcileIcon },
   ] },

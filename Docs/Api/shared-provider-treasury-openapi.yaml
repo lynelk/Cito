@@ -410,6 +410,7 @@ components:
       type: object
       required: [channelCode, environment, countryCode, currencyCode, credentials]
       properties:
+        revision: {type: integer, format: int64, description: Required for updates. Send the revision captured when editing began; stale revisions are rejected.}
         channelCode: {type: string}
         environment: {type: string, enum: [SANDBOX, PRODUCTION]}
         countryCode: {type: string}
@@ -422,6 +423,10 @@ components:
       type: object
       additionalProperties: true
       description: Platform credential metadata with masked credential values only.
+      properties:
+        revision: {type: integer, format: int64}
+        lastTestStatus: {type: string, nullable: true}
+        lastTestedAt: {type: string, format: date-time, nullable: true}
     TreasuryAccount:
       type: object
       properties:

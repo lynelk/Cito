@@ -50,30 +50,31 @@ public class ProviderLiveTestService {
 
     public List<Map<String, Object>> merchants() {
         return jdbc.queryForList(
-                "SELECT id, name, account_number AS merchantNumber, status"
-                        + " FROM merchants WHERE status='ACTIVE' AND account_number NOT LIKE 'CITO-%'"
-                        + " ORDER BY name, account_number",
+                "SELECT id, name, account_number AS merchantNumber, status FROM merchants WHERE"
+                        + " status='ACTIVE' AND account_number NOT LIKE 'CITO-%' ORDER BY name,"
+                        + " account_number",
                 Map.of());
     }
 
     public List<Map<String, Object>> list() {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT t.id, t.test_reference AS testReference, t.idempotency_key AS idempotencyKey,"
-                                + " t.merchant_id AS merchantId, m.name AS merchantName,"
-                                + " m.account_number AS merchantNumber, t.channel_code AS channelCode,"
-                                + " t.credential_source AS credentialSource, t.environment,"
-                                + " t.country_code AS countryCode, t.currency_code AS currencyCode,"
-                                + " t.operation, t.amount, t.party_mask AS partyMask, t.status,"
-                                + " t.provider_reference AS providerReference, t.result_message AS resultMessage,"
-                                + " t.requested_by AS requestedBy, t.requested_at AS requestedAt,"
-                                + " t.approved_by AS approvedBy, t.approved_at AS approvedAt,"
-                                + " t.executed_by AS executedBy, t.executed_at AS executedAt,"
-                                + " t.completed_at AS completedAt, r.status AS treasuryStatus"
-                                + " FROM provider_live_tests t JOIN merchants m ON m.id=t.merchant_id"
-                                + " LEFT JOIN provider_treasury_reservations r"
-                                + " ON r.merchant_reference=t.test_reference"
-                                + " ORDER BY t.requested_at DESC LIMIT 200",
+                        "SELECT t.id, t.test_reference AS testReference, t.idempotency_key AS"
+                                + " idempotencyKey, t.merchant_id AS merchantId, m.name AS"
+                                + " merchantName, m.account_number AS merchantNumber, t.channel_code AS"
+                                + " channelCode, t.credential_source AS credentialSource,"
+                                + " t.environment, t.country_code AS countryCode, t.currency_code AS"
+                                + " currencyCode, t.operation, t.amount, t.party_mask AS partyMask,"
+                                + " t.status, t.provider_reference AS providerReference,"
+                                + " t.result_message AS resultMessage, t.requested_by AS requestedBy,"
+                                + " t.requested_at AS requestedAt, t.approved_by AS approvedBy,"
+                                + " t.approved_at AS approvedAt, t.executed_by AS executedBy,"
+                                + " t.executed_at AS executedAt, t.completed_at AS completedAt,"
+                                + " r.status AS treasuryStatus FROM provider_live_tests t JOIN"
+                                + " merchants m ON m.id=t.merchant_id LEFT JOIN"
+                                + " provider_treasury_reservations r ON"
+                                + " r.merchant_reference=t.test_reference ORDER BY t.requested_at DESC"
+                                + " LIMIT 200",
                         Map.of());
         for (Map<String, Object> row : rows) {
             row.put("events", events(number(row.get("id"))));
@@ -89,16 +90,23 @@ public class ProviderLiveTestService {
                 operation);
         String who = required(actor, "actor");
         String environment = upper(body.get("environment"), "environment");
+        if (!List.of("SANDBOX", "PRODUCTION").contains(environment))
+            throw new PaymentGatewayException("environment must be SANDBOX or PRODUCTION");
         requireProductionControls(environment, body, who);
         String idempotency = required(body.get("idempotencyKey"), "idempotencyKey");
         long merchantId = number(body.get("merchantId"));
-        Merchant merchant = merchant(merchantId);
         String channel = upper(body.get("channelCode"), "channelCode").toLowerCase(Locale.ROOT);
         if (!channel.equals("mtn_momo") && !channel.equals("airtel_open_api")) {
             throw new PaymentGatewayException("channelCode must be mtn_momo or airtel_open_api");
         }
         String country = upper(body.get("countryCode"), "countryCode");
         String currency = upper(body.get("currencyCode"), "currencyCode");
+        if ("mtn_momo".equals(channel)
+                && (!"UG".equals(country)
+                        || !("SANDBOX".equals(environment) ? "EUR" : "UGX").equals(currency)))
+            throw new PaymentGatewayException(
+                    "MTN portal tests require UG/EUR in sandbox or UG/UGX in production");
+        Merchant merchant = merchant(merchantId);
         BigDecimal amount = amount(body.get("amount"));
         BigDecimal maximum = SettingsRegistry.getDecimal("provider_live_test_max_amount", jdbc);
         if (amount.compareTo(maximum) > 0) {
@@ -209,8 +217,8 @@ public class ProviderLiveTestService {
             String status = finalStatus(result == null ? null : result.getStatus());
             jdbc.update(
                     "UPDATE provider_live_tests SET status=:status, provider_reference=:provider,"
-                            + " result_message=:message, completed_at=CASE WHEN :terminal=1 THEN CURRENT_TIMESTAMP(6) ELSE NULL END"
-                            + " WHERE id=:id",
+                            + " result_message=:message, completed_at=CASE WHEN :terminal=1 THEN"
+                            + " CURRENT_TIMESTAMP(6) ELSE NULL END WHERE id=:id",
                     new MapSqlParameterSource()
                             .addValue("id", id)
                             .addValue("status", status)
@@ -226,7 +234,9 @@ public class ProviderLiveTestService {
                     String.valueOf(row.get("channel_code")))) {
                 java.util.List<String> claims =
                         jdbc.queryForList(
-                                "SELECT transaction_id FROM mobile_money_executions WHERE merchant_id=:merchant AND merchant_reference=:reference FOR UPDATE",
+                                "SELECT transaction_id FROM mobile_money_executions WHERE"
+                                        + " merchant_id=:merchant AND merchant_reference=:reference FOR"
+                                        + " UPDATE",
                                 new MapSqlParameterSource("merchant", merchant.getId())
                                         .addValue("reference", row.get("test_reference")),
                                 String.class);
@@ -236,10 +246,12 @@ public class ProviderLiveTestService {
             String message =
                     awaitingProvider
                             ? "Execution outcome awaits canonical recovery"
-                            : "Payment rejected before provider submission; check credential readiness, limits and funds";
+                            : "Payment rejected before provider submission; check credential"
+                                    + " readiness, limits and funds";
             jdbc.update(
                     "UPDATE provider_live_tests SET status=:status, result_message=:message,"
-                            + " completed_at=CASE WHEN :pending=1 THEN NULL ELSE CURRENT_TIMESTAMP(6) END WHERE id=:id",
+                            + " completed_at=CASE WHEN :pending=1 THEN NULL ELSE CURRENT_TIMESTAMP(6)"
+                            + " END WHERE id=:id",
                     new MapSqlParameterSource()
                             .addValue("id", id)
                             .addValue("status", status)
@@ -281,20 +293,21 @@ public class ProviderLiveTestService {
     private Map<String, Object> byId(long id) {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT t.id, t.test_reference AS testReference, t.idempotency_key AS idempotencyKey,"
-                                + " t.merchant_id AS merchantId, m.name AS merchantName,"
-                                + " m.account_number AS merchantNumber, t.channel_code AS channelCode,"
-                                + " t.credential_source AS credentialSource, t.environment,"
-                                + " t.country_code AS countryCode, t.currency_code AS currencyCode,"
-                                + " t.operation, t.amount, t.party_mask AS partyMask, t.status,"
-                                + " t.provider_reference AS providerReference, t.result_message AS resultMessage,"
-                                + " t.requested_by AS requestedBy, t.requested_at AS requestedAt,"
-                                + " t.approved_by AS approvedBy, t.approved_at AS approvedAt,"
-                                + " t.executed_by AS executedBy, t.executed_at AS executedAt,"
-                                + " t.completed_at AS completedAt, r.status AS treasuryStatus"
-                                + " FROM provider_live_tests t JOIN merchants m ON m.id=t.merchant_id"
-                                + " LEFT JOIN provider_treasury_reservations r ON r.merchant_reference=t.test_reference"
-                                + " WHERE t.id=:id",
+                        "SELECT t.id, t.test_reference AS testReference, t.idempotency_key AS"
+                                + " idempotencyKey, t.merchant_id AS merchantId, m.name AS"
+                                + " merchantName, m.account_number AS merchantNumber, t.channel_code AS"
+                                + " channelCode, t.credential_source AS credentialSource,"
+                                + " t.environment, t.country_code AS countryCode, t.currency_code AS"
+                                + " currencyCode, t.operation, t.amount, t.party_mask AS partyMask,"
+                                + " t.status, t.provider_reference AS providerReference,"
+                                + " t.result_message AS resultMessage, t.requested_by AS requestedBy,"
+                                + " t.requested_at AS requestedAt, t.approved_by AS approvedBy,"
+                                + " t.approved_at AS approvedAt, t.executed_by AS executedBy,"
+                                + " t.executed_at AS executedAt, t.completed_at AS completedAt,"
+                                + " r.status AS treasuryStatus FROM provider_live_tests t JOIN"
+                                + " merchants m ON m.id=t.merchant_id LEFT JOIN"
+                                + " provider_treasury_reservations r ON"
+                                + " r.merchant_reference=t.test_reference WHERE t.id=:id",
                         new MapSqlParameterSource("id", id));
         if (rows.isEmpty()) throw new PaymentGatewayException("Live provider test was not found");
         Map<String, Object> result = new LinkedHashMap<>(rows.get(0));
@@ -328,17 +341,32 @@ public class ProviderLiveTestService {
     public void synchronizeOutcomes() {
         List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT l.id,t.status FROM provider_live_tests l JOIN mobile_money_executions e ON e.merchant_id=l.merchant_id AND CAST(e.merchant_reference AS BINARY)=CAST(l.test_reference AS BINARY) JOIN merchant_transactions_log t ON t.tx_unique_id=e.transaction_id WHERE l.status IN ('PENDING_PROVIDER','PROCESSING') AND t.status IN ('SUCCESSFUL','FAILED') ORDER BY l.id LIMIT 100 FOR UPDATE",
+                        "SELECT l.id,t.status FROM provider_live_tests l JOIN"
+                                + " mobile_money_executions e ON e.merchant_id=l.merchant_id AND"
+                                + " CAST(e.merchant_reference AS BINARY)=CAST(l.test_reference AS"
+                                + " BINARY) JOIN merchant_transactions_log t ON"
+                                + " t.tx_unique_id=e.transaction_id WHERE l.status IN"
+                                + " ('PENDING_PROVIDER','PROCESSING') AND t.status IN"
+                                + " ('SUCCESSFUL','FAILED') ORDER BY l.id LIMIT 100 FOR UPDATE",
                         Map.of());
         rows.addAll(
                 jdbc.queryForList(
-                        "SELECT l.id,'FAILED' AS status FROM provider_live_tests l JOIN payout_approval_queue q ON q.merchant_id=l.merchant_id AND CAST(q.payout_reference AS BINARY)=CAST(l.test_reference AS BINARY) WHERE l.status IN ('PENDING_PROVIDER','PROCESSING') AND q.queue_status IN ('REJECTED','CANCELLED') AND NOT EXISTS (SELECT 1 FROM mobile_money_executions e WHERE e.merchant_id=l.merchant_id AND CAST(e.merchant_reference AS BINARY)=CAST(l.test_reference AS BINARY)) ORDER BY l.id LIMIT 100 FOR UPDATE",
+                        "SELECT l.id,'FAILED' AS status FROM provider_live_tests l JOIN"
+                                + " payout_approval_queue q ON q.merchant_id=l.merchant_id AND"
+                                + " CAST(q.payout_reference AS BINARY)=CAST(l.test_reference AS BINARY)"
+                                + " WHERE l.status IN ('PENDING_PROVIDER','PROCESSING') AND"
+                                + " q.queue_status IN ('REJECTED','CANCELLED') AND NOT EXISTS (SELECT 1"
+                                + " FROM mobile_money_executions e WHERE e.merchant_id=l.merchant_id"
+                                + " AND CAST(e.merchant_reference AS BINARY)=CAST(l.test_reference AS"
+                                + " BINARY)) ORDER BY l.id LIMIT 100 FOR UPDATE",
                         Map.of()));
         for (Map<String, Object> row : rows) {
             long id = number(row.get("id"));
             String status = "SUCCESSFUL".equals(row.get("status")) ? "SUCCEEDED" : "FAILED";
             jdbc.update(
-                    "UPDATE provider_live_tests SET status=:status,completed_at=CURRENT_TIMESTAMP,result_message='Outcome resolved through payment or approval evidence' WHERE id=:id",
+                    "UPDATE provider_live_tests SET"
+                            + " status=:status,completed_at=CURRENT_TIMESTAMP,result_message='Outcome"
+                            + " resolved through payment or approval evidence' WHERE id=:id",
                     new MapSqlParameterSource("status", status).addValue("id", id));
             event(
                     id,

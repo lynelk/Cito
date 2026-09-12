@@ -12,6 +12,8 @@ import {
 } from '../ui';
 import ExperienceWorkspace from '../features/ExperienceWorkspace';
 import AdminMerchantReadiness from '../features/AdminMerchantReadiness';
+import MtnMomoWorkspace from '../features/MtnMomoWorkspace';
+import ProviderTreasuryConsole from '../features/ProviderTreasuryConsole';
 
 import ModuleInsights from './modules/ModuleInsights';
 import ModuleCitoPlatform from './modules/ModuleCitoPlatform';
@@ -40,6 +42,8 @@ import { apiUrl } from '../shared/config';
 import { readStoredUser } from '../shared/useAuth';
 
 const menuTitles = {
+  'mtn-momo': { title: 'MTN MoMo', subtitle: 'Connect MTN, approve merchant access and verify collections and payouts.' },
+  'provider-treasury': { title: 'Provider treasury', subtitle: 'Provider float, funding, reconciliation and access controls.' },
   insights: { title: 'Dashboard', subtitle: 'Live priorities, money movement, service health and recent activity.' },
   home: { title: 'Dashboard', subtitle: 'Live priorities, money movement, service health and recent activity.' },
   'merchants-accounts': { title: 'Merchants / Businesses', subtitle: 'Activation, account controls, lifecycle and merchant context.' },
@@ -79,6 +83,8 @@ const menuTitles = {
 };
 
 const adminRoutes = {
+  'mtn-momo': '/bo/admin/mtn-momo',
+  'provider-treasury': '/bo/admin/provider-treasury',
   insights: '/bo/admin/insights',
   home: '/bo/admin/insights',
   dashboard: '/bo/admin/insights',
@@ -177,6 +183,8 @@ class LayoutWithOutRouter extends React.Component {
     };
 
     switch (item) {
+      case 'mtn-momo': return <MtnMomoWorkspace />;
+      case 'provider-treasury': return <ProviderTreasuryConsole />;
       case 'insights':
       case 'home':
       case 'dashboard': return <ModuleInsights {...moduleProps} />;

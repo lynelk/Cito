@@ -24,7 +24,7 @@ describe('settings readiness and canonical MTN entry point', () => {
   it('directs MTN configuration to the governed form and retains separate charge controls', async () => {
     render(<MemoryRouter><ModuleSettings loader={() => {}} /></MemoryRouter>);
     fireEvent.click(await screen.findByText('MTN MoMo'));
-    expect(await screen.findByRole('link', { name: 'Configure and verify MTN MoMo' })).toHaveAttribute('href', '/bo/provider-treasury?channel=mtn_momo#platform-provider-credentials');
+    expect(await screen.findByRole('link', { name: 'Configure and verify MTN MoMo' })).toHaveAttribute('href', '/bo/admin/mtn-momo?environment=PRODUCTION');
     expect(screen.queryByLabelText('Legacy MTN URL')).toBeNull();
     expect(await screen.findByLabelText('Inbound charge')).toBeTruthy();
   });

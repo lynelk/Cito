@@ -257,9 +257,29 @@ paths:
           schema: {type: integer, format: int64}
       responses:
         '200':
-          description: Provider authentication verified for the current revision
+          description: Probe completed for the current revision. Inspect lastTestStatus and each product check; HTTP 200 does not imply authentication succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: {type: integer, format: int64}
+                  revision: {type: integer, format: int64}
+                  status: {type: string, description: Credential lifecycle status; verification never activates it.}
+                  lastTestStatus: {type: string, enum: [CONNECTIVITY_VERIFIED, CONNECTIVITY_FAILED]}
+                  lastTestedAt: {type: string, format: date-time, nullable: true}
+                  verificationChecks:
+                    type: array
+                    description: Safe diagnostics for this request; raw tokens and provider response bodies are never returned. MTN checks both products even if one fails.
+                    items:
+                      type: object
+                      required: [operation, status, message]
+                      properties:
+                        operation: {type: string, enum: [COLLECT, PAYOUT, AUTHENTICATION]}
+                        status: {type: string, enum: [VERIFIED, FAILED]}
+                        message: {type: string}
         '400':
-          description: Provider authentication unavailable, unsupported provider or concurrent credential edit
+          description: Invalid configuration, unsupported provider or concurrent credential edit
         '403':
           $ref: '#/components/responses/Forbidden'
   /api/v2/admin/communication/routing/providers/{providerCode}/activation:

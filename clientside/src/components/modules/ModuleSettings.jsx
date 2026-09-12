@@ -1,4 +1,5 @@
 import React from 'react';
+import { mtnWorkspacePath } from '../../features/providerConnectionProfile';
 import { Link } from 'react-router-dom';
 import Messager from '../StableMessager';
 import { withRouter } from '../../shared/router/compat';
@@ -147,10 +148,10 @@ function cardMetaForSetting(row, sectionId) {
             return { id: 'connection', title: 'Connection details', description: 'Provider endpoints, environment and currency configuration.' };
         }
         if (/(collections|inbound|collection)/.test(name)) {
-            return { id: 'collections', title: 'Collections credentials', description: 'Credentials and product settings for incoming payments.' };
+            return { id: 'collections', title: 'Collection pricing', description: 'Costs and customer charges for incoming payments.' };
         }
         if (/(disbursement|disbursements|outbound)/.test(name)) {
-            return { id: 'disbursements', title: 'Disbursement credentials', description: 'Credentials and product settings for payouts.' };
+            return { id: 'disbursements', title: 'Payout pricing', description: 'Costs and customer charges for outgoing payments.' };
         }
         return { id: 'operations', title: 'Operational configuration', description: 'Charges, thresholds and provider-specific operational controls.' };
     }
@@ -412,7 +413,7 @@ class ModuleSettingsC extends React.Component {
                 </div>
                 <p>Stored settings do not prove provider authentication or payment readiness.</p>
                 {['mtn', 'airtel'].includes(section.id) ? (
-                    <Link className="ios-btn ios-btn--ghost" to={`/bo/provider-treasury?channel=${section.id === 'mtn' ? 'mtn_momo' : 'airtel_open_api'}#platform-provider-credentials`}>
+                    <Link className="ios-btn ios-btn--ghost" to={section.id === 'mtn' ? mtnWorkspacePath(settingValue(this.findSetting('application_settings_state')) || 'production') : '/bo/provider-treasury?channel=airtel_open_api#platform-provider-credentials'}>
                         Open governed provider connection
                     </Link>
                 ) : <p>Provider verification evidence is not available in this settings view.</p>}
@@ -442,9 +443,9 @@ class ModuleSettingsC extends React.Component {
                 </header>
                 {section.id === 'mtn' ? (
                     <section className="cpay-settings-card" aria-label="MTN connection configuration">
-                        <h3>MTN connection configuration has moved</h3>
+                        <h3>Connect MTN MoMo</h3>
                         <p>Configure MTN API users, API keys, subscription keys and callbacks in the governed provider workspace. Sandbox uses EUR; Uganda production uses UGX and mtnuganda. Saving general settings does not activate the connection.</p>
-                        <Link className="ios-btn ios-btn--primary" to="/bo/provider-treasury?channel=mtn_momo#platform-provider-credentials">Configure and verify MTN MoMo</Link>
+                        <Link className="ios-btn ios-btn--primary" to={mtnWorkspacePath(settingValue(this.findSetting('application_settings_state')) || 'production')}>Configure and verify MTN MoMo</Link>
                         <p>Legacy connection values are retained for compatibility, not copied or activated automatically. The pricing controls below remain separate from authentication.</p>
                     </section>
                 ) : this.renderProviderOverview(section, rows)}
