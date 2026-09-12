@@ -76,7 +76,11 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
             String env,
             String base_currency) {
 
-        this.global_url = global_url;
+        this.env = env == null ? "" : env.trim();
+        this.global_url =
+                "sandbox".equalsIgnoreCase(this.env)
+                        ? net.citotech.cito.gateway.MtnMomoCredentialSchema.SANDBOX_BASE_URL
+                        : net.citotech.cito.gateway.MtnMomoCredentialSchema.PRODUCTION_BASE_URL;
         this.api_collections_user = api_collections_user;
         this.api_collections_key = api_collections_key;
         this.api_collections_subscription = api_collections_subscription;
@@ -84,7 +88,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
         this.api_disbursements_key = api_disbursements_key;
         this.api_disbursements_subscription = api_disbursements_subscription;
         this.base_currency = base_currency;
-        this.env = env;
     }
 
     public static String getGatewayCurrencyCode() {
@@ -147,7 +150,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
 
             String data = "";
 
-            // Now generate the response.
             GateWayResponse gwResponse = new GateWayResponse();
 
             HttpRequestResponse rs = executeWithTokenRetry("GET", url_string, data, headers, token);
@@ -167,21 +169,12 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                                 "MTN balance request failed with HTTP " + rs.getStatusCode());
                 gwResponse.setHttpStatus(rs.getStatusCode() + "");
 
-                String res = "";
                 String transaction_status = "";
                 if (!rs.getResponse().isEmpty()) {
                     JSONObject rJson = new JSONObject(rs.getResponse());
-                    if (!rJson.isNull("code")) {
-                        res += "Code: " + rJson.getString("code") + " ";
-                        if (rJson.getString("code").equals("RESOURCE_NOT_FOUND")) {
-                            transaction_status = "FAILED";
-                        }
+                    if (!rJson.isNull("code") && rJson.getString("code").equals("RESOURCE_NOT_FOUND")) {
+                        transaction_status = "FAILED";
                     }
-                    if (!rJson.isNull("message")) {
-                        res += "Message: " + rJson.getString("message");
-                    }
-                } else {
-                    res = "No response data from the server.";
                 }
 
                 gwResponse.setMessage(
@@ -199,9 +192,8 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                 if (!rs.getResponse().isEmpty()) {
                     JSONObject rJson = new JSONObject(rs.getResponse());
 
-                    String balance_string = "";
                     if (!rJson.isNull("availableBalance")) {
-                        balance_string = rJson.getString("availableBalance");
+                        String balance_string = rJson.getString("availableBalance");
                         double bal = Double.parseDouble(balance_string);
                         return bal;
                     }
@@ -212,22 +204,10 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
         } catch (JSONException ex) {
             Logger.getLogger(SettingsController.class.getName())
                     .log(Level.SEVERE, ex.getMessage(), "");
-            GateWayResponse gwResponse = new GateWayResponse();
-            gwResponse.setHttpStatus("0");
-            gwResponse.setMessage("Provider status is currently unavailable");
-            gwResponse.setStatus("ERROR");
-            gwResponse.setTransactionStatus("UNDETERMINED");
-            gwResponse.setRequestTrace("");
             return null;
         } catch (IOException ex) {
             Logger.getLogger(SettingsController.class.getName())
                     .log(Level.SEVERE, ex.getMessage(), "");
-            GateWayResponse gwResponse = new GateWayResponse();
-            gwResponse.setHttpStatus("0");
-            gwResponse.setMessage("Provider status is currently unavailable");
-            gwResponse.setStatus("ERROR");
-            gwResponse.setTransactionStatus("UNDETERMINED");
-            gwResponse.setRequestTrace("");
             return null;
         }
     }
@@ -265,7 +245,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
 
             String url_string = this.global_url + "/" + this.segment + "/v1_0/transfer";
 
-            // Now generate the response.
             GateWayResponse gwResponse = new GateWayResponse();
 
             HttpRequestResponse rs =
@@ -284,20 +263,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                 Logger.getLogger(SettingsController.class.getName())
                         .log(Level.SEVERE, "MTN transfer failed with HTTP " + rs.getStatusCode());
                 gwResponse.setHttpStatus(rs.getStatusCode() + "");
-
-                String res = "";
-                if (!rs.getResponse().isEmpty()) {
-                    JSONObject rJson = new JSONObject(rs.getResponse());
-                    if (!rJson.isNull("code")) {
-                        res += "Code: " + rJson.getString("code") + " ";
-                    }
-                    if (!rJson.isNull("statusCode")) {
-                        res += "Status Code: " + rJson.getString("statusCode") + " ";
-                    }
-                    if (!rJson.isNull("message")) {
-                        res += "Message: " + rJson.getString("message");
-                    }
-                }
 
                 gwResponse.setMessage(
                         "Provider request was not confirmed; check transaction status");
@@ -368,7 +333,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
 
             String data = "";
 
-            // Now generate the response.
             GateWayResponse gwResponse = new GateWayResponse();
 
             HttpRequestResponse rs = executeWithTokenRetry("GET", url_string, data, headers, token);
@@ -388,21 +352,12 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                                 "MTN status request failed with HTTP " + rs.getStatusCode());
                 gwResponse.setHttpStatus(rs.getStatusCode() + "");
 
-                String res = "";
                 String transaction_status = "";
                 if (!rs.getResponse().isEmpty()) {
                     JSONObject rJson = new JSONObject(rs.getResponse());
-                    if (!rJson.isNull("code")) {
-                        res += "Code: " + rJson.getString("code") + " ";
-                        if (rJson.getString("code").equals("RESOURCE_NOT_FOUND")) {
-                            transaction_status = "FAILED";
-                        }
+                    if (!rJson.isNull("code") && rJson.getString("code").equals("RESOURCE_NOT_FOUND")) {
+                        transaction_status = "FAILED";
                     }
-                    if (!rJson.isNull("message")) {
-                        res += "Message: " + rJson.getString("message");
-                    }
-                } else {
-                    res = "No response data from the server.";
                 }
 
                 gwResponse.setMessage(
@@ -493,7 +448,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
 
             String url_string = this.global_url + "/" + this.segment + "/v1_0/requesttopay";
 
-            // Now generate the response.
             GateWayResponse gwResponse = new GateWayResponse();
 
             HttpRequestResponse rs =
@@ -516,17 +470,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                                 "MTN request-to-pay failed with HTTP " + rs.getStatusCode());
                 gwResponse.setHttpStatus(rs.getStatusCode() + "");
 
-                String res = "";
-                if (!rs.getResponse().isEmpty()) {
-                    JSONObject rJson = new JSONObject(rs.getResponse());
-                    if (!rJson.isNull("code")) {
-                        res += "Code: " + rJson.getString("code") + " ";
-                    }
-                    if (!rJson.isNull("message")) {
-                        res += "Message: " + rJson.getString("message");
-                    }
-                }
-
                 gwResponse.setMessage(
                         "Provider request was not confirmed; check transaction status");
                 gwResponse.setStatus("ERROR");
@@ -546,8 +489,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                 return gwResponse;
             }
         } catch (JSONException ex) {
-            Logger.getLogger(MTNMoMoPaymentGateway.class.getName())
-                    .log(Level.SEVERE, ex.getMessage(), ex);
             Logger.getLogger(MTNMoMoPaymentGateway.class.getName())
                     .log(Level.SEVERE, ex.getMessage(), ex);
             GateWayResponse gwResponse = new GateWayResponse();
@@ -608,9 +549,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
                 "sandbox".equalsIgnoreCase(this.env)
                         ? net.citotech.cito.gateway.MtnMomoCredentialSchema.SANDBOX_BASE_URL
                         : net.citotech.cito.gateway.MtnMomoCredentialSchema.PRODUCTION_BASE_URL);
-        // Tokens live only in the encrypted provider_tokens DB store (see
-        // ProviderTokenStoreService) -
-        // no plaintext on-disk cache.
         Optional<ProviderToken> databaseToken =
                 ProviderTokenStoreRegistry.findValid(
                         gateway_id, tokenSegment(), tokenEnvironment());
@@ -670,8 +608,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
         }
     }
 
-    // Credential scopes grow with tenants and rotations. Fixed stripes bound lock memory;
-    // colliding scopes serialize refresh only and never share a cache entry or token.
     private static final ReentrantLock[] TOKEN_REFRESH_LOCKS = new ReentrantLock[64];
 
     static {
@@ -685,13 +621,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
         return TOKEN_REFRESH_LOCKS[Math.floorMod(hash, TOKEN_REFRESH_LOCKS.length)];
     }
 
-    /**
-     * Audit C2: executes the request and, if the provider responds with 401 even though our own
-     * TTL-based getToken() considered the token still valid (revoked early, clock skew, or a
-     * provider-side session invalidation), forces a fresh token via {@link #forceRefreshToken} and
-     * retries exactly once with the refreshed Authorization header - rather than failing a
-     * transaction we could still complete.
-     */
     private HttpRequestResponse executeWithTokenRetry(
             String method, String url, String data, Map<String, String> headers, Token token)
             throws JSONException {
@@ -706,14 +635,6 @@ public class MTNMoMoPaymentGateway extends PaymentGateway {
         return response;
     }
 
-    /**
-     * Audit C2: forces a fresh token for this gateway/segment/environment, single-flighted so only
-     * one concurrent caller actually calls the provider's token endpoint. A caller that arrives
-     * while another thread's refresh is already in flight waits for the lock, then re-checks the
-     * DB-backed token store - since requestToken() always saves its result there - and reuses it if
-     * it differs from the token that just failed, instead of requesting a second fresh token
-     * itself.
-     */
     private Token forceRefreshToken(String failedTokenValue) throws JSONException {
         ReentrantLock lock = tokenRefreshLock(gateway_id, tokenSegment(), tokenEnvironment());
         lock.lock();
