@@ -1,0 +1,118 @@
+name: Assemble reviewed external developer handover
+
+on:
+  push:
+    branches: [feature/consumer-handover-20260912]
+    paths:
+      - .github/workflows/import-consumer-handover.yml
+      - ops/release/consumer-import-20260912/**
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cito-consumer-source-import
+  cancel-in-progress: false
+
+jobs:
+  assemble:
+    if: github.repository == 'lynelk/Cito' && github.ref == 'refs/heads/feature/consumer-handover-20260912'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify and apply the bounded source patch only
+        shell: python
+        run: |
+          import hashlib,json,lzma,pathlib,subprocess
+          root=pathlib.Path('ops/release/consumer-import-20260912')
+          manifest=json.loads((root/'manifest.json').read_text())
+          base=manifest['baseRevision']
+          assert subprocess.check_output(['git','rev-parse','origin/main'],text=True).strip()==base, 'Main advanced; re-review required'
+          compressed=b''.join((root/f'part{i}.xz').read_bytes() for i in range(5))
+          assert hashlib.sha256(compressed).hexdigest()==manifest['compressedSha256']
+          patch=lzma.decompress(compressed)
+          assert len(patch)==206640 and hashlib.sha256(patch).hexdigest()==manifest['patchSha256']
+          target=pathlib.Path('/tmp/consumer-source.patch')
+          target.write_bytes(patch)
+          rows=subprocess.check_output(['git','apply','--numstat',str(target)],text=True).splitlines()
+          paths=[row.split('\t',2)[2] for row in rows]
+          assert sorted(paths)==sorted(manifest['sourcePaths']), 'Unexpected source path'
+          assert not any('/src/main/java/' in path or '/db/migration/' in path for path in paths)
+          subprocess.run(['git','apply','--check','--index',str(target)],check=True)
+          subprocess.run(['git','apply','--index',str(target)],check=True)
+          print('SOURCE_IMPORT_VERIFIED',len(paths),'files; no runtime or release-ref changes')
+      - name: Regenerate authoritative contracts and consumer assets
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet PyYAML==6.0.2 openapi-spec-validator==0.7.2
+          python scripts/consumer_api/sync_baas_schemas.py
+          python scripts/api_docs/build_portal_reference.py
+          python scripts/consumer_api/build_package.py
+          python scripts/consumer_api/sync_baas_schemas.py --check
+          python scripts/api_docs/build_portal_reference.py --check
+          python scripts/consumer_api/build_package.py --check
+          python scripts/api_docs/test_portal_reference.py
+          python Docs/Brand/check_brand.py
+          python - <<'PY'
+          import hashlib,json,pathlib
+          manifest=json.loads(pathlib.Path('ops/release/consumer-import-20260912/manifest.json').read_text())
+          for filename,expected in manifest['generatedSha256'].items():
+              assert hashlib.sha256(pathlib.Path(filename).read_bytes()).hexdigest()==expected, 'Unexpected regenerated output: '+filename
+          print('All eight generated outputs reproduce the reviewed source')
+          PY
+      - name: Normalize and verify against the actual backend signing implementation
+        working-directory: InitializrSpringbootProjectFresh
+        run: mvn -B spotless:apply test --no-transfer-progress -Dtest=ConsumerSigningConformanceTest
+      - name: Publish only the unchanged feature branch after bounded source verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,pathlib,subprocess
+          manifest=json.loads(pathlib.Path('ops/release/consumer-import-20260912/manifest.json').read_text())
+          allowed=set(manifest['sourcePaths'])|set(manifest['generatedSha256'])
+          changed=set(subprocess.check_output(['git','diff','--name-only','HEAD'],text=True).splitlines())
+          changed.update(subprocess.check_output(['git','ls-files','--others','--exclude-standard'],text=True).splitlines())
+          assert changed<=allowed, 'Unexpected modified source: '+repr(changed-allowed)
+          subprocess.run(['git','diff','--check'],check=True)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          PY
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = ac9d200c8f6b3e2a91c241461593479d397ae31a
+          test "$(git ls-remote origin refs/heads/feature/consumer-handover-20260912 | cut -f1)" = "$GITHUB_SHA"
+          git rm -r ops/release/consumer-import-20260912 .github/workflows/import-consumer-handover.yml
+          git add -A
+          git config user.name 'Cito reviewed developer handover'
+          git config user.email 'cito-release@users.noreply.github.com'
+          git commit -m 'Deliver v2 external developer kit with backend-conformant SDKs and consumer contracts'
+          gh auth setup-git
+          git push origin HEAD:refs/heads/feature/consumer-handover-20260912
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
+          echo 'Normal PR, SDK, security, API, browser and release gates remain mandatory. No deployment performed.'
+      - name: Preserve source-assembly evidence
+        if: always()
+        run: |
+          mkdir -p /tmp/consumer-source-evidence
+          git rev-parse HEAD > /tmp/consumer-source-evidence/head.txt
+          git diff --binary HEAD > /tmp/consumer-source-evidence/worktree.patch
+          git diff --stat ac9d200c8f6b3e2a91c241461593479d397ae31a > /tmp/consumer-source-evidence/scope.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: consumer-source-assembly-${{ github.sha }}
+          path: |
+            /tmp/consumer-source-evidence/
+            InitializrSpringbootProjectFresh/target/surefire-reports/
+          retention-days: 7
