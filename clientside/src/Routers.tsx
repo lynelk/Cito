@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import AdminSessionGate from './components/AdminSessionGate';
 
 // Public and authenticated surfaces are code-split so each entry point stays focused and light.
@@ -25,6 +25,11 @@ function RouteFallback(): React.ReactElement {
 
 function protectAdmin(element: React.ReactElement): React.ReactElement {
   return <AdminSessionGate>{element}</AdminSessionGate>;
+}
+
+function RedirectPreservingSearch({ to }: { to: string }): React.ReactElement {
+  const location = useLocation();
+  return <Navigate to={`${to}${location.search || ''}`} replace />;
 }
 
 function Routers(): React.ReactElement {
@@ -62,8 +67,8 @@ function Routers(): React.ReactElement {
           <Route path="/bo/admin" element={<Navigate to="/bo" replace />} />
           <Route path="/bo/admin/operations" element={<Navigate to="/bo/operations" replace />} />
           <Route path="/bo/admin/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
-          <Route path="/bo/admin/airtel-money" element={<Navigate to="/bo/airtel-money" replace />} />
-          <Route path="/bo/admin/merchant-readiness" element={<Navigate to="/bo/merchant-readiness" replace />} />
+          <Route path="/bo/admin/airtel-money" element={<RedirectPreservingSearch to="/bo/airtel-money" />} />
+          <Route path="/bo/admin/merchant-readiness" element={<RedirectPreservingSearch to="/bo/merchant-readiness" />} />
           <Route path="/bo/admin/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
           <Route path="/bo/admin/*" element={protectAdmin(<Layout />)} />
           <Route path="/bo/partner" element={<Navigate to="/fo" replace />} />
@@ -74,8 +79,8 @@ function Routers(): React.ReactElement {
           <Route path="/admin" element={<Navigate to="/bo" replace />} />
           <Route path="/admin/operations" element={<Navigate to="/bo/operations" replace />} />
           <Route path="/admin/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
-          <Route path="/admin/airtel-money" element={<Navigate to="/bo/airtel-money" replace />} />
-          <Route path="/admin/merchant-readiness" element={<Navigate to="/bo/merchant-readiness" replace />} />
+          <Route path="/admin/airtel-money" element={<RedirectPreservingSearch to="/bo/airtel-money" />} />
+          <Route path="/admin/merchant-readiness" element={<RedirectPreservingSearch to="/bo/merchant-readiness" />} />
           <Route path="/admin/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
           <Route path="/admin/*" element={<Navigate to="/bo/insights" replace />} />
           <Route path="/partner" element={<Navigate to="/fo" replace />} />
@@ -84,8 +89,8 @@ function Routers(): React.ReactElement {
           <Route path="/dashboardMerchant/*" element={<Navigate to="/fo/dashboard" replace />} />
           <Route path="/operations" element={<Navigate to="/bo/operations" replace />} />
           <Route path="/provider-treasury" element={<Navigate to="/bo/provider-treasury" replace />} />
-          <Route path="/airtel-money" element={<Navigate to="/bo/airtel-money" replace />} />
-          <Route path="/merchant-readiness" element={<Navigate to="/bo/merchant-readiness" replace />} />
+          <Route path="/airtel-money" element={<RedirectPreservingSearch to="/bo/airtel-money" />} />
+          <Route path="/merchant-readiness" element={<RedirectPreservingSearch to="/bo/merchant-readiness" />} />
           <Route path="/production-maturity" element={<Navigate to="/bo/production-maturity" replace />} />
         </Routes>
       </Suspense>
